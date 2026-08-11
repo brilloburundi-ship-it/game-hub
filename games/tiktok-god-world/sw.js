@@ -1,6 +1,6 @@
-const CACHE = 'god-world-v6-4-living-kingdoms';
+const CACHE = 'god-world-v6-5-grounded-kingdoms';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'game.js', 'tree-depth.js',
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'game.js', 'living-kingdoms-v65.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png'
 ];
