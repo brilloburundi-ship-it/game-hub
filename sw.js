@@ -1,11 +1,14 @@
-const CACHE = "game-hub-studio-v2";
+const CACHE = "game-hub-studio-v3";
 const SHELL = [
   "./",
   "./index.html",
   "./src/studio.css",
   "./src/studio.js",
+  "./src/account.css",
+  "./src/account-client.js",
   "./src/github.js",
   "./data/projects.json",
+  "./data/runtime-config.json",
   "./assets/icon.svg",
   "./manifest.webmanifest"
 ];
