@@ -1,0 +1,16 @@
+/* World Earth V11 — mobile test access and higher-contrast world framing. */
+#game-shell{background:#0b3047}
+#dev-toggle{min-width:64px!important;border:1px solid #e6c66f!important;background:linear-gradient(#ebcf7b,#b99143)!important;color:#171008!important;font-weight:950!important;letter-spacing:1.5px!important;box-shadow:0 6px 18px rgba(0,0,0,.35),0 0 0 1px rgba(255,235,163,.16) inset!important}
+.dev-console #dev-body{background:linear-gradient(145deg,rgba(52,32,18,.98),rgba(20,14,10,.98));border:1px solid #9a7136;border-radius:4px;box-shadow:0 14px 34px rgba(0,0,0,.48)}
+
+@media(max-width:900px){
+  .dev-console{display:block!important;left:8px!important;bottom:calc(max(7px,env(safe-area-inset-bottom)) + 52px)!important;z-index:14!important;background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important}
+  .dev-console>button{padding:10px 13px!important;border-radius:4px!important}
+  .dev-console #dev-body{position:absolute;left:0;bottom:46px;width:270px!important;padding:10px!important;grid-template-columns:1fr 1fr!important}
+}
+
+@media(max-width:620px){
+  .dev-console{left:6px!important;bottom:calc(max(7px,env(safe-area-inset-bottom)) + 50px)!important}
+  .dev-console #dev-body{width:min(286px,calc(100vw - 12px))!important;max-height:54vh;overflow:auto}
+  .dev-console input,.dev-console select,.dev-console #dev-body button{min-height:36px;font-size:10px!important}
+}
