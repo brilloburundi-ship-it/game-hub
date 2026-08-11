@@ -8,7 +8,8 @@
     "test": "node --test",
     "build": "node scripts/build.mjs",
     "check:backend": "node --check backend/src/crypto.js && node --check backend/src/plans.js && node --check backend/src/worker.js",
-    "check": "npm test && npm run check:backend && npm run build"
+    "check:world-earth": "node scripts/check-world-v11.mjs",
+    "check": "npm test && npm run check:backend && npm run check:world-earth && npm run build"
   },
   "engines": {
     "node": ">=20"
