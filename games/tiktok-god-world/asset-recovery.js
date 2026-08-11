@@ -21,8 +21,14 @@
 
   function fallbackFor(src) {
     if (typeof src !== 'string') return null;
-    if (src.includes('/assets/buildings/') || src.startsWith('assets/buildings/')) {
-      if (!src.endsWith('/house_a.png') && !src.endsWith('assets/buildings/house_a.png')) return 'assets/buildings/house_a.png';
+    if (src.includes('assets/buildings/')) {
+      if (!src.endsWith('house_a.png')) return 'assets/buildings/house_a.png';
+    }
+    if (src.includes('assets/npc/')) {
+      if (!src.endsWith('idle.png')) return 'assets/npc/idle.png';
+    }
+    if (src.includes('assets/units/')) {
+      if (!src.endsWith('knight_idle.png')) return 'assets/units/knight_idle.png';
     }
     return null;
   }
@@ -34,9 +40,6 @@
       if (typeof src !== 'string') throw firstError;
 
       let lastError = firstError;
-      // GitHub Pages can briefly serve an asset inconsistently just after a deploy,
-      // especially when an installed iOS PWA wakes with an older service worker.
-      // Retry the exact file with a fresh network request before failing startup.
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           await sleep(180 + attempt * 260);
@@ -46,9 +49,8 @@
         }
       }
 
-      // Buildings are visual-only. Never kill the whole simulation because one
-      // optional building image was unavailable: use the compact house art until
-      // the next reload instead.
+      // Optional art must never prevent the simulation from starting. A missing
+      // building/NPC/unit temporarily falls back to a compatible sprite sheet.
       const fallback = fallbackFor(src);
       if (fallback) {
         try {
