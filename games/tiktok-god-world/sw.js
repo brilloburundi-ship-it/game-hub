@@ -1,6 +1,6 @@
-const CACHE = 'god-world-v6-6-living-battles';
+const CACHE = 'god-world-v6-6-1-battle-stability';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'v65-overrides.css', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'tree-depth.js',
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png'
 ];
