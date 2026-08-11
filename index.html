@@ -12,6 +12,7 @@
     <link rel="icon" href="assets/icon.svg" />
     <link rel="apple-touch-icon" href="assets/icon.svg" />
     <link rel="stylesheet" href="src/studio.css" />
+    <link rel="stylesheet" href="src/account.css" />
     <title>Game Hub — Build Games with ChatGPT</title>
   </head>
   <body>
@@ -52,7 +53,7 @@
           <div><h2>Workspace connection</h2></div>
           <button id="close-connection" type="button" class="icon-button" aria-label="Close">×</button>
         </div>
-        <p>This prototype still supports a temporary fine-grained GitHub token for private repositories. Production accounts will use a secure GitHub OAuth/App flow instead of browser-stored credentials.</p>
+        <p>The production account layer uses a secure GitHub App connection. Until the backend is deployed, this build keeps the temporary prototype token path available for our existing workspace.</p>
         <label class="field" for="token-input"><span>Temporary GitHub token</span><input id="token-input" type="password" autocomplete="off" placeholder="github_pat_…" /></label>
         <div class="dialog-actions">
           <button type="button" class="ghost-button" id="disconnect-button">Disconnect</button>
@@ -79,5 +80,6 @@
 
     <div id="toast" class="toast" role="status"></div>
     <script type="module" src="src/studio.js"></script>
+    <script type="module" src="src/account-client.js"></script>
   </body>
 </html>
