@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#10293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="God World" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <title>TikTok God World — V6.3 Expanded World</title>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="loading"><div class="crest">♜</div><strong>TikTok God World</strong><span>Generazione del mondo…</span></div>
+
+  <header class="hud topbar">
+    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">V6.3 EXPANDED WORLD</span></div>
+    <div class="stats"><span id="age">0:00</span><small>età mondo</small><span id="fps">60 FPS</span><span id="players">0 regni</span></div>
+    <div class="bridge command-rotator"><i id="bridgeDot"></i><span id="commandIcon">&#128081;</span><span id="bridgeText">JOIN = crea il tuo regno</span></div>
+  </header>
+
+  <aside id="ranking" class="hud panel ranking"><b>WORLD POWERS</b><div id="rankRows"></div></aside>
+
+  <section id="kingdomCard" class="hud panel kingdom-card hidden">
+    <div class="k-head"><i id="kColor"></i><b id="kName">—</b><button id="closeCard">×</button></div>
+    <div class="resources">
+      <span>🌾 <b id="rFood">0</b></span><span>🪵 <b id="rWood">0</b></span><span>🪨 <b id="rStone">0</b></span><span>🪙 <b id="rGold">0</b></span>
+    </div>
+    <div class="k-grid"><span>Pop. <b id="rPop">0</b></span><span>Terr. <b id="rTerr">0</b></span><span>Potenza <b id="rPower">0</b></span><span>Edifici <b id="rBuild">0</b></span></div>
+  </section>
+
+  <div id="toast"></div>
+  <audio id="bgMusic" src="assets/audio/medieval-market-full.mp3" preload="auto" autoplay loop playsinline></audio>
+  <canvas id="weatherCanvas" aria-hidden="true"></canvas>
+  <div id="worldEvent" class="world-event hud" aria-live="polite"></div>
+
+  <section id="testPanel" class="hud test-panel collapsed">
+    <button id="toggleTest">TEST</button>
+    <div class="test-inner">
+      <input id="testName" value="Player" maxlength="18" />
+      <button data-test="join">JOIN</button><button data-test="like">LIKE ×20</button><button data-test="follow">FOLLOW</button><button data-test="rose">ROSE</button><button data-test="ice">ICE CREAM</button><button data-test="galaxy">GALAXY</button><button data-test="lion">LION</button><button data-test="attack">ATTACK</button><button data-test="boost">+30s</button>
+    </div>
+  </section>
+
+  <div id="feed" hidden></div>
+
+  <div class="zoom hud"><button id="zoomIn">＋</button><button id="zoomOut">－</button><button id="homeCam">⌂</button></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
+  <script src="game.js"></script>
+  <script src="tree-depth.js"></script>
+  <script src="lan-bridge.js"></script>
+  <script src="interface-v63.js"></script>
+  <script src="world-effects.js"></script>
+  <script src="music.js"></script>
+</body>
+</html>
