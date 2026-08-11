@@ -1,11 +1,17 @@
-const CACHE = 'god-world-v6-6-1-battle-stability';
+const CACHE = 'god-world-v6-6-2-startup-recovery';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'v65-overrides.css', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
-  'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest',
-  'icon-192.png', 'icon-512.png'
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
+  'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
+  'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/npc/manifest.json',
+  'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
+  'assets/buildings/house_a.png', 'assets/buildings/house_b.png', 'assets/buildings/house_c.png', 'assets/buildings/keep.png', 'assets/buildings/market.png', 'assets/buildings/silo.png',
+  'assets/buildings/stable.png', 'assets/buildings/stone_tower.png', 'assets/buildings/wall.png', 'assets/buildings/wall_corner.png', 'assets/buildings/warehouse.png', 'assets/buildings/watchtower.png', 'assets/buildings/windmill.png',
+  'assets/npc/idle.png', 'assets/npc/walk_down.png', 'assets/npc/walk_up.png', 'assets/npc/walk_left.png', 'assets/npc/walk_right.png', 'assets/npc/harvest.png', 'assets/npc/water.png',
+  'assets/npc/pickaxe.png', 'assets/npc/dig.png', 'assets/npc/chop_wood.png', 'assets/npc/carry_sack.png',
+  'assets/units/knight_idle.png', 'assets/units/knight_walk.png', 'assets/units/knight_attack.png', 'assets/units/knight_hurt.png', 'assets/units/knight_death.png',
+  'assets/units/archer_idle.png', 'assets/units/archer_walk.png', 'assets/units/archer_attack.png', 'assets/units/archer_hurt.png', 'assets/units/archer_death.png'
 ];
 
-// Do not let a single protected/401 asset break service-worker installation.
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE)
@@ -22,20 +28,18 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Network-first during active development. Cache only successful 2xx responses.
-// Crucially, 401/403 responses are NEVER persisted.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
       const response = await fetch(event.request);
-      if (response && response.ok) {
-        cache.put(event.request, response.clone()).catch(() => {});
-      }
-      return response;
+      if (response && response.ok) cache.put(event.request, response.clone()).catch(() => {});
+      if (response && response.ok) return response;
+      const hit = await cache.match(event.request, { ignoreSearch: true });
+      return hit || response;
     } catch (err) {
-      const hit = await cache.match(event.request);
+      const hit = await cache.match(event.request, { ignoreSearch: true });
       if (hit) return hit;
       throw err;
     }
