@@ -32,25 +32,30 @@ for (const file of obsolete) {
 const runtimeLoads = (index.match(/runtime-v68\.js/g) || []).length;
 if (runtimeLoads !== 1) throw new Error(`runtime-v68.js must be loaded exactly once, found ${runtimeLoads}`);
 if (!index.includes('V6.8 CONSOLIDATED')) throw new Error('V6.8 consolidated UI marker missing');
-if (!runtime.includes("const VERSION = '6.8-consolidated-runtime'")) throw new Error('V6.8 runtime marker missing');
+if (!/const\s+VERSION\s*=\s*['"]6\.8-consolidated-runtime['"]/.test(runtime)) throw new Error('V6.8 runtime marker missing');
+if (/id=["']bgMusic["'][^>]*\bautoplay\b/i.test(index)) throw new Error('Background music must not autoplay during JOIN/startup');
 if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('Vegetation must not block JOIN/building creation');
 if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('Vegetation background loading marker missing');
+if (!sw.includes("'lan-bridge.js'")) throw new Error('Service worker shell must cache lan-bridge.js');
 
-for (const marker of [
-  'sim.addBuilding = async function',
-  'sim.population = async function',
-  'sim.buildAI = async function',
-  'sim.join = function',
-  'sim.gift = function',
-  'sim.resolveWars = function',
-  'r.updateWars = function',
-  'r.damageBuilding = function',
-  'r.destroyBuilding = function'
-]) {
-  const count = runtime.split(marker).length - 1;
-  if (count !== 1) throw new Error(`Consolidated runtime must define ${marker} exactly once, found ${count}`);
+const definitions = [
+  [/sim\.addBuilding\s*=\s*async\s+function/g, 'sim.addBuilding'],
+  [/sim\.population\s*=\s*async\s+function/g, 'sim.population'],
+  [/sim\.buildAI\s*=\s*async\s+function/g, 'sim.buildAI'],
+  [/sim\.join\s*=\s*function/g, 'sim.join'],
+  [/sim\.gift\s*=\s*function/g, 'sim.gift'],
+  [/sim\.resolveWars\s*=\s*function/g, 'sim.resolveWars'],
+  [/r\.updateWars\s*=\s*function/g, 'r.updateWars'],
+  [/r\.damageBuilding\s*=\s*(?:function|[^;\n]*=>)/g, 'r.damageBuilding'],
+  [/r\.destroyBuilding\s*=\s*function/g, 'r.destroyBuilding'],
+  [/r\.redrawSettlementGround\s*=\s*function/g, 'r.redrawSettlementGround']
+];
+for (const [pattern, label] of definitions) {
+  const count = (runtime.match(pattern) || []).length;
+  if (count !== 1) throw new Error(`Consolidated runtime must define ${label} exactly once, found ${count}`);
 }
 
+if (!runtime.includes('__v68ScaleTimer')) throw new Error('Delayed large-prefab scale guard missing');
 if (runtime.includes('setInterval(')) throw new Error('Consolidated runtime must not introduce recurring setInterval loops');
 
 const pkg = JSON.parse(packageJson);
@@ -91,4 +96,4 @@ for (const asset of [
   'assets/vegetation/round.png'
 ]) await access(resolve(gameRoot, asset));
 
-console.log('TikTok God World V6.8: single runtime, syntax, cache shell, assets and non-blocking vegetation OK');
+console.log('TikTok God World V6.8: one runtime, syntax, critical ownership, cache shell, assets and non-blocking JOIN checks OK');
