@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07100f" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Neon Orbit</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div><span>Neon Orbit</span><strong id="score">000</strong></div>
+        <div><span>Best</span><strong id="best">000</strong></div>
+      </header>
+      <section class="arena">
+        <canvas id="game" aria-label="Neon Orbit playable game"></canvas>
+        <div class="intro" id="intro">
+          <span class="orbit-logo">●</span>
+          <h1>Keep the signal alive.</h1>
+          <p>Drag the core. Collect green sparks. Avoid the red static.</p>
+          <button id="start">Start run</button>
+        </div>
+      </section>
+      <footer><span id="version">loading deploy proof…</span><span>same URL · live</span></footer>
+    </main>
+    <script type="module" src="game.js"></script>
+  </body>
+</html>
