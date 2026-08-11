@@ -10,7 +10,7 @@
 
   const COLORS = [0x27a7ff, 0xff594f, 0xffc928, 0x58d26f, 0xb66cff, 0xff8a34, 0x23d6c1, 0xf45da2, 0x9dcf3e, 0x5c77ff, 0xd99c42, 0xe4e4e4];
   const COLORCSS = COLORS.map(c => '#' + c.toString(16).padStart(6, '0'));
-  const NAMES = ['Valleverde', 'Rocca Alta', 'Boscochiaro', 'Pietraluna', 'Rivaforte', 'Campodoro', 'Monteblu', 'Quercia Reale'];
+  const NAMES = ['Greenvale', 'Highrock', 'Brightwood', 'Moonstone', 'Riverhold', 'Goldfield', 'Bluepeak', 'Royal Oak'];
   const MAX_VISIBLE_FARMERS = 24;
   const FARMER_WORLD_HEIGHT = 18;
   const CAMERA_MIN = .30, CAMERA_MAX = 2.45;
@@ -36,7 +36,9 @@
     market: 47,
     warehouse: 47
   };
-  const BUILD_Y_OFFSET = { stable: 4, farm: 6, market: 2, warehouse: 2, barracks: 2, forge: 2 };
+  const BUILD_Y_OFFSET = { stable: 2, farm: 3, market: 1, warehouse: 1, barracks: 1, forge: 1 };
+  const BUILD_ANCHOR_Y = { castle: .97, keep: .96, farm: .91, stable: .92, house_a: .94, house_b: .94, house_c: .94, market: .94, warehouse: .94, barracks: .95, forge: .94 };
+  const BUILD_BASE = { castle: [29, 9], keep: [25, 8], farm: [25, 8], stable: [20, 7], house_a: [17, 6], house_b: [17, 6], house_c: [17, 6], market: [19, 6], warehouse: [19, 6], barracks: [20, 7], forge: [19, 6] };
 
   // Ground footprint is deliberately smaller than the artwork: it blocks only the
   // area that visually represents the building base, leaving real streets around it.
@@ -207,17 +209,17 @@
       if (!name) return;
       const existing = this.kingdomByName.get(name.toLowerCase());
       if (existing && existing.alive) {
-        this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} è già nel mondo`); return existing;
+        this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} is already in the world`); return existing;
       }
 
       const pos = this.freeSpawn();
-      if (!pos) { toast('Mappa piena: JOIN in coda per il prossimo mondo'); return null; }
+      if (!pos) { toast('The map is full: JOIN queued for the next world'); return null; }
 
       const id = this.kingdoms.length, color = COLORS[id % COLORS.length], css = COLORCSS[id % COLORCSS.length];
       const k = {
         id, name, color, css, capital: pos, territory: new Set(),
         resources: { food: 150, wood: 135, stone: 80, gold: 42 },
-        pop: 6, popCap: 10, military: 12, buildings: [], farmers: [], alive: true, score: 0,
+        pop: 4, popCap: 4, military: 8, buildings: [], farmers: [], alive: true, score: 0,
         followed: false, boostUntil: 0, lastExpand: this.age, lastBuild: this.age, lastPop: this.age, aggressive: null
       };
       this.kingdoms.push(k);
@@ -232,18 +234,18 @@
       this.r.redrawTerritories(this);
       this.select(k);
       this.r.focusCell(x, y);
-      toast(`👑 ${name}: capitale fondata`);
-      feed(name, 'JOIN — castello fondato');
+      toast(`👑 ${name}: capital founded`);
+      feed(name, 'JOIN — castle founded');
       this.updateUI();
       return k;
     }
 
-    async addBuilding(k, type, x, y, forceCastle = false) {
+    async addBuilding(k, type, x, y, forceCastle = false, instant = false) {
       if (!forceCastle) {
         if (!this.isBuildableCell(x, y, type) || this.getOwner(x, y) !== k.id || this.buildingAt(x, y)) return null;
       }
       if (window.__TREE_DEPTH_PROMISE) await window.__TREE_DEPTH_PROMISE.catch(() => {});
-      await this.r.prepareBuildSite?.(k, x, y, this, forceCastle);
+      await this.r.prepareBuildSite?.(k, x, y, this, forceCastle || instant);
       const [sx, sy] = this.iso(x, y);
       const maxHp = type === 'castle' ? 420 : ['stone_tower','barracks','forge'].includes(type) ? 220 : 150;
       const b = { id: `b${k.id}_${k.buildings.length}`, type, x, y, sx, sy: sy + 6 + (BUILD_Y_OFFSET[type] || 0), owner: k.id, hp: maxHp, maxHp, damageState: 0 };
@@ -286,24 +288,46 @@
     }
 
     async spawnFarmWorker(k, building) {
+      if (k.farmers.some(f => f.fixedBuilding === building.id)) return null;
+      let f = k.farmers
+        .filter(worker => !worker.fixedBuilding)
+        .sort((a, b) => Math.hypot(a.cell[0] - building.x, a.cell[1] - building.y) - Math.hypot(b.cell[0] - building.x, b.cell[1] - building.y))[0];
+      if (!f) return null;
       const [sx, sy] = this.iso(building.x, building.y);
-      const f = {
-        id: `fw${k.id}_${k._farmerSeq = (k._farmerSeq || 0) + 1}`,
-        cell: [building.x, building.y], x: sx - 10, y: sy + 15,
-        action: 'harvest', actionUntil: Number.POSITIVE_INFINITY, speed: 0,
-        job: 'farm_fixed', fixedBuilding: building.id, path: [], taskCell: [building.x, building.y], phase: Math.random() * 10
-      };
-      k.farmers.push(f);
-      await this.r.addFarmer(k, f);
+      f.cell = [building.x, building.y]; f.x = sx - 10; f.y = sy + 12;
+      f.action = 'harvest'; f.actionUntil = Number.POSITIVE_INFINITY; f.speed = 0;
+      f.job = 'farm_fixed'; f.fixedBuilding = building.id; f.path = []; f.taskCell = [building.x, building.y];
       this.r.setFarmerAction(f, 'harvest');
+      this.r.updateFarmer(f, 0, 1);
       return f;
+    }
+
+    releaseFarmWorker(k, buildingId) {
+      const f = k.farmers.find(worker => worker.fixedBuilding === buildingId);
+      if (!f) return null;
+      f.fixedBuilding = null; f.job = pick(['farm', 'wood', 'stone', 'builder']);
+      f.speed = rand(18, 25); f.action = 'idle'; f.actionUntil = 0; f.path = []; f.taskCell = null;
+      this.r.setFarmerAction(f, 'idle');
+      return f;
+    }
+
+    async syncCitizens(k) {
+      const target = Math.min(k.pop, MAX_VISIBLE_FARMERS);
+      while (k.farmers.length < target) await this.spawnFarmer(k);
+      while (k.farmers.length > target) {
+        let index = -1;
+        for (let i = k.farmers.length - 1; i >= 0; i--) if (!k.farmers[i].fixedBuilding) { index = i; break; }
+        if (index < 0) break;
+        const [removed] = k.farmers.splice(index, 1);
+        this.r.removeFarmer?.(removed);
+      }
     }
 
     select(k) { this.selected = k; UI.card.classList.toggle('hidden', !k); this.updateSelected(); this.r.selectKingdom?.(k); }
     updateSelected() {
       const k = this.selected;
       if (!k || !k.alive) { UI.card.classList.add('hidden'); return; }
-      UI.card.classList.remove('hidden');
+      UI.card.classList.toggle('hidden', !this.r.isKingdomDetailVisible?.(k));
       UI.kColor.style.background = k.css; UI.kName.textContent = k.name;
       UI.food.textContent = fmt(k.resources.food); UI.wood.textContent = fmt(k.resources.wood); UI.stone.textContent = fmt(k.resources.stone); UI.gold.textContent = fmt(k.resources.gold);
       UI.pop.textContent = k.pop; UI.terr.textContent = k.territory.size; UI.power.textContent = Math.floor(this.power(k)); UI.build.textContent = k.buildings.length;
@@ -346,7 +370,7 @@
     async population(k) {
       if (this.age - k.lastPop < 5 || k.pop >= k.popCap || k.resources.food < 45) return;
       k.lastPop = this.age; k.resources.food -= 32; k.pop++;
-      if (k.farmers.filter(f => !f.fixedBuilding).length < MAX_VISIBLE_FARMERS) await this.spawnFarmer(k);
+      await this.syncCitizens(k);
     }
 
     findBuildCell(k, type, initial = false) {
@@ -379,7 +403,7 @@
       let type = null, cost = null, popCapGain = 0;
       const c = t => k.buildings.filter(b => b.type === t).length;
 
-      if (k.popCap - k.pop < 3 && k.resources.wood > 65) { type = pick(['house_a', 'house_b', 'house_c']); cost = { wood: 55, stone: 8 }; popCapGain = 5; }
+      if (k.popCap - k.pop < 2 && k.resources.wood > 65) { type = pick(['house_a', 'house_b', 'house_c']); cost = { wood: 55, stone: 8 }; popCapGain = 5; }
       else if (c('farm') < Math.ceil(k.pop / 9) && k.resources.wood > 55) { type = 'farm'; cost = { wood: 45, stone: 4 }; }
       else if (c('warehouse') < Math.ceil(k.territory.size / 14) && k.resources.wood > 85 && k.resources.stone > 30) { type = 'warehouse'; cost = { wood: 70, stone: 24 }; }
       else if (c('market') < 2 && k.pop > 12 && k.resources.wood > 95) { type = 'market'; cost = { wood: 80, stone: 18, gold: 15 }; }
@@ -396,6 +420,7 @@
       if (!b) return;
       for (const [r, v] of Object.entries(cost)) k.resources[r] -= v;
       k.popCap += popCapGain;
+      if (popCapGain > 0) { k.pop = Math.min(k.popCap, k.pop + 1); await this.syncCitizens(k); }
       k.lastBuild = this.age;
       this.r.puff(...this.iso(x, y));
     }
@@ -578,14 +603,14 @@
       if (!attacker?.alive || !target?.alive || attacker === target) return false;
       attacker.aggressive = target.id;
       const pair = this.borderPair(attacker, target);
-      if (!pair) { toast(`${attacker.name}: avanza verso ${target.name}`); return false; }
+      if (!pair) { toast(`${attacker.name}: advancing toward ${target.name}`); return false; }
       return this.startWar(attacker, target);
     }
     startWar(a, b) {
       if (this.wars.some(w => !w.done && ((w.a === a.id && w.b === b.id) || (w.a === b.id && w.b === a.id)))) return true;
       const pair = this.borderPair(a, b); if (!pair) return false;
       const w = { id: `${a.id}-${b.id}-${Date.now()}`, a: a.id, b: b.id, front: pair, lastCapture: this.age, done: false, pulse: 0, fxClock: 0, arrowClock: 0 };
-      this.wars.push(w); this.r.startWar(w, this); toast(`⚔️ ${a.name} attacca ${b.name}`); feed('WORLD', `${a.name} ⚔ ${b.name}`); return true;
+      this.wars.push(w); this.r.startWar(w, this); toast(`⚔️ ${a.name} attacks ${b.name}`); feed('WORLD', `${a.name} ⚔ ${b.name}`); return true;
     }
     warAI() {
       if (this.age < 35) return;
@@ -619,7 +644,7 @@
         winner.military += .5; loser.military = Math.max(2, loser.military - 1.5);
         this.r.casualty?.(w, loser.id, winner.id);
         if (Math.random() < .45) this.r.casualty?.(w, loser.id, winner.id);
-        if (Math.random() < .35) loser.pop = Math.max(2, loser.pop - 1);
+        if (Math.random() < .35) { loser.pop = Math.max(2, loser.pop - 1); void this.syncCitizens(loser); }
         this.r.battleFx(...this.iso(x, y), winner.color);
         this.r.frontImpact(w, this);
         if ((x === loser.capital[0] && y === loser.capital[1]) || loser.territory.size <= 1) this.eliminate(loser, winner);
@@ -634,9 +659,7 @@
         this.r.damageBuilding(hit, damage);
         if (hit.hp <= 0) {
           loser.buildings = loser.buildings.filter(b => b !== hit);
-          const linkedWorkers = loser.farmers.filter(f => f.fixedBuilding === hit.id);
-          for (const worker of linkedWorkers) this.r.removeFarmer?.(worker);
-          loser.farmers = loser.farmers.filter(f => f.fixedBuilding !== hit.id);
+          this.releaseFarmWorker(loser, hit.id);
           this.r.destroyBuilding(hit);
         } else {
           // Surviving structures are occupied only after the fight has physically reached them.
@@ -647,6 +670,9 @@
           if (linkedWorker) {
             loser.farmers = loser.farmers.filter(f => f !== linkedWorker);
             winner.farmers.push(linkedWorker);
+            loser.pop = Math.max(2, loser.pop - 1);
+            winner.popCap = Math.max(winner.popCap, winner.pop + 1);
+            winner.pop++;
           } else if (hit.type === 'farm') this.spawnFarmWorker(winner, hit);
           this.r.recolorBuilding?.(hit, winner);
         }
@@ -670,7 +696,7 @@
       loser.buildings.length = 0;
       for (const farmer of loser.farmers) this.r.removeFarmer?.(farmer);
       loser.farmers.length = 0;
-      this.r.eliminate(loser, winner); toast(`🏰 ${winner.name} conquista ${loser.name}`); feed('WORLD', `${loser.name} è caduto`);
+      this.r.eliminate(loser, winner); toast(`🏰 ${winner.name} conquers ${loser.name}`); feed('WORLD', `${loser.name} has fallen`);
       if (this.selected === loser) this.select(winner);
     }
 
@@ -685,32 +711,95 @@
       k.followed = true; k.resources.wood += 85; k.resources.stone += 35; k.resources.gold += 20; k.boostUntil = this.age + 30;
       toast(`🔨 ${name}: boom edilizio`); this.r.supportFx(k, '🔨', 4);
     }
-    gift(name, gift, repeat = 1) {
+
+    claimGiftLand(k, amount) {
+      let remaining = Math.max(0, amount | 0), guard = 0;
+      while (remaining > 0 && guard++ < 8) {
+        const frontier = [];
+        for (const s of k.territory) {
+          const [x, y] = s.split(',').map(Number);
+          for (const [nx, ny] of this.neigh(x, y)) if (this.getOwner(nx, ny) === -1 && this.land(nx, ny)) frontier.push([nx, ny]);
+        }
+        const unique = [...new Map(frontier.map(c => [key(...c), c])).values()]
+          .sort((a, b) => (this.isWalkableCell(b[0], b[1]) ? 1 : 0) - (this.isWalkableCell(a[0], a[1]) ? 1 : 0));
+        if (!unique.length) break;
+        for (const [x, y] of unique.slice(0, remaining)) { this.setOwner(x, y, k.id); k.territory.add(key(x, y)); remaining--; }
+      }
+      this.r.redrawTerritories(this);
+    }
+
+    async instantGiftBuild(k, types) {
+      let built = 0;
+      for (const requested of types) {
+        const type = requested === 'house' ? pick(['house_a', 'house_b', 'house_c']) : requested;
+        let cell = this.findBuildCell(k, type, false);
+        if (!cell) { this.claimGiftLand(k, 5); cell = this.findBuildCell(k, type, false); }
+        if (!cell) continue;
+        const building = await this.addBuilding(k, type, cell[0], cell[1], false, true);
+        if (!building) continue;
+        if (type.startsWith('house_')) k.popCap += 5;
+        built++;
+        this.r.puff(...this.iso(...cell));
+      }
+      return built;
+    }
+
+    async giftPopulation(k, amount) {
+      k.pop = Math.min(k.popCap, k.pop + Math.max(0, amount | 0));
+      await this.syncCitizens(k);
+    }
+
+    async gift(name, gift, repeat = 1, meta = {}) {
       const k = this.kingdomByName.get(String(name).toLowerCase()); if (!k?.alive) return;
       const g = String(gift || '').toLowerCase(), n = Math.max(1, Number(repeat) || 1);
-      if (g.includes('rose') || g.includes('rosa')) {
+      const diamonds = Number(meta.diamonds || meta.diamondCount || 0);
+      if (g.includes('rose')) {
         k.resources.food += 45 * n; k.resources.gold += 12 * n; k.boostUntil = this.age + 20; this.r.supportFx(k, '🌹', 3);
-      } else if (g.includes('ice cream') || g.includes('gelato')) {
-        k.resources.food += 70 * n; k.pop = Math.min(k.popCap, k.pop + n); this.r.supportFx(k, '🍦', 4);
-      } else if (g.includes('finger heart') || g.includes('cuore')) {
+      } else if (g.includes('ice cream')) {
+        k.resources.food += 70 * n; await this.giftPopulation(k, n); this.r.supportFx(k, '🍦', 4);
+      } else if (g.includes('coffee') || g.includes('doughnut') || g.includes('donut')) {
+        k.resources.food += 120 * n; k.resources.gold += 25 * n; k.boostUntil = this.age + 25; this.r.supportFx(k, '☕', 4);
+      } else if (g.includes('paper crane') || g.includes('heart me') || g.includes('hand heart')) {
+        k.resources.food += 180 * n; k.resources.wood += 110 * n; k.popCap += 2 * n; await this.giftPopulation(k, 2 * n); k.boostUntil = this.age + 50; this.r.supportFx(k, '💞', 6);
+      } else if (g.includes('finger heart')) {
         k.resources.food += 90 * n; k.resources.wood += 55 * n; k.boostUntil = this.age + 35; this.r.supportFx(k, '🫰', 5);
-      } else if (g.includes('perfume') || g.includes('profumo')) {
+      } else if (g.includes('perfume')) {
         k.resources.gold += 120 * n; k.resources.stone += 45 * n; this.r.supportFx(k, '✨', 6);
+      } else if (g.includes('firework')) {
+        k.resources.gold += 260 * n; k.resources.wood += 180 * n; k.resources.stone += 120 * n; k.boostUntil = this.age + 55; this.r.supportFx(k, '🎆', 7);
+      } else if (g.includes('money gun') || g.includes('train') || g.includes('motorcycle')) {
+        k.resources.gold += 520 * n; k.resources.wood += 360 * n; k.resources.stone += 240 * n; k.military += 25 * n; k.boostUntil = this.age + 75;
+        await this.instantGiftBuild(k, ['house']); await this.giftPopulation(k, 3 * n); this.r.supportFx(k, '💰', 8);
+      } else if (g.includes('sports car') || g.includes('yacht') || g.includes('private jet') || g.includes('whale diving')) {
+        k.resources.gold += 650 * n; k.resources.wood += 420 * n; k.resources.stone += 300 * n; k.military += 35 * n; k.boostUntil = this.age + 90;
+        await this.instantGiftBuild(k, ['house', 'barracks']); await this.giftPopulation(k, 4 * n); this.r.supportFx(k, '⚡', 9);
       } else if (g.includes('tiktok')) {
         k.resources.gold += 180 * n; k.resources.wood += 120 * n; k.boostUntil = this.age + 45; this.r.supportFx(k, '🎵', 7);
-      } else if (g.includes('galaxy') || g.includes('galassia')) {
-        k.resources.gold += 700 * n; k.resources.food += 500 * n; k.resources.wood += 350 * n; k.military += 20 * n; k.boostUntil = this.age + 90; this.r.supportFx(k, '🌌', 10);
-      } else if (g.includes('lion') || g.includes('leone')) {
-        k.resources.gold += 1200 * n; k.resources.stone += 700 * n; k.military += 45 * n; k.boostUntil = this.age + 120; this.r.supportFx(k, '🦁', 12);
+      } else if (g.includes('galaxy')) {
+        k.resources.gold += 1800 * n; k.resources.food += 1500 * n; k.resources.wood += 1200 * n; k.resources.stone += 900 * n; k.military += 90 * n; k.boostUntil = this.age + 180;
+        k.popCap += 10 * n;
+        this.claimGiftLand(k, 8 * n); await this.instantGiftBuild(k, ['house', 'farm', 'barracks']); await this.giftPopulation(k, 7 * n);
+        toast(`${name}: GALAXY — instant city boost`); this.r.supportFx(k, '🌌', 14);
+      } else if (g.includes('lion')) {
+        k.resources.gold += 4200 * n; k.resources.food += 2600 * n; k.resources.wood += 2800 * n; k.resources.stone += 2200 * n; k.military += 220 * n; k.boostUntil = this.age + 300;
+        k.popCap += 20 * n;
+        this.claimGiftLand(k, 15 * n); await this.instantGiftBuild(k, ['house', 'house', 'farm', 'barracks', 'forge', 'watchtower']); await this.giftPopulation(k, 14 * n);
+        toast(`${name}: LION — major civilization leap`); this.r.supportFx(k, '🦁', 18);
+      } else if (g.includes('universe') || g.includes('dragon') || g.includes('castle fantasy') || g.includes('interstellar') || g.includes('phoenix') || diamonds * n >= 1000) {
+        k.resources.gold += 8000 * n; k.resources.food += 6000 * n; k.resources.wood += 5500 * n; k.resources.stone += 5000 * n; k.military += 420 * n; k.boostUntil = this.age + 480;
+        k.popCap += 40 * n;
+        this.claimGiftLand(k, 24 * n); await this.instantGiftBuild(k, ['house', 'house', 'house', 'farm', 'farm', 'barracks', 'forge', 'market', 'stone_tower']); await this.giftPopulation(k, 24 * n);
+        toast(`${name}: LEGENDARY BIG HELP — kingdom transformed`); this.r.supportFx(k, '👑', 24);
       } else {
-        k.resources.gold += 35 * n; k.resources.food += 35 * n; k.resources.wood += 25 * n; this.r.supportFx(k, '🎁', 3);
+        const value = Math.max(1, diamonds || 1);
+        k.resources.gold += (35 + value * .8) * n; k.resources.food += (35 + value * .5) * n; k.resources.wood += (25 + value * .35) * n; this.r.supportFx(k, '🎁', 3);
       }
       this.updateSelected();
     }
-    boost30() { for (const k of this.kingdoms) if (k.alive) k.boostUntil = this.age + 30; toast('⏩ Simulazione accelerata per 30 secondi'); }
+    boost30() { for (const k of this.kingdoms) if (k.alive) k.boostUntil = this.age + 30; toast('⏩ Simulation boosted for 30 seconds'); }
     updateUI() {
       UI.age.textContent = secs(this.age);
-      const alive = this.kingdoms.filter(k => k.alive); UI.players.textContent = `${alive.length} regni`;
+      const alive = this.kingdoms.filter(k => k.alive); UI.players.textContent = `${alive.length} kingdoms`;
       document.documentElement.dataset.farms = String(alive.reduce((sum, k) => sum + k.buildings.filter(b => b.type === 'farm').length, 0));
       document.documentElement.dataset.fixedFarmWorkers = String(alive.reduce((sum, k) => sum + k.farmers.filter(f => f.fixedBuilding).length, 0));
       document.documentElement.dataset.activeWars = String(this.wars.filter(w => !w.done).length);
@@ -912,10 +1001,35 @@
       const minX=innerWidth-mw-margin,maxX=margin,minY=innerHeight-mh-margin,maxY=margin;
       this.root.x = mw+margin*2<=innerWidth ? (innerWidth-mw)/2 : clamp(this.root.x,minX,maxX);
       this.root.y = mh+margin*2<=innerHeight ? (innerHeight-mh)/2 : clamp(this.root.y,minY,maxY);
+      this.syncKingdomDetail();
     }
     zoomTo(scale,sx,sy) { scale=clamp(scale,CAMERA_MIN,CAMERA_MAX); const old=this.root.scale.x,wx=(sx-this.root.x)/old,wy=(sy-this.root.y)/old; this.root.scale.set(scale); this.root.position.set(sx-wx*scale,sy-wy*scale); this.constrainCamera(); }
-    home() { const sx=innerWidth/this.w.mapWidth,sy=innerHeight/this.w.mapHeight,s=clamp(Math.min(sx,sy)*1.04,.30,.9); this.root.scale.set(s); this.root.position.set((innerWidth-this.w.mapWidth*s)/2,(innerHeight-this.w.mapHeight*s)/2); }
+    home() { const sx=innerWidth/this.w.mapWidth,sy=innerHeight/this.w.mapHeight,s=clamp(Math.min(sx,sy)*1.04,.30,.9); this.root.scale.set(s); this.root.position.set((innerWidth-this.w.mapWidth*s)/2,(innerHeight-this.w.mapHeight*s)/2); this.syncKingdomDetail(); }
     focusCell(x,y) { const [wx,wy]=this.sim.iso(x,y),s=clamp(innerWidth<600?.82:.92,.5,1.2); this.root.scale.set(s); this.root.position.set(innerWidth*.5-wx*s,innerHeight*.47-wy*s); this.constrainCamera(); }
+
+    kingdomScreenPosition(k) {
+      if (!k?.alive || !this.root) return null;
+      const [wx, wy] = this.sim.iso(...k.capital), s = this.root.scale.x;
+      return [this.root.x + wx * s, this.root.y + wy * s];
+    }
+    isKingdomDetailVisible(k) {
+      if (!k?.alive || !this.root || this.root.scale.x < .68) return false;
+      const p = this.kingdomScreenPosition(k); if (!p) return false;
+      return p[0] > -80 && p[0] < innerWidth + 80 && p[1] > 35 && p[1] < innerHeight + 80 && Math.hypot(p[0] - innerWidth * .5, p[1] - innerHeight * .48) < Math.min(310, innerWidth * .54);
+    }
+    syncKingdomDetail() {
+      if (!this.sim || !this.root) return;
+      if (this.root.scale.x < .68) { UI.card.classList.add('hidden'); return; }
+      let nearest = null, distance = Infinity;
+      for (const k of this.sim.kingdoms) {
+        const p = this.kingdomScreenPosition(k); if (!p) continue;
+        const d = Math.hypot(p[0] - innerWidth * .5, p[1] - innerHeight * .48);
+        if (d < distance) { distance = d; nearest = k; }
+      }
+      if (!nearest || distance > Math.min(310, innerWidth * .54)) { UI.card.classList.add('hidden'); return; }
+      if (this.sim.selected !== nearest) { this.sim.selected = nearest; this.selectKingdom(nearest); }
+      this.sim.updateSelected();
+    }
 
     buildingScale(type, tex, multiplier = 1) { return ((BUILD_HEIGHT[type] || 46) / Math.max(1, tex.height)) * multiplier; }
     farmerScale(action, multiplier = 1) { const m = this.nm.actions[action] || this.nm.actions.idle; return (FARMER_WORLD_HEIGHT / Math.max(1, m.visualHeight || m.frameHeight)) * multiplier; }
@@ -943,13 +1057,18 @@
     async addBuilding(k, b) {
       const tex = this.getBuildingTexture(k, b.type);
       const targetScale = this.buildingScale(b.type, tex);
+      const [baseW, baseH] = BUILD_BASE[b.type] || [16, 5];
+      const foundation = new this.P.Graphics();
+      foundation.poly([0, -baseH, baseW, 0, 0, baseH, -baseW, 0]).fill({ color: 0x8c7655, alpha: .82 }).stroke({ color: 0x3f3529, width: 1, alpha: .72 });
+      foundation.poly([-baseW + 3, 0, 0, baseH - 2, baseW - 3, 0]).stroke({ color: 0xc2a977, width: 1, alpha: .55 });
+      foundation.position.set(b.sx, b.sy); foundation.zIndex = Math.round(b.sy * 100) + 16; foundation.roundPixels = true;
       const shadow = new this.P.Graphics();
-      const shadowW = b.type === 'farm' ? 22 : b.type === 'stable' ? 17 : 14;
-      shadow.ellipse(0, 0, shadowW, Math.max(3, shadowW * .24)).fill({ color: 0x071015, alpha: .28 });
-      shadow.position.set(b.sx, b.sy + 1); shadow.zIndex = Math.round(b.sy * 100) + 18; shadow.roundPixels = true;
-      const sp = new this.P.Sprite(tex); sp.anchor.set(.5, 1); sp.position.set(b.sx, b.sy); sp.scale.set(targetScale); sp.zIndex = Math.round(b.sy * 100) + 20; sp.roundPixels = true;
+      const shadowW = Math.max(12, baseW * .82);
+      shadow.ellipse(0, -1, shadowW, Math.max(3, baseH * .52)).fill({ color: 0x071015, alpha: .46 });
+      shadow.position.set(b.sx, b.sy); shadow.zIndex = Math.round(b.sy * 100) + 18; shadow.roundPixels = true;
+      const sp = new this.P.Sprite(tex); sp.anchor.set(.5, BUILD_ANCHOR_Y[b.type] || .96); sp.position.set(b.sx, b.sy); sp.scale.set(targetScale); sp.zIndex = Math.round(b.sy * 100) + 20; sp.roundPixels = true;
       sp.eventMode = b.type === 'castle' ? 'static' : 'none'; if (b.type === 'castle') sp.on('pointertap', () => this.sim.select(k));
-      this.entities.addChild(shadow, sp); b._shadow = shadow; b._sprite = sp; this.addBuildingFlag(k, b); this.redrawSettlementGround(this.sim);
+      this.entities.addChild(foundation, shadow, sp); b._foundation = foundation; b._shadow = shadow; b._sprite = sp; this.addBuildingFlag(k, b); this.redrawSettlementGround(this.sim);
       if (b.type !== 'castle') {
         sp.alpha = .18; sp.scale.set(targetScale * .72);
         let elapsed = 0;
@@ -1200,7 +1319,7 @@
       g.position.set(b.sx,b.sy-10); g._life=.9; g._vy=-5; this.fx.addChild(g);
     }
     destroyBuilding(b) {
-      const x=b.sx,y=b.sy; if(b._sprite){ b._sprite.destroy(); b._sprite=null; } if(b._flag){ b._flag.destroy(); b._flag=null; } if(b._shadow){ b._shadow.destroy(); b._shadow=null; }
+      const x=b.sx,y=b.sy; if(b._sprite){ b._sprite.destroy(); b._sprite=null; } if(b._flag){ b._flag.destroy(); b._flag=null; } if(b._shadow){ b._shadow.destroy(); b._shadow=null; } if(b._foundation){ b._foundation.destroy(); b._foundation=null; }
       const g=new this.P.Graphics();
       g.ellipse(0,2,17,6).fill({color:0x211b18,alpha:.5});
       for(let i=0;i<34;i++){ const col=i%5===0?0x332b27:(i%4===0?0x665548:(i%3===0?0x8f6b45:0xb9a184)); g.rect(rand(-17,17),rand(-8,5),rand(2,5),rand(2,4)).fill({color:col,alpha:.96}); }
@@ -1232,11 +1351,14 @@
       const loop = now => { const dt = Math.min(.05, (now - last) / 1000); last = now; sim.update(dt); this.draw(now / 1000); requestAnimationFrame(loop); }; requestAnimationFrame(loop);
     }
     loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
-    home() { const s = Math.min(innerWidth / this.w.mapWidth, innerHeight / this.w.mapHeight) * 1.04; this.cam.s = clamp(s, .34, .9); this.cam.x = (innerWidth - this.w.mapWidth * this.cam.s) / 2; this.cam.y = (innerHeight - this.w.mapHeight * this.cam.s) / 2; }
-    focusCell(x, y) { const [wx, wy] = this.sim.iso(x, y); this.cam.s = innerWidth < 600 ? .78 : .9; this.cam.x = innerWidth * .5 - wx * this.cam.s; this.cam.y = innerHeight * .47 - wy * this.cam.s; }
+    home() { const s = Math.min(innerWidth / this.w.mapWidth, innerHeight / this.w.mapHeight) * 1.04; this.cam.s = clamp(s, .34, .9); this.cam.x = (innerWidth - this.w.mapWidth * this.cam.s) / 2; this.cam.y = (innerHeight - this.w.mapHeight * this.cam.s) / 2; this.syncKingdomDetail(); }
+    focusCell(x, y) { const [wx, wy] = this.sim.iso(x, y); this.cam.s = innerWidth < 600 ? .78 : .9; this.cam.x = innerWidth * .5 - wx * this.cam.s; this.cam.y = innerHeight * .47 - wy * this.cam.s; this.syncKingdomDetail(); }
+    kingdomScreenPosition(k) { if(!k?.alive||!this.sim)return null;const [wx,wy]=this.sim.iso(...k.capital);return[this.cam.x+wx*this.cam.s,this.cam.y+wy*this.cam.s]; }
+    isKingdomDetailVisible(k) { const p=this.kingdomScreenPosition(k);return !!p&&this.cam.s>=.68&&Math.hypot(p[0]-innerWidth*.5,p[1]-innerHeight*.48)<Math.min(310,innerWidth*.54); }
+    syncKingdomDetail() { if(!this.sim)return;if(this.cam.s<.68){UI.card.classList.add('hidden');return;}let nearest=null,distance=Infinity;for(const k of this.sim.kingdoms){const p=this.kingdomScreenPosition(k);if(!p)continue;const d=Math.hypot(p[0]-innerWidth*.5,p[1]-innerHeight*.48);if(d<distance){distance=d;nearest=k;}}if(!nearest||distance>Math.min(310,innerWidth*.54)){UI.card.classList.add('hidden');return;}if(this.sim.selected!==nearest)this.sim.selected=nearest;this.sim.updateSelected(); }
     install() {
       this.canvas.style.touchAction='none'; let pts=new Map(),drag=null,pinch=null;
-      const constrain=()=>{const mw=this.w.mapWidth*this.cam.s,mh=this.w.mapHeight*this.cam.s,m=80; this.cam.x=mw+m*2<=innerWidth?(innerWidth-mw)/2:clamp(this.cam.x,innerWidth-mw-m,m); this.cam.y=mh+m*2<=innerHeight?(innerHeight-mh)/2:clamp(this.cam.y,innerHeight-mh-m,m);};
+      const constrain=()=>{const mw=this.w.mapWidth*this.cam.s,mh=this.w.mapHeight*this.cam.s,m=80; this.cam.x=mw+m*2<=innerWidth?(innerWidth-mw)/2:clamp(this.cam.x,innerWidth-mw-m,m); this.cam.y=mh+m*2<=innerHeight?(innerHeight-mh)/2:clamp(this.cam.y,innerHeight-mh-m,m);this.syncKingdomDetail();};
       this.canvas.addEventListener('pointerdown',e=>{e.preventDefault();this.canvas.setPointerCapture?.(e.pointerId);pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(pts.size===1)drag={x:e.clientX,y:e.clientY,ox:this.cam.x,oy:this.cam.y}; if(pts.size===2){drag=null;const p=[...pts.values()],mx=(p[0].x+p[1].x)/2,my=(p[0].y+p[1].y)/2,d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);pinch={d:Math.max(1,d),s:this.cam.s,wx:(mx-this.cam.x)/this.cam.s,wy:(my-this.cam.y)/this.cam.s};}},{passive:false});
       this.canvas.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;e.preventDefault();pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pts.size===1&&drag){this.cam.x=drag.ox+e.clientX-drag.x;this.cam.y=drag.oy+e.clientY-drag.y;constrain();}else if(pts.size===2&&pinch){const p=[...pts.values()],mx=(p[0].x+p[1].x)/2,my=(p[0].y+p[1].y)/2,d=Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y),ns=clamp(pinch.s*d/pinch.d,CAMERA_MIN,CAMERA_MAX);this.cam.s=ns;this.cam.x=mx-pinch.wx*ns;this.cam.y=my-pinch.wy*ns;constrain();}},{passive:false});
       const end=e=>{pts.delete(e.pointerId);if(pts.size===1){const p=[...pts.values()][0];drag={x:p.x,y:p.y,ox:this.cam.x,oy:this.cam.y};}else drag=null;if(pts.size<2)pinch=null;}; this.canvas.addEventListener('pointerup',end);this.canvas.addEventListener('pointercancel',end);
@@ -1263,7 +1385,11 @@
       for (const {f} of this.farmers) depth.push({kind:'farmer',y:f.y,f});
       depth.sort((a,b)=>a.y-b.y || (a.kind==='farmer'?-1:1));
       for (const it of depth) {
-        if (it.kind==='entity') { const e=it.e;if(!e.img)continue;c.globalAlpha=e.alpha??1;const w=e.img.width*e.scale,h=e.img.height*e.scale;c.drawImage(e.img,e.x-w/2,e.y-h,w,h);c.globalAlpha=1; }
+        if (it.kind==='entity') {
+          const e=it.e;if(!e.img)continue;c.globalAlpha=e.alpha??1;
+          if(e.b){const base=BUILD_BASE[e.b.type]||[16,5],bw=base[0],bh=base[1];c.beginPath();c.moveTo(e.x,e.y-bh);c.lineTo(e.x+bw,e.y);c.lineTo(e.x,e.y+bh);c.lineTo(e.x-bw,e.y);c.closePath();c.fillStyle='#8c7655';c.fill();c.strokeStyle='#3f3529';c.lineWidth=1;c.stroke();}
+          const w=e.img.width*e.scale,h=e.img.height*e.scale,anchor=BUILD_ANCHOR_Y[e.b?.type]||.96;c.drawImage(e.img,e.x-w/2,e.y-h*anchor,w,h);c.globalAlpha=1;
+        }
         else { const f=it.f, act=f.action==='walk'?(f._canvasAction||'walk_down'):(this.animImgs[f.action]?f.action:'idle'),im=this.animImgs[act],m=this.nm.actions[act],frame=((t*(m.fps||6))|0)%m.frames,fw=m.frameWidth,fh=m.frameHeight,sc=this.farmerScale(act); if(im)c.drawImage(im,frame*fw,0,fw,fh,f.x-fw*sc/2,f.y-fh*sc,fw*sc,fh*sc); }
       }
       c.font = 'bold 11px Arial'; c.textAlign = 'center'; c.lineWidth = 3; c.strokeStyle = '#071015'; c.fillStyle = 'white'; for (const l of this.labels) { if (!l.k.alive) continue; c.strokeText(l.k.name, l.x, l.y); c.fillText(l.k.name, l.x, l.y); } c.restore();
@@ -1278,10 +1404,10 @@
         fetch('assets/npc/manifest.json').then(r => r.json())
       ]);
       const renderer = window.PIXI ? new PixiRenderer(world, bm, nm) : new CanvasRenderer(world, bm, nm);
-      if (!window.PIXI) toast('Modalità compatibilità Canvas — PixiJS non raggiungibile');
+      if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init(); wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
-      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('V6.3 EXPANDED WORLD caricata');
-    } catch (err) { console.error(err); $('#loading').innerHTML = `<strong>Errore avvio</strong><span>${escapeHtml(err.message)}</span>`; }
+      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('V6.4 LIVING KINGDOMS loaded');
+    } catch (err) { console.error(err); $('#loading').innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err.message)}</span>`; }
   }
 
   function wire(sim, r) {
@@ -1295,16 +1421,20 @@
       if (act === 'join') await sim.join(name);
       else if (act === 'like') { sim.like(name, 20); feed(name, '❤️ ×20'); }
       else if (act === 'follow') { sim.follow(name); feed(name, 'FOLLOW'); }
-      else if (act === 'rose') { sim.gift(name, 'Rose', 1); feed(name, '🌹 Rose'); }
-      else if (act === 'ice') { sim.gift(name, 'Ice Cream', 1); feed(name, '🍦 Ice Cream'); }
-      else if (act === 'galaxy') { sim.gift(name, 'Galaxy', 1); feed(name, '🌌 Galaxy'); }
-      else if (act === 'lion') { sim.gift(name, 'Lion', 1); feed(name, '🦁 Lion'); }
+      else if (act === 'rose') { await sim.gift(name, 'Rose', 1); feed(name, '🌹 Rose'); }
+      else if (act === 'ice') { await sim.gift(name, 'Ice Cream', 1); feed(name, '🍦 Ice Cream'); }
+      else if (act === 'fireworks') { await sim.gift(name, 'Fireworks', 1); feed(name, '🎆 Fireworks'); }
+      else if (act === 'car') { await sim.gift(name, 'Sports Car', 1); feed(name, '🏎️ Sports Car'); }
+      else if (act === 'galaxy') { await sim.gift(name, 'Galaxy', 1); feed(name, '🌌 Galaxy'); }
+      else if (act === 'lion') { await sim.gift(name, 'Lion', 1); feed(name, '🦁 Lion'); }
+      else if (act === 'dragon') { await sim.gift(name, 'Dragon', 1); feed(name, '🐉 Dragon'); }
+      else if (act === 'universe') { await sim.gift(name, 'Universe', 1); feed(name, '🌠 Universe'); }
       else if (act === 'boost') sim.boost30();
-      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Prima crea il regno con JOIN'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('Serve almeno un secondo regno'); }
+      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('At least two kingdoms are required'); }
     });
     const chatForm = $('#chatForm');
     if (chatForm) chatForm.onsubmit = async e => { e.preventDefault(); const v = $('#chatInput').value.trim(); if (!v) return; $('#chatInput').value = ''; const name = $('#testName').value.trim() || 'Player'; await processComment(sim, name, v); };
-    window.TikTokGodWorld = { emit: e => handleEvent(sim, e), join: n => sim.join(n), like: (n, c) => sim.like(n, c), follow: n => sim.follow(n), gift: (n, g, c) => sim.gift(n, g, c), attack: (a, b) => { const ka = sim.kingdomByName.get(String(a).toLowerCase()), kb = sim.kingdomByName.get(String(b).toLowerCase()); return sim.attack(ka, kb); } };
+    window.TikTokGodWorld = { emit: e => handleEvent(sim, e), join: n => sim.join(n), like: (n, c) => sim.like(n, c), follow: n => sim.follow(n), gift: (n, g, c, m) => sim.gift(n, g, c, m), attack: (a, b) => { const ka = sim.kingdomByName.get(String(a).toLowerCase()), kb = sim.kingdomByName.get(String(b).toLowerCase()); return sim.attack(ka, kb); } };
     window.addEventListener('tiktok-event', e => handleEvent(sim, e.detail || {}));
   }
 
@@ -1312,7 +1442,7 @@
     feed(user, comment); const c = comment.trim();
     if (/^join$/i.test(c)) return sim.join(user);
     const m = c.match(/^attack\s+@?(.+)$/i);
-    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: scrivi JOIN prima`); if (!b) return toast(`Regno ${m[1].trim()} non trovato`); return sim.attack(a, b); }
+    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b); }
     if (/^expand$/i.test(c)) { const k = sim.kingdomByName.get(user.toLowerCase()); if (k) { k.resources.food += 10; k.resources.wood += 8; k.lastExpand = 0; } }
   }
   async function handleEvent(sim, raw) {
@@ -1322,17 +1452,17 @@
     if (type.includes('comment') || e.comment || e.message) return processComment(sim, user, String(e.comment || e.message || e.text || ''));
     if (type.includes('like')) return sim.like(user, e.count || e.likeCount || e.repeatCount || 1);
     if (type.includes('follow')) return sim.follow(user);
-    if (type.includes('gift')) return sim.gift(user, e.giftName || e.gift?.name || e.name || 'gift', e.repeatCount || e.count || 1);
+    if (type.includes('gift')) return sim.gift(user, e.giftName || e.gift?.name || e.name || 'gift', e.repeatCount || e.count || 1, { diamonds: e.diamondCount || e.diamond_count || e.gift?.diamondCount || e.gift?.diamond_count || 0 });
   }
   function connectBridge(sim) {
     const q = new URLSearchParams(location.search), url = q.get('bridge') || localStorage.getItem('godworld_bridge') || '';
-    if (!url) { UI.bridgeText.textContent = 'bridge pronto'; UI.bridgeDot.style.background = '#d39d34'; return; }
+    if (!url) { UI.bridgeText.textContent = 'bridge ready'; UI.bridgeDot.style.background = '#d39d34'; return; }
     let ws;
-    const go = () => { try { ws = new WebSocket(url); ws.onopen = () => { UI.bridgeText.textContent = 'TikTok bridge online'; UI.bridgeDot.style.background = '#45d66d'; localStorage.setItem('godworld_bridge', url); }; ws.onmessage = m => { try { handleEvent(sim, JSON.parse(m.data)); } catch {} }; ws.onclose = () => { UI.bridgeText.textContent = 'bridge riconnessione'; UI.bridgeDot.style.background = '#b33'; setTimeout(go, 5000); }; ws.onerror = () => ws.close(); } catch { setTimeout(go, 5000); } };
+    const go = () => { try { ws = new WebSocket(url); ws.onopen = () => { UI.bridgeText.textContent = 'TikTok bridge online'; UI.bridgeDot.style.background = '#45d66d'; localStorage.setItem('godworld_bridge', url); }; ws.onmessage = m => { try { handleEvent(sim, JSON.parse(m.data)); } catch {} }; ws.onclose = () => { UI.bridgeText.textContent = 'bridge reconnecting'; UI.bridgeDot.style.background = '#b33'; setTimeout(go, 5000); }; ws.onerror = () => ws.close(); } catch { setTimeout(go, 5000); } };
     go();
   }
   function fpsCounter() { let frames = 0, last = performance.now(); const loop = now => { frames++; if (now - last >= 1000) { UI.fps.textContent = `${Math.round(frames * 1000 / (now - last))} FPS`; frames = 0; last = now; } requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
 
-  window.__BUILD_VERSION = '6.3-expanded-world';
+  window.__BUILD_VERSION = '6.4-living-kingdoms';
   boot();
 })();

@@ -12,14 +12,14 @@
   let lightning = 0;
 
   const climates = [
-    { id: 'rain', icon: '🌧️', name: 'PIOGGIA FERTILE', note: '+ cibo per tutti', color: '#75bfff', apply: k => { k.resources.food += 90; } },
-    { id: 'storm', icon: '⛈️', name: 'TEMPORALE', note: '- legno, + pietra', color: '#b6b7ff', apply: k => { k.resources.wood = Math.max(0, k.resources.wood * .92); k.resources.stone += 45; } },
-    { id: 'fog', icon: '🌫️', name: 'NEBBIA', note: 'eserciti rallentati', color: '#dce5df', apply: k => { k.military = Math.max(2, k.military * .96); } },
-    { id: 'snow', icon: '❄️', name: 'GELO', note: '+ pietra, - cibo', color: '#eaf8ff', apply: k => { k.resources.stone += 55; k.resources.food = Math.max(0, k.resources.food * .93); } },
-    { id: 'wind', icon: '🍃', name: 'VENTO FORTE', note: '+ legno raccolto', color: '#9be6bc', apply: k => { k.resources.wood += 80; } },
-    { id: 'drought', icon: '☀️', name: 'SICCITÀ', note: '- raccolto', color: '#ffbd59', apply: k => { k.resources.food = Math.max(0, k.resources.food * .86); } },
-    { id: 'famine', icon: '🌑', name: 'CARESTIA', note: '- cibo e popolazione', color: '#d07b67', apply: k => { k.resources.food = Math.max(0, k.resources.food * .72); k.pop = Math.max(2, k.pop - 1); } },
-    { id: 'clear', icon: '🌤️', name: 'CLIMA SERENO', note: '+ economia', color: '#ffe07b', apply: k => { k.resources.gold += 35; k.boostUntil = Math.max(k.boostUntil, (window.__SIM?.age || 0) + 20); } }
+    { id: 'rain', icon: '🌧️', name: 'FERTILE RAIN', note: '+ food for every kingdom', color: '#75bfff', apply: k => { k.resources.food += 90; } },
+    { id: 'storm', icon: '⛈️', name: 'THUNDERSTORM', note: '- wood, + stone', color: '#b6b7ff', apply: k => { k.resources.wood = Math.max(0, k.resources.wood * .92); k.resources.stone += 45; } },
+    { id: 'fog', icon: '🌫️', name: 'HEAVY FOG', note: 'armies are slowed', color: '#dce5df', apply: k => { k.military = Math.max(2, k.military * .96); } },
+    { id: 'snow', icon: '❄️', name: 'DEEP FREEZE', note: '+ stone, - food', color: '#eaf8ff', apply: k => { k.resources.stone += 55; k.resources.food = Math.max(0, k.resources.food * .93); } },
+    { id: 'wind', icon: '🍃', name: 'STRONG WIND', note: '+ gathered wood', color: '#9be6bc', apply: k => { k.resources.wood += 80; } },
+    { id: 'drought', icon: '☀️', name: 'DROUGHT', note: '- harvest yield', color: '#ffbd59', apply: k => { k.resources.food = Math.max(0, k.resources.food * .86); } },
+    { id: 'famine', icon: '🌑', name: 'FAMINE', note: '- food and population', color: '#d07b67', apply: k => { k.resources.food = Math.max(0, k.resources.food * .72); k.pop = Math.max(2, k.pop - 1); void window.__SIM?.syncCitizens(k); } },
+    { id: 'clear', icon: '🌤️', name: 'CLEAR SKIES', note: '+ economy', color: '#ffe07b', apply: k => { k.resources.gold += 35; k.boostUntil = Math.max(k.boostUntil, (window.__SIM?.age || 0) + 20); } }
   ];
 
   const resize = () => {

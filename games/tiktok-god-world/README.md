@@ -1,31 +1,32 @@
-# TikTok God World V6.3 Expanded World
+# TikTok God World V6.4 Living Kingdoms
 
-Versione Safari + TikFinity sulla porta fissa 8793.
+Safari + TikFinity edition on the permanent port `8793`.
 
-## Avvio
+## Start
 
-1. Avvia `AVVIA GIOCO.bat` sul PC e lascia aperta la finestra.
-2. PC e iPhone devono essere collegati alla stessa rete Wi-Fi.
-3. Apri su Safari l'indirizzo scritto in `URL_IPHONE.txt`.
-4. Al primo tocco sulla mappa parte automaticamente la musica completa in loop.
+1. Run `AVVIA_GIOCO.bat` on the PC and keep its window open.
+2. Connect the PC and iPhone to the same Wi-Fi network.
+3. Open the address stored in `URL_IPHONE.txt` with Safari.
+4. Touch the map once to authorize the full soundtrack on iOS. Music then continues in a loop.
 
-La traccia compressa e amplificata è già inclusa in `assets/audio`; non serve conservare il file originale nella cartella Download.
+The compressed and amplified full track is bundled in `assets/audio`.
 
-## Comandi LIVE
+## LIVE actions
 
-- `JOIN`: crea il regno.
-- `LIKE`: economia.
-- `FOLLOW`: costruttori e materiali.
-- `ROSE`, `ICE CREAM`, `FINGER HEART`, `PERFUME`, `TIKTOK`, `GALAXY`, `LION`: bonus differenti.
-- `ATTACK nome`: ordina l'attacco contro un regno.
+- `JOIN`: creates a kingdom with four citizens.
+- `LIKE`: boosts the economy.
+- `FOLLOW`: grants builders and materials.
+- Small gifts provide focused food, population or resource bonuses.
+- `SPORTS CAR`, `YACHT`, `WHALE DIVING`, `MONEY GUN` and similar gifts provide instant buildings and reinforcements.
+- `GALAXY`, `LION`, `DRAGON`, `UNIVERSE`, `PHOENIX`, `INTERSTELLAR` and `CASTLE FANTASY` provide true instant big help.
+- `ATTACK name`: declares war on another kingdom.
 
-La chat manuale non è mostrata durante la LIVE. Il pannello `TEST` resta disponibile sul PC per le prove.
+## V6.4 highlights
 
-## Contenuti V6.3
-
-- Mappa 78x56 più grande, con cinque fiumi e biomi più estesi.
-- Vegetazione separata con profondità e abbattimento prima della costruzione.
-- Campi e stalle ridimensionati; ogni campo possiede un lavoratore fisso.
-- Battaglioni di soldati individuali, marcia, collisioni con edifici, feriti, morti e sangue pixel-art.
-- Distruzione degli edifici con macerie, fumo e fuoco.
-- Meteo pixel-art ed eventi con bonus o malus ogni due minuti.
+- Buildings are sunk into visible foundations with stronger contact shadows.
+- Kingdoms begin with four citizens; houses create capacity and a new citizen immediately.
+- Farm workers are reassigned from the existing population, so one fewer citizen roams the settlement.
+- Kingdom resources appear contextually only when the camera zooms into that kingdom.
+- The HUD, notifications, weather events and all game-facing text are in English.
+- Gift variety and diamond-aware rewards have been expanded significantly.
+- Individual battalions, destructible buildings, dynamic weather and depth-sorted vegetation remain enabled.

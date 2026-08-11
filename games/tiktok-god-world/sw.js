@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v6-3-expanded-world';
+const CACHE = 'god-world-v6-4-living-kingdoms';
 const SHELL = [
   './', 'index.html', 'styles.css', 'game.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest',

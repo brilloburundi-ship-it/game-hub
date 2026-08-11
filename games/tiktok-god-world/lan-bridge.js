@@ -16,7 +16,7 @@
   function deliver(payload) {
     if (payload?.__bridgeStatus) {
       if (payload.__bridgeStatus === 'connected') setStatus('TikFinity online', '#45d66d');
-      else setStatus('PC online · attesa TikFinity', '#d39d34');
+      else setStatus('PC online · waiting for TikFinity', '#d39d34');
       return;
     }
     if (!window.TikTokGodWorld) {
@@ -36,17 +36,17 @@
 
   function connect() {
     if (!token) {
-      setStatus('URL Safari incompleto', '#b33');
+      setStatus('Incomplete Safari URL', '#b33');
       return;
     }
-    setStatus('collegamento al PC…', '#d39d34');
+    setStatus('connecting to PC…', '#d39d34');
     const stream = new EventSource(`/bridge/events?token=${encodeURIComponent(token)}`);
-    stream.onopen = () => setStatus('PC online · attesa TikFinity', '#d39d34');
+    stream.onopen = () => setStatus('PC online · waiting for TikFinity', '#d39d34');
     stream.onmessage = message => {
       try { deliver(JSON.parse(message.data)); }
-      catch (error) { console.warn('[GodWorld LAN] Evento ignorato', error); }
+      catch (error) { console.warn('[GodWorld LAN] Event ignored', error); }
     };
-    stream.onerror = () => setStatus('PC bridge riconnessione', '#b33');
+    stream.onerror = () => setStatus('PC bridge reconnecting', '#b33');
     window.GodWorldLanBridge = { stream, flushQueue };
   }
 

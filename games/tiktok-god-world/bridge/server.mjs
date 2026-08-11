@@ -10,7 +10,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.GOD_WORLD_PORT || 8793);
 const HOST = '0.0.0.0';
 const TIKFINITY_URL = process.env.TIKFINITY_URL || 'ws://127.0.0.1:21213/';
-const APP_ID = 'tiktok-god-world-expanded-bridge-v63';
+const APP_ID = 'tiktok-god-world-living-kingdoms-v64';
 const BUNDLED_MUSIC = join(ROOT, 'assets', 'audio', 'medieval-market-full.mp3');
 const DOWNLOAD_MUSIC = join(homedir(), 'Downloads', 'Medieval Fantasy Music – Medieval Market _ Folk, Traditional, Instrumental _ Fantasy Music World #2.mp3');
 const MUSIC_FILE = process.env.GOD_WORLD_MUSIC || (existsSync(BUNDLED_MUSIC) ? BUNDLED_MUSIC : DOWNLOAD_MUSIC);
@@ -61,7 +61,7 @@ function broadcast(payload) {
 function bridgeStatus() {
   return {
     __bridgeStatus: tikFinityConnected ? 'connected' : 'waiting',
-    message: tikFinityConnected ? 'TikFinity collegato tramite PC' : 'In attesa di TikFinity sul PC'
+    message: tikFinityConnected ? 'TikFinity connected through the PC' : 'Waiting for TikFinity on the PC'
   };
 }
 
@@ -295,7 +295,7 @@ server.listen(PORT, HOST, () => {
   writeFileSync(join(ROOT, 'URL_IPHONE.txt'), output, 'utf8');
 
   console.log('\n=============================================================');
-  console.log(' TIKTOK GOD WORLD V6.3 EXPANDED - SAFARI + TIKFINITY (8793)');
+  console.log(' TIKTOK GOD WORLD V6.4 LIVING KINGDOMS - SAFARI + TIKFINITY (8793)');
   console.log('=============================================================');
   console.log('Questa versione e separata dagli altri giochi.');
   console.log('Il suo URL resta uguale anche quando modifichi i file.\n');
