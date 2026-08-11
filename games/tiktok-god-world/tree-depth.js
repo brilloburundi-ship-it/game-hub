@@ -81,8 +81,6 @@
     let inserted = 0;
     for (const tree of chosen) {
       const [cx, cy] = tree.cell;
-      // JOIN/building creation is allowed to finish before vegetation. Never place
-      // a late-loading tree on top of a castle or another completed structure.
       if (sim.buildingAt?.(cx, cy)) continue;
       const texture = textures[tree.type] || textures.round || textures.pine;
       if (!texture) continue;
@@ -101,7 +99,6 @@
       if (!byCell.has(k)) byCell.set(k, []);
       byCell.get(k).push(sprite);
       inserted++;
-      // Spread Pixi display-list work across frames on mobile instead of one large spike.
       if (inserted % 12 === 0) await nextFrame();
     }
 
@@ -138,11 +135,14 @@
 
     renderer.entities.sortDirty = true;
     renderer.__depthTreesInstalled = true;
-    window.__TREE_DEPTH_READY = { count: inserted, sourceCount: (data.trees || []).length, version: 'sparse-v3' };
-    document.documentElement.dataset.treeDepth = `sparse-v3:${inserted}`;
+    window.__TREE_DEPTH_READY = { count: inserted, sourceCount: (data.trees || []).length, version: 'sparse-v4-nonblocking' };
+    document.documentElement.dataset.treeDepth = `sparse-v4:${inserted}`;
   };
 
-  window.__TREE_DEPTH_PROMISE = install().catch(error => {
+  // Buildings never wait for vegetation. Late tree insertion already checks
+  // buildingAt(), so JOIN can finish immediately while trees stream in.
+  window.__TREE_DEPTH_PROMISE = null;
+  window.__TREE_DEPTH_LOADING = install().catch(error => {
     window.__TREE_DEPTH_ERROR = String(error?.message || error);
     console.error('[tree-depth]', error);
   });
