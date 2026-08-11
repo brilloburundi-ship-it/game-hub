@@ -1,6 +1,6 @@
-const CACHE = 'god-world-v6-7-2-join-hotfix';
+const CACHE = 'god-world-v6-8-consolidated';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'v67-siege-legions.js', 'v671-mobile-stability.js', 'v672-join-hotfix.js', 'tree-depth.js',
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'runtime-v68.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
   'assets/map/world.json', 'assets/map/world.png', 'assets/map/vegetation.json', 'assets/buildings/manifest.json', 'assets/npc/manifest.json', 'assets/vfx/manifest.json',
   'assets/vegetation/pine.png', 'assets/vegetation/pine-snow.png', 'assets/vegetation/round.png',
