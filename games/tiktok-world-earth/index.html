@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+  <meta name="theme-color" content="#07110f" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="TikTok World" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./app-icon.svg" type="image/svg+xml" />
+  <title>TikTok World — Live Civilizations</title>
+  <script type="module" crossorigin src="./assets/index-V104FantasyRTS.js?build=7"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CINXCmd-.css?build=7">
+  <style>
+    #enter-world{position:relative;z-index:2;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+    .start-screen.dismissed{pointer-events:none!important}
+  </style>
+</head>
+<body>
+  <main id="app">
+    <section id="game-shell" aria-label="TikTok World game">
+      <div id="world-stage"></div>
+      <div class="vignette"></div>
+      <header class="topbar glass">
+        <div class="brand"><span class="crown">♜</span><div><b>TIKTOK WORLD</b><small>LIVE CIVILIZATIONS</small></div></div>
+        <div class="season"><span>AGE</span><b id="age-label">FOUNDING AGE</b></div>
+        <div class="live"><i id="live-dot"></i><div><b id="bridge-label">DEMO READY</b><small id="viewer-count">0 VIEWERS</small></div></div>
+      </header>
+
+      <aside class="leaderboard glass">
+        <div class="panel-title"><span>WORLD POWERS</span><small id="kingdom-count">0 KINGDOMS</small></div>
+        <div id="leaderboard-list"></div>
+      </aside>
+
+      <aside class="event-feed glass">
+        <div class="panel-title"><span>WORLD CHRONICLE</span><small>LIVE</small></div>
+        <div id="event-list"></div>
+      </aside>
+
+      <section class="director-card glass">
+        <div class="director-kicker"><span class="pulse"></span>CAMERA MANUALE</div>
+        <b id="focus-title">THE WHOLE WORLD</b>
+        <span id="focus-reason">Surveying every realm</span>
+        <div class="director-progress"><i id="director-progress"></i></div>
+      </section>
+
+      <section class="tip-rail glass">
+        <span class="tip-label">HOW TO PLAY</span>
+        <div id="rotating-tip">Type <b>JOIN</b> to found the first city</div>
+      </section>
+
+      <section id="kingdom-card" class="kingdom-card glass hidden">
+        <button id="close-card" aria-label="Close">×</button>
+        <div class="kingdom-head"><span id="kingdom-banner"></span><div><small id="kingdom-rank">CIVILIZATION</small><b id="kingdom-name">—</b></div></div>
+        <div class="stat-grid">
+          <div><span>POPULATION</span><b id="stat-pop">0</b></div><div><span>GOLD</span><b id="stat-gold">0</b></div>
+          <div><span>FOOD</span><b id="stat-food">0</b></div><div><span>ARMY</span><b id="stat-army">0</b></div>
+          <div><span>LAND</span><b id="stat-land">0</b></div><div><span>FLEET</span><b id="stat-fleet">0</b></div>
+        </div>
+        <div class="strategy-row"><span>ORDER</span><b id="stat-order">DEVELOP</b></div>
+        <div class="era-track"><i id="era-progress"></i></div>
+      </section>
+
+      <button id="speed-toggle" class="icon-button glass speed-button" aria-label="Simulation speed" title="Simulation speed">1×</button>
+      <button id="sound-toggle" class="icon-button glass" aria-label="Toggle sound">♫</button>
+      <button id="overview-button" class="icon-button glass" aria-label="World overview">◎</button>
+
+      <div id="toast-layer"></div>
+
+      <section id="start-screen" class="start-screen">
+        <div class="start-backdrop"></div>
+        <div class="start-content">
+          <div class="start-seal">♜</div>
+          <p class="eyebrow">AN INTERACTIVE LIVE WORLD</p>
+          <h1>TIKTOK<br><span>WORLD</span></h1>
+          <p class="start-copy">Every viewer receives a random civilization. Build a living realm, grow its people, command armies, sail fleets and shape the world.</p>
+          <div class="command-preview"><span>JOIN</span><span>DEVELOP</span><span>ATTACK @name</span><span>DEFEND</span><span>EXPAND</span><span>FLEET</span></div>
+          <button id="enter-world">ENTER THE WORLD</button>
+          <small>Bridge Wi-Fi dedicato · TikFinity sul PC · Salvataggio locale</small>
+        </div>
+      </section>
+
+      <section id="dev-console" class="dev-console glass">
+        <button id="dev-toggle">LIVE TEST</button>
+        <div id="dev-body" class="hidden">
+          <input id="test-user" value="Kevin" maxlength="24" aria-label="Test username" />
+          <input id="test-command" value="JOIN" maxlength="48" aria-label="Test command" />
+          <button id="send-command">SEND CHAT</button>
+          <button data-event="like">+25 LIKES</button>
+          <button data-event="follow">FOLLOW</button>
+          <select id="test-gift" aria-label="Test gift"></select>
+          <button data-event="gift">SEND GIFT</button>
+        </div>
+      </section>
+    </section>
+  </main>
+</body>
+</html>
