@@ -3,88 +3,81 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b1715" />
+    <meta name="theme-color" content="#07100f" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Game Hub" />
-    <meta name="description" content="Mobile AI game-development workspace backed by GitHub." />
+    <meta name="description" content="Mobile game development workspace powered by your own ChatGPT and GitHub accounts." />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="icon" href="assets/icon.svg" />
     <link rel="apple-touch-icon" href="assets/icon.svg" />
-    <link rel="stylesheet" href="src/styles.css" />
-    <title>Game Hub — AI Development Workspace</title>
+    <link rel="stylesheet" href="src/studio.css" />
+    <title>Game Hub — Build Games with ChatGPT</title>
   </head>
   <body>
-    <div class="noise" aria-hidden="true"></div>
-    <div class="app-shell">
-      <aside class="sidebar" aria-label="Primary">
-        <a class="brand" href="#projects" aria-label="Game Hub home">
+    <div class="studio-shell">
+      <aside class="desktop-rail">
+        <a class="brand" href="#home" aria-label="Game Hub home">
           <span class="brand-mark">GH</span>
-          <span><strong>Game Hub</strong><small>AI dev workspace</small></span>
+          <span><strong>Game Hub</strong><small>Mobile game studio</small></span>
         </a>
-        <nav class="desktop-nav" data-nav></nav>
-        <div class="source-card">
-          <span class="eyebrow">Source of truth</span>
-          <strong>GitHub connected</strong>
-          <small>No ZIP. No duplicates.</small>
-        </div>
+        <nav class="desktop-nav" data-studio-nav aria-label="Desktop navigation"></nav>
+        <div class="rail-foot"><strong>Founder workspace</strong>ChatGPT is the engine. GitHub is the project source of truth.</div>
       </aside>
 
-      <main>
-        <header class="topbar">
-          <div>
-            <span class="eyebrow" id="view-eyebrow">Workspace</span>
-            <h1 id="view-title">Projects</h1>
+      <main class="studio-main">
+        <header class="studio-topbar">
+          <div class="top-copy">
+            <span id="page-eyebrow">Game Hub Studio</span>
+            <h1 id="page-title">Create &amp; build</h1>
           </div>
-          <button class="avatar-button" id="connection-button" aria-label="GitHub connection settings">
-            <span class="connection-dot"></span>
-            <span class="avatar-label">GitHub</span>
-          </button>
+          <div class="top-actions">
+            <select id="project-select" class="project-select" aria-label="Current project"></select>
+            <button id="profile-button" class="profile-button" aria-label="Workspace and GitHub settings">F</button>
+          </div>
         </header>
 
-        <div class="content" id="app-content" aria-live="polite">
-          <div class="loading-card"><span class="spinner"></span>Syncing GitHub workspace…</div>
+        <div id="studio-content" class="studio-content" aria-live="polite">
+          <div class="loading-panel"><span class="loader"></span>Loading Game Hub…</div>
         </div>
       </main>
 
-      <nav class="bottom-nav" data-nav aria-label="Mobile navigation"></nav>
+      <nav class="bottom-nav" data-studio-nav aria-label="Mobile navigation"></nav>
     </div>
 
     <dialog id="connection-dialog" class="sheet-dialog">
-      <form method="dialog" class="sheet">
+      <form method="dialog" class="sheet" onsubmit="return false">
         <div class="sheet-handle"></div>
         <div class="sheet-heading">
-          <div><span class="eyebrow">Optional</span><h2>GitHub access</h2></div>
-          <button class="icon-button" value="cancel" aria-label="Close">×</button>
+          <div><h2>Workspace connection</h2></div>
+          <button id="close-connection" type="button" class="icon-button" aria-label="Close">×</button>
         </div>
-        <p>Public repositories are already readable. Add a fine-grained token only for private repositories or direct file commits. It stays in this browser session and is sent only to GitHub.</p>
-        <label class="field-label" for="token-input">Fine-grained token</label>
-        <input id="token-input" class="text-input" type="password" autocomplete="off" placeholder="github_pat_…" />
+        <p>This prototype still supports a temporary fine-grained GitHub token for private repositories. Production accounts will use a secure GitHub OAuth/App flow instead of browser-stored credentials.</p>
+        <label class="field" for="token-input"><span>Temporary GitHub token</span><input id="token-input" type="password" autocomplete="off" placeholder="github_pat_…" /></label>
         <div class="dialog-actions">
-          <button type="button" class="button button-ghost" id="disconnect-button">Disconnect</button>
-          <button type="button" class="button button-primary" id="save-token-button">Save for session</button>
+          <button type="button" class="ghost-button" id="disconnect-button">Disconnect</button>
+          <button type="button" class="primary-action" id="save-token-button">Save for session</button>
         </div>
-        <p class="security-note">Never paste this token into AI chat or commit it to a repository.</p>
+        <p class="security-note">Never paste GitHub tokens or ChatGPT credentials into a project prompt. Game Hub will not ask for a ChatGPT password.</p>
       </form>
     </dialog>
 
-    <dialog id="editor-dialog" class="editor-dialog">
-      <form method="dialog" class="editor-sheet">
-        <div class="editor-topbar">
-          <button class="icon-button" value="cancel" aria-label="Close editor">×</button>
-          <strong id="editor-title">Edit file</strong>
-          <button type="button" class="button button-primary button-small" id="commit-file-button">Commit</button>
+    <dialog id="new-game-dialog" class="sheet-dialog">
+      <form id="new-game-form" class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-heading">
+          <div><h2>Create new game</h2></div>
+          <button id="close-new-game" type="button" class="icon-button" aria-label="Close">×</button>
         </div>
-        <label class="field-label" for="editor-path">Repository path</label>
-        <input id="editor-path" class="text-input mono" autocomplete="off" />
-        <textarea id="editor-content" class="code-editor" spellcheck="false"></textarea>
-        <label class="field-label" for="editor-message">Commit message</label>
-        <input id="editor-message" class="text-input" maxlength="72" placeholder="Update game settings" />
-        <button type="button" id="delete-file-button" class="danger-link">Delete this file in a commit</button>
+        <p>Describe the game once. Game Hub will prepare a development brief that tells ChatGPT/Codex to build the playable project, plan the required assets, generate/import them and keep the project permanent.</p>
+        <label class="field" for="game-idea"><span>Game idea</span><textarea id="game-idea" required placeholder="Example: Create a vertical arcade racing game with traffic, drift, police chases, upgrades and touch controls."></textarea></label>
+        <label class="field" for="game-platform"><span>Target</span><select id="game-platform"><option>iPhone / mobile web</option><option>TikTok LIVE vertical 9:16</option><option>Desktop web</option><option>Responsive mobile + desktop</option></select></label>
+        <label class="field" for="game-art"><span>Visual direction</span><select id="game-art"><option>2D transparent game-ready assets</option><option>2.5D isometric assets</option><option>Vector / lightweight stylized</option><option>Use the best style for the game</option></select></label>
+        <div class="dialog-actions"><button type="button" class="ghost-button" id="close-new-game-alt" onclick="document.querySelector('#new-game-dialog').close()">Cancel</button><button type="submit" class="primary-action">✦ Continue in ChatGPT</button></div>
       </form>
     </dialog>
 
     <div id="toast" class="toast" role="status"></div>
-    <script type="module" src="src/app.js"></script>
+    <script type="module" src="src/studio.js"></script>
   </body>
 </html>
