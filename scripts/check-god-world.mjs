@@ -23,7 +23,7 @@ if (version.marker !== 'god-world-stable-integrated-single-authority') throw new
 if (!index.includes('STABLE INTEGRATED')) throw new Error('Single visible build identity missing');
 if (index.includes(' autoplay')) throw new Error('Music must not autoplay during startup');
 if (!/id="bgMusic"[^>]*preload="metadata"/.test(index)) throw new Error('Music must use metadata preload');
-if (!sw.includes("const CACHE = 'god-world-stable-integrated-1'")) throw new Error('Integrated service-worker cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-stable-integrated-1-safe-frame'")) throw new Error('Safe-frame service-worker cache marker missing');
 
 const expectedScripts = [
   'asset-recovery.js',
@@ -72,16 +72,19 @@ if (!living.includes('__gwTickBusy')) throw new Error('Simulation tick overlap g
 if (!living.includes('__gwPauseGuardsUntil')) throw new Error('JOIN guard-spawn pause missing');
 if (!living.includes('rearBuildCell')) throw new Error('Wartime rear construction logic missing');
 
-if (!battle.includes("const VERSION = 'stable-integrated-battles'")) throw new Error('Integrated battle authority marker missing');
-if (!battle.includes("document.documentElement.dataset.battleSystem = 'stable-integrated-physical-siege'")) throw new Error('Physical siege marker missing');
-if (!battle.includes('const SORT_INTERVAL = 0.14')) throw new Error('Mobile depth-sort throttle missing');
-if (!battle.includes('__gwLazyAnim')) throw new Error('Lazy team soldier animation loading missing');
-if (!battle.includes('processPhysicalCapture')) throw new Error('Physical army-driven conquest missing');
-if (!battle.includes('BREAKTHROUGH_MIN_DEATHS')) throw new Error('Physical breakthrough loss gate missing');
-for (const vfx of ['fire-sheet.svg', 'blood-sheet.svg', 'impact-sheet.svg', 'destruction-sheet.svg']) {
-  if (!battle.includes(vfx)) throw new Error(`Battle VFX reference missing: ${vfx}`);
+if (!battle.includes("const VERSION = 'stable-v66-safe-frame'")) throw new Error('Safe V6.6 battle guard marker missing');
+if (!battle.includes("document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame'")) throw new Error('Safe battle-system dataset marker missing');
+if (!battle.includes('function hasMilitaryInfrastructure')) throw new Error('Military infrastructure gate missing');
+if (!battle.includes("const MILITARY_BUILDINGS = new Set(['barracks', 'forge', 'watchtower', 'stone_tower', 'keep'])")) throw new Error('Military building list missing');
+if (!battle.includes('if (!hasMilitaryInfrastructure(k)) return null')) throw new Error('Soldiers may still spawn immediately after JOIN');
+if (!battle.includes('window.__GW_LAST_RUNTIME_ERROR')) throw new Error('Runtime frame diagnostic marker missing');
+if (!battle.includes('sim.update = function')) throw new Error('World-frame exception guard missing');
+if (!battle.includes('r.updateWars = function')) throw new Error('Battle-frame exception guard missing');
+if (!battle.includes('r.updateFx = function')) throw new Error('FX-frame exception guard missing');
+for (const riskyFeature of ['installLazySoldiers', 'preloadPixelVfx', 'processPhysicalCapture']) {
+  if (battle.includes(riskyFeature)) throw new Error(`Risky post-JOIN battle feature must not be active: ${riskyFeature}`);
 }
-if (battle.includes('setInterval(')) throw new Error('Integrated battle authority must not create recurring setInterval loops');
+if (battle.includes('setInterval(')) throw new Error('Battle stability layer must not create recurring setInterval loops');
 
 if (!music.includes("audio.preload = 'metadata'")) throw new Error('Gesture-safe music metadata preload missing');
 if (music.includes('audio.load()')) throw new Error('Music must not force-load the full track during startup');
@@ -107,13 +110,9 @@ for (const entry of shellEntries) {
 }
 
 for (const asset of [
-  'assets/vfx/fire-sheet.svg',
-  'assets/vfx/blood-sheet.svg',
-  'assets/vfx/impact-sheet.svg',
-  'assets/vfx/destruction-sheet.svg',
   'assets/vegetation/pine.png',
   'assets/vegetation/pine-snow.png',
   'assets/vegetation/round.png'
 ]) await access(resolve(gameRoot, asset));
 
-console.log('TikTok God World stable-integrated-1: single authorities, non-blocking JOIN, gifts, physical siege, mobile throttles, cache shell and syntax checks OK');
+console.log('TikTok God World stable-integrated-1: non-blocking JOIN, single living authority, V6.6 safe battle frame, infrastructure-gated military, cache shell and syntax checks OK');
