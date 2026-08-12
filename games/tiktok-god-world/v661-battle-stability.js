@@ -28,9 +28,48 @@
     }
   }
 
-  function keepCivilianNeutral(farmer) {
+  function recolorFarmerCanvas(r, canvas, color) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data, pal = r.teamPalette(color);
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3]; if (a < 8) continue;
+      const red = d[i], green = d[i + 1], blue = d[i + 2];
+      const warmCloth = red > 145 && green > 55 && green < 190 && blue < 90 && red - green > 28;
+      if (!warmCloth) continue;
+      const lum = (red + green + blue) / 3;
+      const rep = lum < 92 ? pal.dark : lum < 155 ? pal.mid : pal.light;
+      d[i] = rep[0]; d[i + 1] = rep[1]; d[i + 2] = rep[2];
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  function farmerFrames(r, k, action) {
+    if (!k?.alive || !r?.anim?.[action]) return r?.anim?.[action] || r?.anim?.idle || [];
+    r.__gwFarmerPaletteCache ||= new Map();
+    const cacheKey = `${k.id}:${action}`;
+    if (r.__gwFarmerPaletteCache.has(cacheKey)) return r.__gwFarmerPaletteCache.get(cacheKey);
+    const frames = r.anim[action].map(texture => {
+      const canvas = r.textureToCanvas?.(texture);
+      if (!canvas) return texture;
+      return r.P.Texture.from(recolorFarmerCanvas(r, canvas, k.color));
+    });
+    r.__gwFarmerPaletteCache.set(cacheKey, frames);
+    return frames;
+  }
+
+  function applyFarmerPalette(r, k, farmer) {
     const sprite = farmer?._sprite;
-    if (sprite && !sprite.destroyed) sprite.tint = 0xffffff;
+    if (!sprite || sprite.destroyed || !k?.alive) return;
+    farmer.__gwKingdom = k;
+    const action = sprite._action || 'idle';
+    if (farmer.__gwPaletteAction === action && farmer.__gwPaletteKingdom === k.id) return;
+    const frames = farmerFrames(r, k, action);
+    if (frames?.length) sprite.textures = frames;
+    sprite.tint = 0xffffff;
+    farmer.__gwPaletteAction = action;
+    farmer.__gwPaletteKingdom = k.id;
   }
 
   function repairBuildingVisual(r, k, b) {
@@ -39,18 +78,11 @@
     if (b._shadow) { b._shadow.visible = false; b._shadow.alpha = 0; }
     const sprite = b._sprite;
     if (!sprite || sprite.destroyed) return;
-    try {
-      const texture = r.getBuildingTexture?.(k, b.type);
-      if (texture?.width > 0 && texture?.height > 0) sprite.texture = texture;
-    } catch (error) {
-      recordRuntimeError('building-texture', error);
-    }
+    // The stable renderer already owns kingdom-specific building textures.
+    // Do not replace them here: this layer only guarantees final visibility/depth.
     sprite.visible = true;
     sprite.renderable = true;
-    sprite.tint = 0xffffff;
-    sprite.alpha = Math.max(0.28, Number(sprite.alpha) || 0);
-    sprite.anchor?.set?.(0.5, 1);
-    sprite.y = Math.round(b.sy + (b.type === 'farm' ? 0 : 1));
+    sprite.alpha = 1;
     sprite.zIndex = Math.round(b.sy * 100) + 20;
     sprite.roundPixels = true;
   }
@@ -58,7 +90,7 @@
   function repairKingdomVisuals(r, k) {
     if (!k?.alive) return;
     for (const b of k.buildings || []) repairBuildingVisual(r, k, b);
-    for (const farmer of k.farmers || []) keepCivilianNeutral(farmer);
+    for (const farmer of k.farmers || []) applyFarmerPalette(r, k, farmer);
     if (r.entities) r.entities.sortDirty = true;
   }
 
@@ -102,7 +134,32 @@
     if (baseAddFarmer) {
       r.addFarmer = async function (k, farmer) {
         const result = await baseAddFarmer(k, farmer);
-        keepCivilianNeutral(farmer);
+        applyFarmerPalette(r, k, farmer);
+        return result;
+      };
+    }
+
+    const baseSetFarmerAction = typeof r.setFarmerAction === 'function' ? r.setFarmerAction.bind(r) : null;
+    if (baseSetFarmerAction) {
+      r.setFarmerAction = function (farmer, action) {
+        const result = baseSetFarmerAction(farmer, action);
+        if (farmer?.__gwKingdom) {
+          farmer.__gwPaletteAction = null;
+          applyFarmerPalette(r, farmer.__gwKingdom, farmer);
+        }
+        return result;
+      };
+    }
+
+    const baseUpdateFarmer = typeof r.updateFarmer === 'function' ? r.updateFarmer.bind(r) : null;
+    if (baseUpdateFarmer) {
+      r.updateFarmer = function (farmer, dx, dy) {
+        const previousAction = farmer?._sprite?._action;
+        const result = baseUpdateFarmer(farmer, dx, dy);
+        if (farmer?.__gwKingdom && farmer?._sprite?._action !== previousAction) {
+          farmer.__gwPaletteAction = null;
+          applyFarmerPalette(r, farmer.__gwKingdom, farmer);
+        }
         return result;
       };
     }

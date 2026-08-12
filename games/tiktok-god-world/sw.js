@@ -1,4 +1,4 @@
-const CACHE = 'god-world-stable-integrated-map-style-2';
+const CACHE = 'god-world-stable-integrated-island-style-3';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',

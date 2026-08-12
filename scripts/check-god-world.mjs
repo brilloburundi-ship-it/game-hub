@@ -19,7 +19,7 @@ if (version.marker !== 'god-world-stable-integrated-single-authority') throw new
 if (!index.includes('STABLE INTEGRATED')) throw new Error('Visible stable identity missing');
 if (index.includes(' autoplay')) throw new Error('Music must not autoplay');
 if (!/id="bgMusic"[^>]*preload="metadata"/.test(index)) throw new Error('Music preload must remain metadata');
-if (!sw.includes("const CACHE = 'god-world-stable-integrated-map-style-2'")) throw new Error('New map cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-stable-integrated-island-style-3'")) throw new Error('Island map cache marker missing');
 
 const expectedScripts = [
   'asset-recovery.js','game.js','tree-depth.js','lan-bridge.js','interface-v63.js','world-effects.js','music.js',
@@ -58,9 +58,13 @@ if (living.includes('isLake') || living.includes('isFreshWater') || living.inclu
 
 if (!safeFrame.includes("const VERSION = 'stable-v66-safe-frame'")) throw new Error('Safe V6.6 frame missing');
 if (!safeFrame.includes("const STARTER_BUILDINGS = ['house_a', 'house_b', 'farm']")) throw new Error('Starter village must be two houses plus farm');
-if (!safeFrame.includes('keepCivilianNeutral')) throw new Error('Neutral civilian safeguard missing');
-if (!safeFrame.includes('sprite.tint = 0xffffff')) throw new Error('Civilian/building neutral tint repair missing');
+if (!safeFrame.includes('applyFarmerPalette')) throw new Error('Kingdom farmer palette integration missing');
+if (!safeFrame.includes('recolorFarmerCanvas')) throw new Error('Farmer palette recoloring missing');
+if (!safeFrame.includes('__gwFarmerPaletteCache')) throw new Error('Farmer palette cache missing');
+if (safeFrame.includes('keepCivilianNeutral')) throw new Error('Farmers must no longer be forced neutral');
 if (!safeFrame.includes('repairBuildingVisual')) throw new Error('Building visibility repair missing');
+if (!safeFrame.includes('sprite.visible = true') || !safeFrame.includes('sprite.alpha = 1')) throw new Error('Building sprites must be forced visible without replacing their stable textures');
+if (!safeFrame.includes('Do not replace them here')) throw new Error('Stable building texture ownership must remain in the base renderer');
 if (!safeFrame.includes('installPostJoinPresentation')) throw new Error('Post-JOIN presentation integration missing');
 if (!safeFrame.includes("document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame'")) throw new Error('Safe battle marker missing');
 if (!safeFrame.includes('infrastructure-required')) throw new Error('Military infrastructure gate missing');
@@ -75,6 +79,14 @@ if (world.gridW !== 88 || world.gridH !== 64) throw new Error(`Map must be 88x64
 if (world.mapWidth !== 3900 || world.mapHeight !== 1900) throw new Error(`Map canvas must be 3900x1900, found ${world.mapWidth}x${world.mapHeight}`);
 if (world.tileW !== 40 || world.tileH !== 20) throw new Error('Original 40x20 isometric tile style changed');
 if (world.version !== 'organic-v4-expanded-same-style') throw new Error(`Same-style map marker missing: ${world.version}`);
+const landCount = world.land.flat().reduce((sum, cell) => sum + Number(cell || 0), 0);
+if (landCount < 2200 || landCount > 3000) throw new Error(`Island silhouette out of range: ${landCount} land cells`);
+for (let x=0; x<world.gridW; x++) {
+  if (world.land[0][x] || world.land[world.gridH-1][x]) throw new Error('Island map must keep ocean on the outer top/bottom border');
+}
+for (let y=0; y<world.gridH; y++) {
+  if (world.land[y][0] || world.land[y][world.gridW-1]) throw new Error('Island map must keep ocean on the outer left/right border');
+}
 if (!Array.isArray(world.rivers) || world.rivers.length < 4) throw new Error('Expanded world needs several rivers');
 
 const allowedBiomes = new Set(['ocean','forest','grass','desert','beach','mountain','tundra','ice_coast']);
@@ -96,7 +108,7 @@ for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
     }
   }
 }
-if (components < 4) throw new Error(`Expected main landmass plus islets, found ${components} land components`);
+if (components < 4) throw new Error(`Expected main island plus islets, found ${components} land components`);
 
 const oceanSeen = new Set();
 const queue = [];
@@ -129,6 +141,7 @@ for (const marker of [
   "'desert':((221,190,126),(202,166,102))"
 ]) if (!generator.includes(marker)) throw new Error(`Original visual palette marker missing: ${marker}`);
 if (!generator.includes('GW,GH=88,64') || !generator.includes('MAP_W=3900') || !generator.includes('MAP_H=1900')) throw new Error('Expanded same-style generator dimensions missing');
+if (!generator.includes('Guarantee visible sea around every side of the main island')) throw new Error('Island silhouette guard missing');
 if (generator.includes('world-bootstrap') || generator.includes('window.') || generator.includes('fetch(')) throw new Error('Map generator must stay build-time/static only');
 
 const pkg = JSON.parse(packageJson);
@@ -145,4 +158,4 @@ for (const match of shellMatch[1].matchAll(/'([^']+)'/g)) {
   if (match[1] !== './') await access(resolve(gameRoot,match[1]));
 }
 
-console.log(`TikTok God World stable: unchanged core, same-style 88x64 static map, ${interiorWater} lake cells, ${components-1} islets, ${world.rivers.length} rivers, ${vegetation.trees.length} source trees, starter village and neutral civilians OK`);
+console.log(`TikTok God World stable: unchanged core, island-shaped same-style 88x64 static map, ${interiorWater} lake cells, ${components-1} islets, ${world.rivers.length} rivers, ${vegetation.trees.length} source trees, starter village, visible buildings and kingdom-colored farmers OK`);
