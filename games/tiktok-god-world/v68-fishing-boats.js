@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const VERSION='v68-fishing-boats-2',FRAME=64;
+const VERSION='v68-fishing-boats-3',FRAME=64,SORT_INTERVAL=.12;
 if(window.__V68_FISHING_BOATS?.installed)return;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms)),rand=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),key=(x,y)=>`${x},${y}`;
 function atlasUrl(){return String(window.__V68_FISHING_ATLAS||'').replace('QPVw+G8Usj','QPVw+G+8Usj').replace('EntRdBPIKwTCAH','EntRdBPIKwqTCAH');}
@@ -54,9 +54,9 @@ async function install(){
    if(boat.state==='fishing'){setFrame(boat,0,4,.42);boat.fishClock-=dt;if(boat.fishClock<=0){boat.route=[...boat.route].reverse();boat.routeIndex=1;boat.state='returning';boat.animClock=0;}return;}
    if(boat.state==='returning'){setFrame(boat,4,4,.18);if(move(boat,boat.route,dt,19)){boat.state='docked';boat.wait=rand(5,10);boat.animClock=0;const [x,y]=worldPoint(sim,boat.home);position(boat,x,y);}}
  }
- let scan=0;renderer.app.ticker.add(()=>{const dt=Math.min(.05,renderer.app.ticker.deltaMS/1000);scan-=dt;if(scan<=0){scan=1;for(const k of sim.kingdoms||[]){if(!k?.alive)continue;const port=(k.buildings||[]).find(b=>b.type==='port'&&!b.__v66Destroyed),existing=boats.get(k.id);if(!existing&&port?._sprite?.visible&&port?._sprite?.renderable)spawn(k,port);else if(existing&&existing.port!==port)destroy(existing);}}for(const boat of [...boats.values()])update(boat,dt);if(renderer.entities?.sortableChildren)renderer.entities.sortDirty=true;});
+ let scan=0,sortClock=0;renderer.app.ticker.add(()=>{const dt=Math.min(.05,renderer.app.ticker.deltaMS/1000);scan-=dt;if(scan<=0){scan=1;for(const k of sim.kingdoms||[]){if(!k?.alive)continue;const port=(k.buildings||[]).find(b=>b.type==='port'&&!b.__v66Destroyed),existing=boats.get(k.id);if(!existing&&port?._sprite?.visible&&port?._sprite?.renderable)spawn(k,port);else if(existing&&existing.port!==port)destroy(existing);}}for(const boat of [...boats.values()])update(boat,dt);sortClock+=dt;if(boats.size&&renderer.entities?.sortableChildren&&sortClock>=SORT_INTERVAL){sortClock=0;renderer.entities.sortDirty=true;}});
  const api=window.TikTokGodWorld=window.TikTokGodWorld||{};api.destroyFishingBoat=ref=>{let k=null;if(Number.isInteger(ref))k=sim.kingdoms?.[ref];else{const n=String(ref??'').toLowerCase();k=sim.kingdomByName?.get(n)||sim.kingdoms?.find(x=>String(x.name).toLowerCase()===n);}const b=k?boats.get(k.id):null;if(b)destroy(b);return!!b;};
- renderer.__v68FishingBoats=boats;window.__V68_FISHING_BOATS={installed:true,version:VERSION,onePerPort:true,seaOnly:true,fishingLoop:true,returnToPort:true,destructionFrames:true,kingdomColor:true,farmGroundSquareHidden:true,atlasBytes:11437,atlasRepair:true};document.documentElement.dataset.fishingBoats=VERSION;
+ renderer.__v68FishingBoats=boats;window.__V68_FISHING_BOATS={installed:true,version:VERSION,onePerPort:true,seaOnly:true,fishingLoop:true,returnToPort:true,destructionFrames:true,kingdomColor:true,farmGroundSquareHidden:true,atlasBytes:11437,atlasRepair:true,sortEveryFrame:false,sortInterval:SORT_INTERVAL};document.documentElement.dataset.fishingBoats=VERSION;
 }
 install().catch(e=>{window.__V68_FISHING_BOATS_ERROR=String(e?.message||e);console.error('[v68-fishing-boats]',e);});
 })();
