@@ -37,7 +37,7 @@
         } catch (_) {}
       }
       r.__v66Guards?.set(k.id, []);
-      r.__v66NextSpawn?.set(k.id, Number.POSITIVE_INFINITY);
+      r.__v66NextSpawn?.set(k.id, (Number(r.__v66Clock) || 0) + 0.5);
     }
   }
 
