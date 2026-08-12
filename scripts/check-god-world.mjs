@@ -6,13 +6,14 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCameraFishing, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
   read('tree-depth.js'),
   read('v706-world-polish.js'),
   read('v707-gameplay-polish.js'),
+  read('v708-water-camera-fishing.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -20,9 +21,10 @@ const version = JSON.parse(versionText);
 if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
 if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v7-0-7-civics-outside-buildai'")) throw new Error('V7.0.7 outside-buildAI cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-0-8-water-camera-two-boats'")) throw new Error('V7.0.8 water/camera/two-boats cache marker missing');
 if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
 if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-3'")) throw new Error('V7.0.7 outside-buildAI runtime marker missing');
+if (!waterCameraFishing.includes("const VERSION = 'v708-water-camera-two-boats-1'")) throw new Error('V7.0.8 water/camera/two-boats runtime marker missing');
 if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
@@ -54,7 +56,8 @@ const expectedScripts = [
   'v68-fishing-asset.js',
   'v68-fishing-boats.js',
   'v70-war-peace-cleanup.js',
-  'v707-gameplay-polish.js'
+  'v707-gameplay-polish.js',
+  'v708-water-camera-fishing.js'
 ];
 
 for (const file of expectedScripts) {
@@ -90,6 +93,17 @@ if (!gameplayPolish.includes('outsideBuildAI: true')) throw new Error('Outside-b
 if (gameplayPolish.includes('sim.buildAI =') || gameplayPolish.includes('originalBuildAI')) throw new Error('Gameplay polish must never wrap or replace the original buildAI');
 if (!gameplayPolish.includes('removeWeaponOverlay')) throw new Error('Drawn-spear removal marker missing');
 
+if (!waterCameraFishing.includes('const BOATS_PER_PORT = 2')) throw new Error('Each port must support exactly two fishing boats');
+if (!waterCameraFishing.includes('const FISH_FOOD_PER_TRIP = 10')) throw new Error('Fishing return food reward missing');
+if (!waterCameraFishing.includes('installWideRivers')) throw new Error('Wide river overlay missing');
+if (!waterCameraFishing.includes('width: 15') || !waterCameraFishing.includes('width: 10')) throw new Error('Layered wider river strokes missing');
+if (!waterCameraFishing.includes('installOceanBackdrop')) throw new Error('Ocean backdrop effect missing');
+if (!waterCameraFishing.includes('installCameraClamp')) throw new Error('Camera bounds clamp missing');
+if (!waterCameraFishing.includes('clamp(r.root.x, minX, 0)')) throw new Error('Pixi camera may still pan outside world bounds');
+if (!waterCameraFishing.includes('installSecondFishingBoat')) throw new Error('Second fishing boat system missing');
+if (!waterCameraFishing.includes('fishingRoute')) throw new Error('Second boat sea fishing route missing');
+if (!waterCameraFishing.includes('rewardReturnedTrip')) throw new Error('Fishing boats must deliver food after returning to port');
+
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
 
@@ -118,4 +132,4 @@ for (const atlasPart of [
   if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
 }
 
-console.log('TikTok God World: stable original buildAI + independent free founding civics + worker/combat polish stack OK');
+console.log('TikTok God World: stable buildAI + water polish + bounded camera + two fishing boats per port OK');
