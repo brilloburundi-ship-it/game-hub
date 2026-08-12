@@ -7,9 +7,9 @@
     'pine-snow': 'assets/vegetation/pine-snow.png',
     round: 'assets/vegetation/round.png'
   };
-  const MAX_WORLD_TREES = 96;
-  const MIN_CELL_GAP = 2.15;
-  const MIN_TARGET_TREES = 72;
+  const MAX_WORLD_TREES = 220;
+  const MIN_CELL_GAP = 1.45;
+  const MIN_TARGET_TREES = 170;
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
@@ -23,9 +23,6 @@
   const waitForRenderer = async () => {
     for (let i = 0; i < 1200; i++) {
       const renderer = window.__SIM?.r;
-      // Start only after the base game has finished its own initialization and
-      // neutral settlements have been placed. Vegetation remains non-blocking,
-      // but no longer competes with the critical startup path.
       if (renderer?.entities && window.PIXI && window.TikTokGodWorld) return renderer;
       await sleep(50);
     }
@@ -45,7 +42,11 @@
       if (!current || hashCell(cx, cy) < hashCell(current.cell[0] + 3, current.cell[1] + 7)) unique.set(k, tree);
     }
 
-    const candidates = [...unique.values()].sort((a, b) => hashCell(a.cell[0], a.cell[1]) - hashCell(b.cell[0], b.cell[1]));
+    const biomeRank = tree => {
+      const b = sim.biome?.(tree.cell[0], tree.cell[1]);
+      return b === 'forest' ? 0 : b === 'tundra' ? 1 : 2;
+    };
+    const candidates = [...unique.values()].sort((a, b) => biomeRank(a) - biomeRank(b) || hashCell(a.cell[0], a.cell[1]) - hashCell(b.cell[0], b.cell[1]));
     const selected = [];
     for (const tree of candidates) {
       const [x, y] = tree.cell;
@@ -107,17 +108,17 @@
     }
 
     renderer.depthTreesByCell = byCell;
-    renderer.prepareBuildSite = async (kingdom, x, y, battleSim = sim) => {
+    renderer.prepareBuildSite = async (kingdom, x, y, battleSim = sim, instant = false) => {
       const k = cellKey(x, y);
       const trees = (byCell.get(k) || []).filter(sprite => !sprite.destroyed);
       if (!trees.length) return;
 
       const worker = (kingdom.farmers || []).find(f => !f.fixedBuilding && f._sprite);
-      if (worker) {
+      if (worker && !instant) {
         worker.action = 'chop_wood';
         worker.actionUntil = battleSim.age + 0.3;
         renderer.setFarmerAction?.(worker, 'chop_wood');
-        await sleep(90);
+        await sleep(70);
       }
 
       for (const sprite of trees) {
@@ -131,7 +132,7 @@
       }
       byCell.delete(k);
       kingdom.resources.wood += trees.length * 3;
-      if (worker) {
+      if (worker && !instant) {
         worker.action = 'idle';
         worker.actionUntil = 0;
         renderer.setFarmerAction?.(worker, 'idle');
@@ -140,11 +141,10 @@
 
     renderer.entities.sortDirty = true;
     renderer.__depthTreesInstalled = true;
-    window.__TREE_DEPTH_READY = { count: inserted, sourceCount: (data.trees || []).length, version: 'sparse-v4-nonblocking' };
-    document.documentElement.dataset.treeDepth = `sparse-v4:${inserted}`;
+    window.__TREE_DEPTH_READY = { count: inserted, sourceCount: (data.trees || []).length, version: 'single-tree-large-world-v1' };
+    document.documentElement.dataset.treeDepth = `single-tree-large:${inserted}`;
   };
 
-  // Vegetation is visual support only. JOIN/building creation must never wait for it.
   window.__TREE_DEPTH_PROMISE = null;
   window.__TREE_DEPTH_LOADING = install().catch(error => {
     window.__TREE_DEPTH_ERROR = String(error?.message || error);
