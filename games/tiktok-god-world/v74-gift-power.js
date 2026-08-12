@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v74-gift-power-1';
+  const VERSION = 'v74-gift-power-2';
   const BUFF_SECONDS = 90;
   if (window.__V74_GIFT_POWER?.installed) return;
 
@@ -46,6 +46,29 @@
     }
   }
 
+  function suppressSyntheticArmy(v71) {
+    const map = v71?.powerArmyVisuals;
+    if (!(map instanceof Map) || !map.size) return;
+    for (const [key, arr] of [...map]) {
+      if (!Array.isArray(arr) || !arr.length) continue;
+      let hadReal = false;
+      for (const unit of arr) {
+        const sprite = unit?.s;
+        if (!sprite || sprite.destroyed) continue;
+        hadReal = true;
+        try { sprite.removeFromParent?.(); } catch (_) {}
+        try { if (!sprite.destroyed) sprite.destroy({ children: true }); } catch (_) {
+          try { if (!sprite.destroyed) sprite.destroy(); } catch (_) {}
+        }
+      }
+      if (hadReal) {
+        // Keep only lightweight placeholders so V7.1 preserves its bookkeeping
+        // without recreating a second animated army on top of the real V6.6 guards.
+        map.set(key, Array.from({ length: arr.length }, () => ({ __v74Virtual: true })));
+      }
+    }
+  }
+
   async function install() {
     for (let i = 0; i < 2200; i++) {
       const sim = window.__SIM;
@@ -55,7 +78,8 @@
 
     const sim = window.__SIM;
     const renderer = sim?.r;
-    if (!sim || !renderer || typeof sim.gift !== 'function') return;
+    const v71 = window.__V71_SURGICAL_FIXES;
+    if (!sim || !renderer || typeof sim.gift !== 'function' || !v71?.installed) return;
 
     const previousGift = sim.gift.bind(sim);
     sim.gift = async function(name, giftName, repeat = 1, meta = {}) {
@@ -75,18 +99,20 @@
       kingdom.__v74TroopStrengthUntil = Math.max(Number(kingdom.__v74TroopStrengthUntil || 0), this.age + BUFF_SECONDS);
       applyStrengthToGuards(renderer, kingdom, kingdom.__v74TroopStrength);
 
-      // The existing living-battle population already grows with military power.
-      // Wake its reinforcement scheduler so the extra soldiers appear naturally.
+      // Existing real guards scale with military power. Wake their normal
+      // reinforcement scheduler instead of spawning a second visual army.
       renderer.__v66NextSpawn?.set?.(kingdom.id, 0);
       renderer.supportFx?.(kingdom, '⚔️', clamp(Math.round(3 + powerBonus / 35), 3, 10));
       this.updateSelected?.();
       return result;
     };
 
-    // Once per second is enough to give newly spawned reinforcements the active
-    // gift-strength bonus; this deliberately avoids another render-frame ticker.
+    // Low-frequency maintenance only: no extra render ticker. It both applies a
+    // strength bonus to newly spawned real guards and removes V7.1 synthetic army
+    // sprites that were the expensive/teleporting duplicate representation.
     const timer = setInterval(() => {
       if (!window.__SIM || document.hidden) return;
+      suppressSyntheticArmy(v71);
       for (const kingdom of sim.kingdoms || []) {
         if (!kingdom?.alive) continue;
         if (Number(kingdom.__v74TroopStrengthUntil || 0) <= Number(sim.age || 0)) {
@@ -95,7 +121,7 @@
         }
         applyStrengthToGuards(renderer, kingdom, Number(kingdom.__v74TroopStrength || 0));
       }
-    }, 1000);
+    }, 500);
 
     window.__V74_GIFT_POWER = {
       installed: true,
@@ -104,6 +130,9 @@
       giftAddsMilitaryPower: true,
       giftStrengthensTroops: true,
       militaryPowerFeedsExistingReinforcements: true,
+      syntheticArmyDisabled: true,
+      realGuardsOnly: true,
+      teleportingDuplicateArmyRemoved: true,
       buffSeconds: BUFF_SECONDS,
       timer
     };
