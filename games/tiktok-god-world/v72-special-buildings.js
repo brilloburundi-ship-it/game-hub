@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v72-normal-special-buildings-3';
+  const VERSION = 'v72-normal-special-buildings-4';
   const BUILD_COOLDOWN = 6;
   const SPECIAL_ROLL = 0.10;
   const SPECIAL_RETRY = 8;
@@ -32,14 +32,22 @@
     const farms = countType(k, 'farm');
     const houses = houseCount(k);
     const territory = Number(k.territory?.size || 0);
+    const watchtowers = countType(k, 'watchtower');
+    const stoneTowers = countType(k, 'stone_tower');
+    const totalTowers = watchtowers + stoneTowers;
+    const towerLimit = territory >= 36 ? 2 : 1;
     const list = [];
 
-    // These remain normal AI buildings: they are simply rarer than houses,
-    // farms, warehouses and markets and use the normal single-cell finder.
+    // Special structures remain normal AI buildings, but towers are deliberately
+    // rare and hard-capped so settlements do not turn into forests of towers.
     if (farms >= 2) list.push({ type: 'windmill', weight: 3, cost: { wood: 82, stone: 34, gold: 8 } });
     if (houses >= 3 && Number(k.pop || 0) >= 10) list.push({ type: 'church', weight: 2, cost: { wood: 95, stone: 48, gold: 12 } });
-    if (territory >= 12) list.push({ type: 'watchtower', weight: 3, cost: { wood: 82, stone: 38, gold: 6 } });
-    if (territory >= 18) list.push({ type: 'stone_tower', weight: 2, cost: { wood: 45, stone: 72, gold: 10 } });
+    if (territory >= 14 && totalTowers < towerLimit && watchtowers < 1) {
+      list.push({ type: 'watchtower', weight: 0.9, cost: { wood: 88, stone: 42, gold: 8 } });
+    }
+    if (territory >= 28 && totalTowers < towerLimit && stoneTowers < 1) {
+      list.push({ type: 'stone_tower', weight: 0.55, cost: { wood: 52, stone: 82, gold: 12 } });
+    }
     if (Number(k.pop || 0) >= 14) list.push({ type: 'forge', weight: 2, cost: { wood: 92, stone: 48, gold: 10 } });
     if (farms >= 2) list.push({ type: 'silo', weight: 2, cost: { wood: 78, stone: 30, gold: 6 } });
     return list.filter(entry => affordable(k, entry.cost));
@@ -89,6 +97,9 @@
       deterministicScannersRemoved: true,
       specialRoll: SPECIAL_ROLL,
       towersBuildable: true,
+      towerCapSmallKingdom: 1,
+      towerCapLargeKingdom: 2,
+      largeKingdomTerritoryThreshold: 36,
       windmillsBuildable: true,
       churchesBuildable: true,
       noExtraTicker: true,
