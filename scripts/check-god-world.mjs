@@ -6,62 +6,21 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, runtime, treeDepth, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
-  read('runtime-v68.js'),
+  read('version.json'),
   read('tree-depth.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
-const obsolete = [
-  'living-kingdoms-v65.js',
-  'v651-ground-contact.js',
-  'v66-living-battles.js',
-  'v661-battle-stability.js',
-  'v67-siege-legions.js',
-  'v671-mobile-stability.js',
-  'v672-join-hotfix.js'
-];
+const version = JSON.parse(versionText);
+if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable version, found ${version.version}`);
+if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable marker missing');
+if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
+if (!sw.includes("const CACHE = 'god-world-v6-6-2-startup-recovery'")) throw new Error('V6.6.2 service-worker cache marker missing');
 
-for (const file of obsolete) {
-  if (index.includes(file)) throw new Error(`Obsolete God World patch still loaded by index.html: ${file}`);
-  if (sw.includes(file)) throw new Error(`Obsolete God World patch still cached by sw.js: ${file}`);
-}
-
-const runtimeLoads = (index.match(/runtime-v68\.js/g) || []).length;
-if (runtimeLoads !== 1) throw new Error(`runtime-v68.js must be loaded exactly once, found ${runtimeLoads}`);
-if (!index.includes('V6.8 CONSOLIDATED')) throw new Error('V6.8 consolidated UI marker missing');
-if (!/const\s+VERSION\s*=\s*['"]6\.8-consolidated-runtime['"]/.test(runtime)) throw new Error('V6.8 runtime marker missing');
-if (/id=["']bgMusic["'][^>]*\bautoplay\b/i.test(index)) throw new Error('Background music must not autoplay during JOIN/startup');
-if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('Vegetation must not block JOIN/building creation');
-if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('Vegetation background loading marker missing');
-if (!sw.includes("'lan-bridge.js'")) throw new Error('Service worker shell must cache lan-bridge.js');
-
-const definitions = [
-  [/sim\.addBuilding\s*=\s*async\s+function/g, 'sim.addBuilding'],
-  [/sim\.population\s*=\s*async\s+function/g, 'sim.population'],
-  [/sim\.buildAI\s*=\s*async\s+function/g, 'sim.buildAI'],
-  [/sim\.join\s*=\s*function/g, 'sim.join'],
-  [/sim\.gift\s*=\s*function/g, 'sim.gift'],
-  [/sim\.resolveWars\s*=\s*function/g, 'sim.resolveWars'],
-  [/r\.updateWars\s*=\s*function/g, 'r.updateWars'],
-  [/r\.damageBuilding\s*=\s*(?:function|[^;\n]*=>)/g, 'r.damageBuilding'],
-  [/r\.destroyBuilding\s*=\s*function/g, 'r.destroyBuilding'],
-  [/r\.redrawSettlementGround\s*=\s*function/g, 'r.redrawSettlementGround']
-];
-for (const [pattern, label] of definitions) {
-  const count = (runtime.match(pattern) || []).length;
-  if (count !== 1) throw new Error(`Consolidated runtime must define ${label} exactly once, found ${count}`);
-}
-
-if (!runtime.includes('__v68ScaleTimer')) throw new Error('Delayed large-prefab scale guard missing');
-if (runtime.includes('setInterval(')) throw new Error('Consolidated runtime must not introduce recurring setInterval loops');
-
-const pkg = JSON.parse(packageJson);
-if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
-
-const jsFiles = [
+const expectedScripts = [
   'asset-recovery.js',
   'game.js',
   'tree-depth.js',
@@ -69,11 +28,39 @@ const jsFiles = [
   'interface-v63.js',
   'world-effects.js',
   'music.js',
-  'runtime-v68.js',
-  'sw.js'
+  'living-kingdoms-v65.js',
+  'v651-ground-contact.js',
+  'v66-living-battles.js',
+  'v661-battle-stability.js'
 ];
+
+for (const file of expectedScripts) {
+  const loads = (index.match(new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+  if (loads !== 1) throw new Error(`${file} must be loaded exactly once by the V6.6.2 stable index, found ${loads}`);
+}
+
+const forbiddenLaterLayers = [
+  'v67-siege-legions.js',
+  'v671-mobile-stability.js',
+  'v672-join-hotfix.js',
+  'runtime-v68.js',
+  'test-hotfix-v681.js'
+];
+for (const file of forbiddenLaterLayers) {
+  if (index.includes(file)) throw new Error(`Post-V6.6.2 layer must not be loaded: ${file}`);
+  if (sw.includes(file)) throw new Error(`Post-V6.6.2 layer must not be cached: ${file}`);
+}
+
+if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('V6.6.2 vegetation must remain non-blocking during JOIN/building creation');
+if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('V6.6.2 vegetation background loading marker missing');
+
+const pkg = JSON.parse(packageJson);
+if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
+
+const jsFiles = [...expectedScripts, 'sw.js'];
 for (const file of jsFiles) {
   const full = resolve(gameRoot, file);
+  await access(full);
   const check = spawnSync(process.execPath, ['--check', full], { encoding: 'utf8' });
   if (check.status !== 0) throw new Error(`Invalid JavaScript in ${file}:\n${check.stderr || check.stdout}`);
 }
@@ -86,14 +73,4 @@ for (const entry of shellEntries) {
   await access(resolve(gameRoot, entry));
 }
 
-for (const asset of [
-  'assets/vfx/fire-sheet.svg',
-  'assets/vfx/blood-sheet.svg',
-  'assets/vfx/impact-sheet.svg',
-  'assets/vfx/destruction-sheet.svg',
-  'assets/vegetation/pine.png',
-  'assets/vegetation/pine-snow.png',
-  'assets/vegetation/round.png'
-]) await access(resolve(gameRoot, asset));
-
-console.log('TikTok God World V6.8: one runtime, syntax, critical ownership, cache shell, assets and non-blocking JOIN checks OK');
+console.log('TikTok God World V6.6.2 STABLE: exact runtime stack, syntax, cache shell and non-blocking startup checks OK');
