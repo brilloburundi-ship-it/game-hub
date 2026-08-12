@@ -6,7 +6,7 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCameraFishing, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCameraFishing, waterPalette, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
@@ -14,6 +14,7 @@ const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCame
   read('v706-world-polish.js'),
   read('v707-gameplay-polish.js'),
   read('v708-water-camera-fishing.js'),
+  read('v709-water-palette.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -21,10 +22,11 @@ const version = JSON.parse(versionText);
 if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
 if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v7-0-8-water-camera-two-boats'")) throw new Error('V7.0.8 water/camera/two-boats cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-0-9-unified-water-palette'")) throw new Error('V7.0.9 unified-water cache marker missing');
 if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
 if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-3'")) throw new Error('V7.0.7 outside-buildAI runtime marker missing');
 if (!waterCameraFishing.includes("const VERSION = 'v708-water-camera-two-boats-1'")) throw new Error('V7.0.8 water/camera/two-boats runtime marker missing');
+if (!waterPalette.includes("const VERSION = 'v709-unified-water-palette-1'")) throw new Error('V7.0.9 unified-water runtime marker missing');
 if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
@@ -57,7 +59,8 @@ const expectedScripts = [
   'v68-fishing-boats.js',
   'v70-war-peace-cleanup.js',
   'v707-gameplay-polish.js',
-  'v708-water-camera-fishing.js'
+  'v708-water-camera-fishing.js',
+  'v709-water-palette.js'
 ];
 
 for (const file of expectedScripts) {
@@ -104,6 +107,11 @@ if (!waterCameraFishing.includes('installSecondFishingBoat')) throw new Error('S
 if (!waterCameraFishing.includes('fishingRoute')) throw new Error('Second boat sea fishing route missing');
 if (!waterCameraFishing.includes('rewardReturnedTrip')) throw new Error('Fishing boats must deliver food after returning to port');
 
+if (!waterPalette.includes('recolorTerrain')) throw new Error('Unified-water terrain recolor missing');
+if (!waterPalette.includes('recolorBackdrop')) throw new Error('Unified-water backdrop recolor missing');
+if (!waterPalette.includes('0x2f7898')) throw new Error('Sea must use the same primary blue as the river');
+if (!waterPalette.includes('0x4e9fba') || !waterPalette.includes('0x8bc5d2')) throw new Error('Sea highlight palette must match river layers');
+
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
 
@@ -132,4 +140,4 @@ for (const atlasPart of [
   if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
 }
 
-console.log('TikTok God World: stable buildAI + water polish + bounded camera + two fishing boats per port OK');
+console.log('TikTok God World: stable buildAI + unified river/sea palette + bounded camera + two fishing boats per port OK');
