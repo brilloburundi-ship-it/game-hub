@@ -1,7 +1,7 @@
-const CACHE = 'god-world-v6-8-2-single-test';
+const CACHE = 'god-world-stable-core-1';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'runtime-v68.js', 'test-hotfix-v681.js', 'tree-depth.js', 'lan-bridge.js',
-  'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
+  './', 'index.html', 'styles.css', 'asset-recovery.js', 'game.js', 'tree-depth.js', 'lan-bridge.js',
+  'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
   'assets/map/world.json', 'assets/map/world.png', 'assets/map/vegetation.json', 'assets/buildings/manifest.json', 'assets/npc/manifest.json', 'assets/vfx/manifest.json',
   'assets/vegetation/pine.png', 'assets/vegetation/pine-snow.png', 'assets/vegetation/round.png',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
