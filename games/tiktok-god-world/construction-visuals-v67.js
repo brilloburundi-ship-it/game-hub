@@ -26,9 +26,7 @@
   function ensureStageAssets(r) {
     if (r.__gwConstructionAssetPromise) return r.__gwConstructionAssetPromise;
     r.__gwConstructionAssetPromise = Promise.all(STAGES.map(loadImage)).then(images => {
-      if (r.P?.Texture?.from) {
-        return { images, textures: images.map(image => r.P.Texture.from(image)) };
-      }
+      if (r.P?.Texture?.from) return { images, textures: images.map(image => r.P.Texture.from(image)) };
       return { images, textures: null };
     }).catch(error => {
       console.error('[God World construction assets]', error);
@@ -37,13 +35,24 @@
     return r.__gwConstructionAssetPromise;
   }
 
+  function hideGroundHelpers(b) {
+    if (b?._foundation) { b._foundation.visible = false; b._foundation.alpha = 0; }
+    if (b?._shadow) { b._shadow.visible = false; b._shadow.alpha = 0; }
+  }
+
   function showFinalBuilding(r, b) {
     if (!b || b.__v66Destroyed || b.hp <= 0) return;
+    hideGroundHelpers(b);
     const sp = b._sprite;
     if (sp && !sp.destroyed) {
+      try {
+        const stableTexture = r.buildTex?.[b.type] || r.buildTex?.house_a;
+        if (stableTexture && Number(stableTexture.width) > 0 && Number(stableTexture.height) > 0) sp.texture = stableTexture;
+      } catch (_) {}
       sp.visible = true;
       sp.renderable = true;
       sp.alpha = 1;
+      sp.tint = 0xffffff;
       sp.zIndex = Math.round(b.sy * 100) + 20;
       sp.roundPixels = true;
     }
@@ -56,7 +65,9 @@
   }
 
   function hideFinalBuilding(r, b) {
-    const sp = b?._sprite;
+    if (!b || b.__gwConstructionDone) return;
+    hideGroundHelpers(b);
+    const sp = b._sprite;
     if (sp && !sp.destroyed) sp.visible = false;
     if (Array.isArray(r.entities)) {
       const entity = r.entities.find(entry => entry?.b === b);
@@ -85,9 +96,11 @@
     const duration = instant ? 180 : (b.type === 'castle' ? 390 : 520);
     for (let i = 0; i < textures.length; i++) {
       if (b.__v66Destroyed || b.hp <= 0) break;
+      hideFinalBuilding(r, b);
       setTexture(textures[i]);
       stage.alpha = .82;
       await sleep(Math.max(70, duration * .28));
+      hideFinalBuilding(r, b);
       stage.alpha = 1;
       await sleep(Math.max(90, duration * .72));
     }
@@ -100,15 +113,14 @@
   async function playCanvasConstruction(r, b, images, instant) {
     if (!images?.length || !Array.isArray(r.entities)) return false;
     const finalEntity = r.entities.find(entry => entry?.b === b);
-    const scaleFor = image => typeof r.buildingScale === 'function'
-      ? r.buildingScale(b.type, image, .94)
-      : .42;
+    const scaleFor = image => typeof r.buildingScale === 'function' ? r.buildingScale(b.type, image, .94) : .42;
     const stage = { type: 'building', img: images[0], x: b.sx, y: b.sy + 1, scale: scaleFor(images[0]), alpha: 1, __gwConstruction: true };
     r.entities.push(stage);
     b.__gwConstructionEntity = stage;
     const duration = instant ? 180 : (b.type === 'castle' ? 390 : 520);
     for (const image of images) {
       if (b.__v66Destroyed || b.hp <= 0) break;
+      hideFinalBuilding(r, b);
       stage.img = image;
       stage.scale = scaleFor(image);
       await sleep(duration);
@@ -125,6 +137,7 @@
     hideFinalBuilding(r, b);
     try {
       const assets = await ensureStageAssets(r);
+      hideFinalBuilding(r, b);
       let shown = false;
       if (assets.textures) shown = await playPixiConstruction(r, b, assets.textures, instant);
       if (!shown) shown = await playCanvasConstruction(r, b, assets.images, instant);
@@ -136,6 +149,17 @@
       showFinalBuilding(r, b);
       r.puff?.(b.sx, b.sy - 2);
     }
+  }
+
+  function keepConstructionHiddenAfterSafetyRepair(r, b) {
+    if (!b?.__gwConstructionPlaying || b.__gwConstructionDone) return;
+    hideFinalBuilding(r, b);
+    setTimeout(() => {
+      if (b.__gwConstructionPlaying && !b.__gwConstructionDone) hideFinalBuilding(r, b);
+    }, 0);
+    requestAnimationFrame(() => {
+      if (b.__gwConstructionPlaying && !b.__gwConstructionDone) hideFinalBuilding(r, b);
+    });
   }
 
   function install(sim) {
@@ -162,7 +186,9 @@
         const key = buildKey(k, type, x, y);
         r.__gwConstructionPending.set(key, !!instant);
         try {
-          return await baseSimAddBuilding(k, type, x, y, forceCastle, instant, ...rest);
+          const b = await baseSimAddBuilding(k, type, x, y, forceCastle, instant, ...rest);
+          keepConstructionHiddenAfterSafetyRepair(r, b);
+          return b;
         } finally {
           setTimeout(() => r.__gwConstructionPending.delete(key), 80);
         }
