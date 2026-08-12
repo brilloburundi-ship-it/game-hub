@@ -1,8 +1,9 @@
-const CACHE = 'god-world-stable-integrated-island-style-3';
+const CACHE = 'god-world-stable-integrated-construction-v4';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'construction-visuals-v67.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
   'assets/map/world.json', 'assets/map/world.png', 'assets/map/vegetation.json', 'assets/buildings/manifest.json', 'assets/npc/manifest.json',
+  'assets/buildings/construction/stage-1-foundation.svg', 'assets/buildings/construction/stage-2-scaffold.svg', 'assets/buildings/construction/stage-3-walls.svg',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
   'assets/buildings/house_a.png', 'assets/buildings/house_b.png', 'assets/buildings/house_c.png', 'assets/buildings/keep.png', 'assets/buildings/market.png', 'assets/buildings/silo.png',
   'assets/buildings/stable.png', 'assets/buildings/stone_tower.png', 'assets/buildings/wall.png', 'assets/buildings/wall_corner.png', 'assets/buildings/warehouse.png', 'assets/buildings/watchtower.png', 'assets/buildings/windmill.png',
