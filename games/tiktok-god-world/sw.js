@@ -2,7 +2,7 @@ const CACHE = 'god-world-v6-6-2-startup-recovery';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
-  'v67-w1.js', 'v67-w2.js', 'v67-w3.js', 'v67-w4.js', 'v67-w5.js', 'v67-w6.js', 'v67-w7.js', 'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js',
+  'v67-w1.js', 'v67-w2.js', 'v67-w3.js', 'v67-w4.js', 'v67-w5.js', 'v67-w6.js', 'v67-w7.js', 'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js', 'v68-fishing-asset.js', 'v68-fishing-boats.js',
   'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/npc/manifest.json',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
   'assets/buildings/house_a.png', 'assets/buildings/house_b.png', 'assets/buildings/house_c.png', 'assets/buildings/keep.png', 'assets/buildings/market.png', 'assets/buildings/silo.png',
