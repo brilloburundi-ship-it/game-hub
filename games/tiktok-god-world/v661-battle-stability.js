@@ -4,6 +4,7 @@
   const VERSION = 'stable-v66-safe-frame';
   const MAX_FRAME_DT = 0.05;
   const MILITARY_BUILDINGS = new Set(['barracks', 'forge', 'watchtower', 'stone_tower', 'keep']);
+  const STARTER_BUILDINGS = ['house_a', 'house_b', 'farm'];
   let lastErrorLogAt = 0;
 
   function hasMilitaryInfrastructure(k) {
@@ -25,6 +26,97 @@
       lastErrorLogAt = now;
       console.error(`[God World ${scope}]`, error);
     }
+  }
+
+  function keepCivilianNeutral(farmer) {
+    const sprite = farmer?._sprite;
+    if (sprite && !sprite.destroyed) sprite.tint = 0xffffff;
+  }
+
+  function repairBuildingVisual(r, k, b) {
+    if (!b || b.__v66Destroyed || Number(b.hp) <= 0) return;
+    if (b._foundation) { b._foundation.visible = false; b._foundation.alpha = 0; }
+    if (b._shadow) { b._shadow.visible = false; b._shadow.alpha = 0; }
+    const sprite = b._sprite;
+    if (!sprite || sprite.destroyed) return;
+    try {
+      const texture = r.getBuildingTexture?.(k, b.type);
+      if (texture?.width > 0 && texture?.height > 0) sprite.texture = texture;
+    } catch (error) {
+      recordRuntimeError('building-texture', error);
+    }
+    sprite.visible = true;
+    sprite.renderable = true;
+    sprite.tint = 0xffffff;
+    sprite.alpha = Math.max(0.28, Number(sprite.alpha) || 0);
+    sprite.anchor?.set?.(0.5, 1);
+    sprite.y = Math.round(b.sy + (b.type === 'farm' ? 0 : 1));
+    sprite.zIndex = Math.round(b.sy * 100) + 20;
+    sprite.roundPixels = true;
+  }
+
+  function repairKingdomVisuals(r, k) {
+    if (!k?.alive) return;
+    for (const b of k.buildings || []) repairBuildingVisual(r, k, b);
+    for (const farmer of k.farmers || []) keepCivilianNeutral(farmer);
+    if (r.entities) r.entities.sortDirty = true;
+  }
+
+  async function ensureStarterVillage(sim, r, k) {
+    if (!k?.alive) return;
+    const living = (k.buildings || []).filter(b => !b.__v66Destroyed && Number(b.hp) > 0);
+    if (living.length !== 1 || living[0].type !== 'castle') {
+      repairKingdomVisuals(r, k);
+      return;
+    }
+
+    for (const type of STARTER_BUILDINGS) {
+      let cell = sim.findBuildCell?.(k, type, true) || null;
+      if (!cell && typeof sim.claimGiftLand === 'function') {
+        sim.claimGiftLand(k, 4);
+        cell = sim.findBuildCell?.(k, type, true) || null;
+      }
+      if (!cell) continue;
+      const b = await sim.addBuilding(k, type, cell[0], cell[1], false, true);
+      if (b) repairBuildingVisual(r, k, b);
+      await new Promise(resolve => requestAnimationFrame(resolve));
+    }
+    repairKingdomVisuals(r, k);
+    r.redrawSettlementGround?.(sim);
+  }
+
+  function installPostJoinPresentation(sim, r) {
+    if (sim.__gwPostJoinPresentationInstalled) return;
+    sim.__gwPostJoinPresentationInstalled = true;
+
+    const baseAddBuilding = typeof sim.addBuilding === 'function' ? sim.addBuilding.bind(sim) : null;
+    if (baseAddBuilding) {
+      sim.addBuilding = async function (...args) {
+        const b = await baseAddBuilding(...args);
+        if (b) repairBuildingVisual(r, args[0], b);
+        return b;
+      };
+    }
+
+    const baseAddFarmer = typeof r.addFarmer === 'function' ? r.addFarmer.bind(r) : null;
+    if (baseAddFarmer) {
+      r.addFarmer = async function (k, farmer) {
+        const result = await baseAddFarmer(k, farmer);
+        keepCivilianNeutral(farmer);
+        return result;
+      };
+    }
+
+    const baseJoin = typeof sim.join === 'function' ? sim.join.bind(sim) : null;
+    if (baseJoin) {
+      sim.join = async function (name) {
+        const k = await baseJoin(name);
+        if (k?.alive) await ensureStarterVillage(this, r, k);
+        return k;
+      };
+    }
+
+    for (const k of sim.kingdoms || []) repairKingdomVisuals(r, k);
   }
 
   function removePrematureGuards(sim, r) {
@@ -117,13 +209,13 @@
     }
 
     // Keep the proven V6.6 battle implementation as the only battle authority.
-    // This module only guards its frame and prevents soldiers from existing before
-    // the kingdom has actually developed military infrastructure.
+    // This module only adds safety/presentation guards to existing methods.
     sim.__gwIntegratedBattleInstalled = true;
     window.__BUILD_VERSION = VERSION;
     document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame';
     document.documentElement.dataset.militarySpawn = 'infrastructure-required';
 
+    installPostJoinPresentation(sim, r);
     installMilitaryGate(sim, r);
     installSafeBattleFrame(sim, r);
     installSafeWorldFrame(sim, r);
