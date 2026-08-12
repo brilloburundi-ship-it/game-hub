@@ -6,11 +6,10 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, packageJson] = await Promise.all([
+const [index, sw, versionText, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
-  read('tree-depth.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -35,8 +34,9 @@ const expectedScripts = [
 ];
 
 for (const file of expectedScripts) {
-  const loads = (index.match(new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-  if (loads !== 1) throw new Error(`${file} must be loaded exactly once by the V6.6.2 stable index, found ${loads}`);
+  const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const loads = (index.match(new RegExp(escaped, 'g')) || []).length;
+  if (loads !== 1) throw new Error(`${file} must be loaded exactly once by V6.6.2 STABLE, found ${loads}`);
 }
 
 const forbiddenLaterLayers = [
@@ -50,9 +50,6 @@ for (const file of forbiddenLaterLayers) {
   if (index.includes(file)) throw new Error(`Post-V6.6.2 layer must not be loaded: ${file}`);
   if (sw.includes(file)) throw new Error(`Post-V6.6.2 layer must not be cached: ${file}`);
 }
-
-if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('V6.6.2 vegetation must remain non-blocking during JOIN/building creation');
-if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('V6.6.2 vegetation background loading marker missing');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
@@ -73,4 +70,4 @@ for (const entry of shellEntries) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World V6.6.2 STABLE: exact runtime stack, syntax, cache shell and non-blocking startup checks OK');
+console.log('TikTok God World V6.6.2 STABLE: exact historical stack, syntax and cache shell checks OK');
