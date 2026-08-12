@@ -36,22 +36,29 @@ for y in range(GH):
     for x in range(GW):
         u=(x/(GW-1)-0.5)*2
         v=(y/(GH-1)-0.5)*2
-        base=1.0-(u/1.03)**2-(v/0.82)**2
-        # organic lobes / peninsulas
+        # One clearly readable main island: generous ocean around the silhouette,
+        # irregular bays and peninsulas, while keeping the original renderer/palette.
+        base=1.0-(abs(u)/0.82)**2.35-(abs(v)/0.69)**2.10
         def gauss(cx,cy,sx,sy,amp):
             return amp*math.exp(-(((u-cx)/sx)**2+((v-cy)/sy)**2))
         shape=base
-        shape += gauss(-0.78,0.00,0.44,0.46,0.52)
-        shape += gauss(0.78,-0.08,0.40,0.42,0.45)
-        shape += gauss(0.30,0.72,0.44,0.32,0.28)
-        shape += gauss(-0.15,-0.72,0.34,0.30,0.22)
-        # bays / coves
-        shape -= gauss(-0.62,-0.48,0.25,0.24,0.36)
-        shape -= gauss(0.57,0.54,0.28,0.24,0.40)
-        shape -= gauss(0.04,0.83,0.28,0.20,0.22)
-        shape += 0.20*n1[y,x]+0.085*n2[y,x]+0.025*n3[y,x]
+        # headlands / peninsulas
+        shape += gauss(-0.58,-0.04,0.35,0.31,0.45)
+        shape += gauss(0.56,-0.15,0.32,0.29,0.36)
+        shape += gauss(0.24,0.56,0.34,0.26,0.23)
+        shape += gauss(-0.24,0.52,0.28,0.24,0.19)
+        # bays / coves that break the oval silhouette
+        shape -= gauss(-0.44,-0.45,0.24,0.20,0.34)
+        shape -= gauss(0.45,0.36,0.23,0.20,0.37)
+        shape -= gauss(-0.66,0.28,0.20,0.22,0.20)
+        shape -= gauss(0.03,0.69,0.22,0.16,0.24)
+        shape -= gauss(0.12,-0.57,0.21,0.17,0.17)
+        shape += 0.20*n1[y,x]+0.08*n2[y,x]+0.022*n3[y,x]
         field[y,x]=shape
-        land[y,x]=1 if shape>0.02 else 0
+        land[y,x]=1 if shape>0.05 else 0
+
+# Guarantee visible sea around every side of the main island.
+land[:4,:]=0; land[-4:,:]=0; land[:,:4]=0; land[:,-4:]=0
 
 # Remove tiny detached noise components; keep main island + medium islets.
 seen=np.zeros_like(land,bool); comps=[]
