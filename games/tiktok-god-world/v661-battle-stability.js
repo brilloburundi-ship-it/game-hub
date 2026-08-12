@@ -74,17 +74,30 @@
 
   function repairBuildingVisual(r, k, b) {
     if (!b || b.__v66Destroyed || Number(b.hp) <= 0) return;
-    if (b._foundation) { b._foundation.visible = false; b._foundation.alpha = 0; }
-    if (b._shadow) { b._shadow.visible = false; b._shadow.alpha = 0; }
     const sprite = b._sprite;
     if (!sprite || sprite.destroyed) return;
-    // The stable renderer already owns kingdom-specific building textures.
-    // Do not replace them here: this layer only guarantees final visibility/depth.
+
+    // The stable renderer owns the regular building pipeline. Do not replace them here
+    // with another generated runtime layer: use the already-preloaded source PNG as the
+    // visual safety texture so iOS/WebGL can never leave a valid building invisible.
+    try {
+      const stableTexture = r.buildTex?.[b.type] || r.buildTex?.house_a;
+      if (stableTexture && Number(stableTexture.width) > 0 && Number(stableTexture.height) > 0) {
+        sprite.texture = stableTexture;
+      }
+    } catch (error) {
+      recordRuntimeError('building-texture', error);
+    }
+
+    if (b._foundation) { b._foundation.visible = true; b._foundation.alpha = .82; }
+    if (b._shadow) { b._shadow.visible = true; b._shadow.alpha = .46; }
     sprite.visible = true;
     sprite.renderable = true;
+    sprite.tint = 0xffffff;
     sprite.alpha = 1;
     sprite.zIndex = Math.round(b.sy * 100) + 20;
     sprite.roundPixels = true;
+    if (r.entities) r.entities.sortDirty = true;
   }
 
   function repairKingdomVisuals(r, k) {
