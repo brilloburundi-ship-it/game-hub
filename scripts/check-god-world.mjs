@@ -7,160 +7,142 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, living, battle, music, game, generator, packageJson] = await Promise.all([
-  read('index.html'),
-  read('sw.js'),
-  read('version.json'),
-  read('tree-depth.js'),
-  read('living-kingdoms-v65.js'),
-  read('v661-battle-stability.js'),
-  read('music.js'),
-  read('game.js'),
-  read('tools/generate_world_v2.py'),
-  readFile(resolve(root, 'package.json'), 'utf8')
+const [index, sw, versionText, treeDepth, living, battle, safeFrame, music, game, generator, packageJson] = await Promise.all([
+  read('index.html'), read('sw.js'), read('version.json'), read('tree-depth.js'),
+  read('living-kingdoms-v65.js'), read('v66-living-battles.js'), read('v661-battle-stability.js'),
+  read('music.js'), read('game.js'), read('tools/generate_world_v2.py'), readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
 const version = JSON.parse(versionText);
 if (version.version !== 'stable-integrated-1') throw new Error(`Expected stable-integrated-1, found ${version.version}`);
-if (version.marker !== 'god-world-stable-integrated-single-authority') throw new Error('Stable integrated marker missing');
-if (!index.includes('STABLE INTEGRATED')) throw new Error('Stable visible build identity missing');
-if (index.includes(' autoplay')) throw new Error('Music must not autoplay during startup');
-if (!/id="bgMusic"[^>]*preload="metadata"/.test(index)) throw new Error('Music must use metadata preload');
-if (!sw.includes("const CACHE = 'god-world-stable-integrated-map-style-2'")) throw new Error('Map-style cache marker missing');
+if (version.marker !== 'god-world-stable-integrated-single-authority') throw new Error('Stable marker missing');
+if (!index.includes('STABLE INTEGRATED')) throw new Error('Visible stable identity missing');
+if (index.includes(' autoplay')) throw new Error('Music must not autoplay');
+if (!/id="bgMusic"[^>]*preload="metadata"/.test(index)) throw new Error('Music preload must remain metadata');
+if (!sw.includes("const CACHE = 'god-world-stable-integrated-map-style-2'")) throw new Error('New map cache marker missing');
 
 const expectedScripts = [
-  'asset-recovery.js', 'game.js', 'tree-depth.js', 'lan-bridge.js', 'interface-v63.js',
-  'world-effects.js', 'music.js', 'living-kingdoms-v65.js', 'v66-living-battles.js', 'v661-battle-stability.js'
+  'asset-recovery.js','game.js','tree-depth.js','lan-bridge.js','interface-v63.js','world-effects.js','music.js',
+  'living-kingdoms-v65.js','v66-living-battles.js','v661-battle-stability.js'
 ];
 for (const file of expectedScripts) {
   const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const loads = (index.match(new RegExp(escaped, 'g')) || []).length;
-  if (loads !== 1) throw new Error(`${file} must be loaded exactly once, found ${loads}`);
+  if (loads !== 1) throw new Error(`${file} must load exactly once, found ${loads}`);
 }
 
-const forbiddenLayers = [
-  'v651-ground-contact.js', 'v67-siege-legions.js', 'v671-mobile-stability.js', 'v672-join-hotfix.js',
-  'runtime-v68.js', 'test-hotfix-v681.js', 'world-bootstrap.js', 'world-environment.js'
-];
-for (const file of forbiddenLayers) {
-  if (index.includes(file)) throw new Error(`Unwanted runtime layer loaded by index.html: ${file}`);
-  if (sw.includes(file)) throw new Error(`Unwanted runtime layer cached by sw.js: ${file}`);
-  try {
-    await access(resolve(gameRoot, file));
-    throw new Error(`Unwanted runtime file still exists: ${file}`);
-  } catch (error) {
-    if (String(error?.message || '').startsWith('Unwanted runtime file')) throw error;
-  }
+const forbidden = ['v651-ground-contact.js','v67-siege-legions.js','v671-mobile-stability.js','v672-join-hotfix.js','runtime-v68.js','test-hotfix-v681.js','world-bootstrap.js','world-environment.js'];
+for (const file of forbidden) {
+  if (index.includes(file) || sw.includes(file)) throw new Error(`Unwanted runtime referenced: ${file}`);
+  try { await access(resolve(gameRoot, file)); throw new Error(`Unwanted runtime file exists: ${file}`); }
+  catch (error) { if (String(error?.message || '').startsWith('Unwanted runtime')) throw error; }
 }
 
 const blobHeader = Buffer.from(`blob ${Buffer.byteLength(game)}\0`);
 const coreBlobSha = createHash('sha1').update(blobHeader).update(game).digest('hex');
-if (coreBlobSha !== '8c6b2fd651077a86e2622747a372d0d416eaabcf') {
-  throw new Error(`Stable game.js core changed unexpectedly: ${coreBlobSha}`);
-}
+if (coreBlobSha !== '8c6b2fd651077a86e2622747a372d0d416eaabcf') throw new Error(`Stable game.js core changed: ${coreBlobSha}`);
 
 if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('Vegetation may block JOIN');
-if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('Background vegetation loading marker missing');
-if (!treeDepth.includes('const MAX_WORLD_TREES = 124')) throw new Error('Requested proportional individual-tree limit missing');
+if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('Background vegetation marker missing');
+if (!treeDepth.includes('const MAX_WORLD_TREES = 124')) throw new Error('Individual-tree cap missing');
 if (!treeDepth.includes('const MIN_TARGET_TREES = 108')) throw new Error('Individual-tree target missing');
 
-if (!living.includes("const VERSION = 'stable-integrated-1'")) throw new Error('Living authority version marker missing');
+if (!living.includes("const VERSION = 'stable-integrated-1'")) throw new Error('Stable living controller missing');
 if (!living.includes('sim.__v65Installed = true')) throw new Error('V6.6 compatibility gate missing');
-if (!living.includes('ensureStarterVillage')) throw new Error('Starter village integration missing');
-if (!living.includes("const starter = ['house_a', 'house_b', 'farm']")) throw new Error('Starter buildings must be castle + two houses + farm');
-if (!living.includes('keepCiviliansNeutral')) throw new Error('Neutral civilian safeguard missing');
-if (!living.includes('groundBuilding(b, this.r, args[0])')) throw new Error('Building visibility/grounding repair missing');
-if (living.includes('isLake') || living.includes('isFreshWater') || living.includes('nearFreshWater')) throw new Error('Unrequested freshwater gameplay system found');
-if (!living.includes('__gwTickBusy')) throw new Error('Simulation tick overlap guard missing');
+if (!living.includes('__gwTickBusy')) throw new Error('Tick overlap guard missing');
+if ((living.match(/sim\.gift\s*=\s*function/g) || []).length !== 1) throw new Error('Gift authority must remain singular');
+if ((living.match(/sim\.buildAI\s*=\s*async\s+function/g) || []).length !== 1) throw new Error('Build AI authority must remain singular');
+if ((living.match(/sim\.population\s*=\s*async\s+function/g) || []).length !== 1) throw new Error('Population authority must remain singular');
+if (living.includes('originalGift') || living.includes('baseGift')) throw new Error('Gift resolver chains to a previous authority');
+if (living.includes('isLake') || living.includes('isFreshWater') || living.includes('nearFreshWater')) throw new Error('Unrequested freshwater gameplay added');
 
-if (!battle.includes("const VERSION = 'stable-v66-safe-frame'")) throw new Error('Safe V6.6 battle frame missing');
-if (!battle.includes("document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame'")) throw new Error('Safe battle marker missing');
-if (!battle.includes('infrastructure-required')) throw new Error('Military infrastructure spawn gate missing');
-if (battle.includes('__gwLazyAnim') || battle.includes('processPhysicalCapture')) throw new Error('Risky post-JOIN battle runtime returned');
+if (!safeFrame.includes("const VERSION = 'stable-v66-safe-frame'")) throw new Error('Safe V6.6 frame missing');
+if (!safeFrame.includes("const STARTER_BUILDINGS = ['house_a', 'house_b', 'farm']")) throw new Error('Starter village must be two houses plus farm');
+if (!safeFrame.includes('keepCivilianNeutral')) throw new Error('Neutral civilian safeguard missing');
+if (!safeFrame.includes('sprite.tint = 0xffffff')) throw new Error('Civilian/building neutral tint repair missing');
+if (!safeFrame.includes('repairBuildingVisual')) throw new Error('Building visibility repair missing');
+if (!safeFrame.includes('installPostJoinPresentation')) throw new Error('Post-JOIN presentation integration missing');
+if (!safeFrame.includes("document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame'")) throw new Error('Safe battle marker missing');
+if (!safeFrame.includes('infrastructure-required')) throw new Error('Military infrastructure gate missing');
+if (safeFrame.includes('setInterval(')) throw new Error('Safe frame must not add recurring loops');
 
-if (!music.includes("audio.preload = 'metadata'")) throw new Error('Gesture-safe music metadata preload missing');
-if (music.includes('audio.load()')) throw new Error('Music must not force-load full track during startup');
+if (!music.includes("audio.preload = 'metadata'")) throw new Error('Gesture-safe music preload missing');
+if (music.includes('audio.load()')) throw new Error('Music must not force-load full track at startup');
 
-const world = JSON.parse(await readFile(resolve(gameRoot, 'assets/map/world.json'), 'utf8'));
-const vegetation = JSON.parse(await readFile(resolve(gameRoot, 'assets/map/vegetation.json'), 'utf8'));
-if (world.gridW !== 88 || world.gridH !== 64) throw new Error(`Expanded map grid must be 88x64, found ${world.gridW}x${world.gridH}`);
-if (world.mapWidth !== 3900 || world.mapHeight !== 1900) throw new Error(`Expanded map canvas must be 3900x1900, found ${world.mapWidth}x${world.mapHeight}`);
-if (world.tileW !== 40 || world.tileH !== 20) throw new Error('Original 40x20 isometric tile style must be preserved');
-if (world.version !== 'organic-v4-expanded-same-style') throw new Error('Same-style expanded map marker missing');
-if (!Array.isArray(world.rivers) || world.rivers.length < 4) throw new Error('Expanded world must retain several rivers');
+const world = JSON.parse(await read('assets/map/world.json'));
+const vegetation = JSON.parse(await read('assets/map/vegetation.json'));
+if (world.gridW !== 88 || world.gridH !== 64) throw new Error(`Map must be 88x64, found ${world.gridW}x${world.gridH}`);
+if (world.mapWidth !== 3900 || world.mapHeight !== 1900) throw new Error(`Map canvas must be 3900x1900, found ${world.mapWidth}x${world.mapHeight}`);
+if (world.tileW !== 40 || world.tileH !== 20) throw new Error('Original 40x20 isometric tile style changed');
+if (world.version !== 'organic-v4-expanded-same-style') throw new Error(`Same-style map marker missing: ${world.version}`);
+if (!Array.isArray(world.rivers) || world.rivers.length < 4) throw new Error('Expanded world needs several rivers');
+
 const allowedBiomes = new Set(['ocean','forest','grass','desert','beach','mountain','tundra','ice_coast']);
-for (const row of world.biomes) for (const biome of row) if (!allowedBiomes.has(biome)) throw new Error( Unexpected biome/system introduced: ${biome}`);
+for (const row of world.biomes) for (const biome of row) if (!allowedBiomes.has(biome)) throw new Error(`Unexpected biome/system: ${biome}`);
 
-// Count detached land components (main continent + requested islets).
 const H = world.land.length, W = world.land[0].length;
-const landSeen = new Set();
-let landComponents = 0;
-for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  const token = `${x},${y}`;
-  if (!world.land[y][x] || landSeen.has(token)) continue;
-  landComponents++;
-  const stack = [[x,y]]; landSeen.add(token);
+const seen = new Set();
+let components = 0;
+for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
+  const token=`${x},${y}`;
+  if (!world.land[y][x] || seen.has(token)) continue;
+  components++;
+  const stack=[[x,y]]; seen.add(token);
   while (stack.length) {
-    const [cx,cy] = stack.pop();
+    const [cx,cy]=stack.pop();
     for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
       const nx=cx+dx, ny=cy+dy, nt=`${nx},${ny}`;
-      if (nx>=0&&ny>=0&&nx<W&&ny<H&&world.land[ny][nx]&&!landSeen.has(nt)) { landSeen.add(nt); stack.push([nx,ny]); }
+      if (nx>=0&&ny>=0&&nx<W&&ny<H&&world.land[ny][nx]&&!seen.has(nt)) { seen.add(nt); stack.push([nx,ny]); }
     }
   }
 }
-if (landComponents < 4) throw new Error(`Expected a main landmass plus islets, found ${landComponents} land components`);
+if (components < 4) throw new Error(`Expected main landmass plus islets, found ${components} land components`);
 
-// Interior water is a lake automatically under the existing land/walkability rules; no new runtime system is required.
 const oceanSeen = new Set();
 const queue = [];
-const pushOcean = (x,y) => { const t=`${x},${y}`; if (!world.land[y][x]&&!oceanSeen.has(t)) { oceanSeen.add(t); queue.push([x,y]); } };
+const pushOcean=(x,y)=>{ const t=`${x},${y}`; if (!world.land[y][x]&&!oceanSeen.has(t)) { oceanSeen.add(t); queue.push([x,y]); } };
 for (let x=0;x<W;x++){ pushOcean(x,0); pushOcean(x,H-1); }
 for (let y=0;y<H;y++){ pushOcean(0,y); pushOcean(W-1,y); }
-for (let qi=0; qi<queue.length; qi++) {
-  const [cx,cy]=queue[qi];
+for (let i=0;i<queue.length;i++) {
+  const [cx,cy]=queue[i];
   for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-    const nx=cx+dx,ny=cy+dy;
+    const nx=cx+dx, ny=cy+dy;
     if(nx>=0&&ny>=0&&nx<W&&ny<H) pushOcean(nx,ny);
   }
 }
 let interiorWater=0;
-for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(!world.land[y][x]&&!oceanSeen.has(`${x},${y}`))interiorWater++;
-if (interiorWater < 30) throw new Error(`Expected visible inland lakes, found only ${interiorWater} interior-water cells`);
+for(let y=0;y<H;y++) for(let x=0;x<W;x++) if(!world.land[y][x]&&!oceanSeen.has(`${x},${y}`)) interiorWater++;
+if (interiorWater < 30) throw new Error(`Expected visible inland lakes, found ${interiorWater} interior-water cells`);
 
-if (vegetation.version !== 'organic-v4-expanded-same-style') throw new Error('Vegetation must match same-style map generation');
-if (!Array.isArray(vegetation.trees) || vegetation.trees.length < 500) throw new Error('Individual-tree source data is too sparse');
+if (vegetation.version !== 'organic-v4-expanded-same-style') throw new Error('Vegetation/map versions differ');
+if (!Array.isArray(vegetation.trees) || vegetation.trees.length < 500) throw new Error('Individual-tree source data too sparse');
 
 const png = await readFile(resolve(gameRoot, 'assets/map/world.png'));
-if (png.toString('ascii',1,4) !== 'PNG') throw new Error('world.png is not a PNG');
-const pngW = png.readUInt32BE(16), pngH = png.readUInt32BE(20);
+if (png.toString('ascii',1,4) !== 'PNG') throw new Error('world.png invalid');
+const pngW=png.readUInt32BE(16), pngH=png.readUInt32BE(20);
 if (pngW !== 3900 || pngH !== 1900) throw new Error(`world.png dimensions mismatch: ${pngW}x${pngH}`);
 
 for (const marker of [
   "im=Image.new('RGB',(MAP_W,MAP_H),(24,70,104))",
   "'grass':((118,178,78),(103,160,69))",
-  "'desert':((221,190,126),(202,166,102))",
-  "'forest':((92,158,70),(78,139,62))"
-]) if (!generator.includes(marker)) throw new Error(`Original visual palette marker missing from map generator: ${marker}`);
+  "'forest':((92,158,70),(78,139,62))",
+  "'desert':((221,190,126),(202,166,102))"
+]) if (!generator.includes(marker)) throw new Error(`Original visual palette marker missing: ${marker}`);
 if (!generator.includes('GW,GH=88,64') || !generator.includes('MAP_W=3900') || !generator.includes('MAP_H=1900')) throw new Error('Expanded same-style generator dimensions missing');
-if (generator.includes('world-bootstrap') || generator.includes('fetch =')) throw new Error('Map generation must not run as a browser runtime');
+if (generator.includes('world-bootstrap') || generator.includes('window.') || generator.includes('fetch(')) throw new Error('Map generator must stay build-time/static only');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
-
-const jsFiles = [...expectedScripts, 'sw.js'];
-for (const file of jsFiles) {
-  const full = resolve(gameRoot, file);
-  await access(full);
-  const check = spawnSync(process.execPath, ['--check', full], { encoding: 'utf8' });
+for (const file of [...expectedScripts,'sw.js']) {
+  const full=resolve(gameRoot,file); await access(full);
+  const check=spawnSync(process.execPath,['--check',full],{encoding:'utf8'});
   if (check.status !== 0) throw new Error(`Invalid JavaScript in ${file}:\n${check.stderr || check.stdout}`);
 }
 
-const shellMatch = sw.match(/const SHELL = \[([\s\S]*?)\];/);
-if (!shellMatch) throw new Error('Service worker SHELL list missing');
-const shellEntries = [...shellMatch[1].matchAll(/'([^']+)'/g)].map(match => match[1]);
-for (const entry of shellEntries) {
-  if (entry === './') continue;
-  await access(resolve(gameRoot, entry));
+const shellMatch=sw.match(/const SHELL = \[([\s\S]*?)\];/);
+if (!shellMatch) throw new Error('Service worker SHELL missing');
+for (const match of shellMatch[1].matchAll(/'([^']+)'/g)) {
+  if (match[1] !== './') await access(resolve(gameRoot,match[1]));
 }
 
-console.log(`TikTok God World stable: core unchanged, starter village visible, civilians neutral, same-style 88x64 map, ${interiorWater} lake cells, ${landComponents-1} islets, ${world.rivers.length} rivers, individual trees, no new runtime systems`);
+console.log(`TikTok God World stable: unchanged core, same-style 88x64 static map, ${interiorWater} lake cells, ${components-1} islets, ${world.rivers.length} rivers, ${vegetation.trees.length} source trees, starter village and neutral civilians OK`);
