@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+
   const commands = [
     ['👑', 'JOIN = create your kingdom'],
     ['❤️', 'LIKE = speed up the economy'],
@@ -29,17 +30,37 @@
     ['🏰', 'CASTLE FANTASY = legendary boost'],
     ['⚔️', 'ATTACK name = declare war']
   ];
+
   const icon = document.querySelector('#commandIcon');
   const text = document.querySelector('#bridgeText');
-  if (!icon || !text) return;
-  let index = 0;
-  const paint = () => {
-    const [symbol, label] = commands[index++ % commands.length];
-    icon.textContent = symbol;
-    text.textContent = label;
-    text.classList.remove('command-pop');
-    requestAnimationFrame(() => text.classList.add('command-pop'));
+  if (icon && text) {
+    let index = 0;
+    const paint = () => {
+      const [symbol, label] = commands[index++ % commands.length];
+      icon.textContent = symbol;
+      text.textContent = label;
+      text.classList.remove('command-pop');
+      requestAnimationFrame(() => text.classList.add('command-pop'));
+    };
+    paint();
+    setInterval(paint, 4200);
+  }
+
+  // The stable V6.6 battle base keeps its internal compatibility flags, but the
+  // player must see one product identity only. Finalize the visible identity once
+  // the integrated battle authority is installed.
+  const finalizeIdentity = () => {
+    if (!window.__SIM?.__gwIntegratedBattleInstalled) {
+      setTimeout(finalizeIdentity, 50);
+      return;
+    }
+    window.__BUILD_VERSION = 'stable-integrated-1';
+    const tag = document.querySelector('.build-tag');
+    if (tag) tag.textContent = 'STABLE INTEGRATED';
+    document.documentElement.dataset.build = 'stable-integrated-1';
+    for (const el of document.querySelectorAll('#toast .toast')) {
+      if (/V6\.4 LIVING KINGDOMS loaded/i.test(el.textContent || '')) el.remove();
+    }
   };
-  paint();
-  setInterval(paint, 4200);
+  finalizeIdentity();
 })();
