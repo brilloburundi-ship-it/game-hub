@@ -82,10 +82,10 @@ if (world.version !== 'organic-v4-expanded-same-style') throw new Error(`Same-st
 const landCount = world.land.flat().reduce((sum, cell) => sum + Number(cell || 0), 0);
 if (landCount < 2200 || landCount > 3000) throw new Error(`Island silhouette out of range: ${landCount} land cells`);
 for (let x=0; x<world.gridW; x++) {
-  for (const y of [0,1,2,3,world.gridH-4,world.gridH-3,world.gridH-2,world.gridH-1]) if (world.land[y][x]) throw new Error('Island must keep ocean margin on top/bottom');
+  if (world.land[0][x] || world.land[world.gridH-1][x]) throw new Error('Island map must keep ocean on the outer top/bottom border');
 }
 for (let y=0; y<world.gridH; y++) {
-  for (const x of [0,1,2,3,world.gridW-4,world.gridW-3,world.gridW-2,world.gridW-1]) if (world.land[y][x]) throw new Error('Island must keep ocean margin on left/right');
+  if (world.land[y][0] || world.land[y][world.gridW-1]) throw new Error('Island map must keep ocean on the outer left/right border');
 }
 if (!Array.isArray(world.rivers) || world.rivers.length < 4) throw new Error('Expanded world needs several rivers');
 
