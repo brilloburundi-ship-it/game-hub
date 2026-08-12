@@ -1,4 +1,4 @@
-const CACHE = 'god-world-stable-integrated-1';
+const CACHE = 'god-world-stable-integrated-1-safe-frame';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
@@ -10,8 +10,7 @@ const SHELL = [
   'assets/npc/pickaxe.png', 'assets/npc/dig.png', 'assets/npc/chop_wood.png', 'assets/npc/carry_sack.png',
   'assets/units/knight_idle.png', 'assets/units/knight_walk.png', 'assets/units/knight_attack.png', 'assets/units/knight_hurt.png', 'assets/units/knight_death.png',
   'assets/units/archer_idle.png', 'assets/units/archer_walk.png', 'assets/units/archer_attack.png', 'assets/units/archer_hurt.png', 'assets/units/archer_death.png',
-  'assets/vegetation/pine.png', 'assets/vegetation/pine-snow.png', 'assets/vegetation/round.png',
-  'assets/vfx/fire-sheet.svg', 'assets/vfx/blood-sheet.svg', 'assets/vfx/impact-sheet.svg', 'assets/vfx/destruction-sheet.svg'
+  'assets/vegetation/pine.png', 'assets/vegetation/pine-snow.png', 'assets/vegetation/round.png'
 ];
 
 self.addEventListener('install', event => {
