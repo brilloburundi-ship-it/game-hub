@@ -20,9 +20,9 @@ const version = JSON.parse(versionText);
 if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
 if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v7-0-7-free-civics'")) throw new Error('V7.0.7 free-civics service-worker cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-0-7-civics-outside-buildai'")) throw new Error('V7.0.7 outside-buildAI cache marker missing');
 if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
-if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-2'")) throw new Error('V7.0.7 free-civics runtime marker missing');
+if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-3'")) throw new Error('V7.0.7 outside-buildAI runtime marker missing');
 if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
@@ -81,11 +81,13 @@ if (!worldPolish.includes('createTerrainCanvas')) throw new Error('Clean terrain
 if (!worldPolish.includes('installAnimationGovernor')) throw new Error('Farmer animation governor marker missing');
 if (!gameplayPolish.includes('WORK_FRAME_MS')) throw new Error('Manual work-frame pacing marker missing');
 if (!gameplayPolish.includes("{ type: 'windmill', after: 2 }")) throw new Error('Immediate free windmill milestone missing');
-if (!gameplayPolish.includes("{ type: 'church', after: 4 }")) throw new Error('Immediate free church milestone missing');
-if (!gameplayPolish.includes('buildFreeCivic')) throw new Error('Free civic builder missing');
-if (!gameplayPolish.includes('k.lastBuild = previousLastBuild')) throw new Error('Free civics must preserve normal build timer');
-if (!gameplayPolish.includes('return originalBuildAI(k)')) throw new Error('Normal build AI continuation missing');
-if (!gameplayPolish.includes('nonBlocking: true')) throw new Error('Non-blocking civic marker missing');
+if (!gameplayPolish.includes("{ type: 'church', after: 5 }")) throw new Error('Immediate free church milestone missing');
+if (!gameplayPolish.includes('grantFreeCivic')) throw new Error('Free civic grant function missing');
+if (!gameplayPolish.includes('scheduleFoundingCivic')) throw new Error('Independent founding-civic scheduler missing');
+if (!gameplayPolish.includes('installFoundingCivics')) throw new Error('Founding-civic JOIN integration missing');
+if (!gameplayPolish.includes('sim.__v69TickBusy')) throw new Error('Civic grants must wait outside the normal simulation tick');
+if (!gameplayPolish.includes('outsideBuildAI: true')) throw new Error('Outside-buildAI diagnostic marker missing');
+if (gameplayPolish.includes('sim.buildAI =') || gameplayPolish.includes('originalBuildAI')) throw new Error('Gameplay polish must never wrap or replace the original buildAI');
 if (!gameplayPolish.includes('removeWeaponOverlay')) throw new Error('Drawn-spear removal marker missing');
 
 const pkg = JSON.parse(packageJson);
@@ -116,4 +118,4 @@ for (const atlasPart of [
   if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
 }
 
-console.log('TikTok God World: stable core + free non-blocking windmill/church + worker/combat polish stack OK');
+console.log('TikTok God World: stable original buildAI + independent free founding civics + worker/combat polish stack OK');

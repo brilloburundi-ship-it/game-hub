@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v707-gameplay-polish-2';
+  const VERSION = 'v707-gameplay-polish-3';
   if (window.__V707_GAMEPLAY_POLISH?.bootstrap) return;
 
   const state = window.__V707_GAMEPLAY_POLISH = {
@@ -9,8 +9,9 @@
     installed: false,
     version: VERSION,
     manualWorkFrames: false,
-    earlyCivics: false,
+    foundingCivics: false,
     spearOverlayRemoved: false,
+    freeCivicsGranted: 0,
     errors: []
   };
 
@@ -35,11 +36,11 @@
     carry_basket: 380
   };
 
-  // The first windmill and church are founding gifts. They are attempted before the
-  // ordinary economy starts building, cost no resources and never consume lastBuild.
+  // These two founding buildings are independent gifts. They never replace,
+  // wrap or delay the simulation's original buildAI development loop.
   const CIVIC_PLAN = [
     { type: 'windmill', after: 2 },
-    { type: 'church', after: 4 }
+    { type: 'church', after: 5 }
   ];
 
   function spriteAction(sprite, farmer) {
@@ -132,7 +133,7 @@
 
     let lastSweep = 0;
     const frameLoop = now => {
-      if (!state.installed && !window.__SIM) return;
+      if (!window.__SIM) return;
       if (now - lastSweep >= 70) {
         lastSweep = now;
         for (const k of sim.kingdoms || []) {
@@ -160,60 +161,96 @@
   }
 
   function hasBuilding(k, type) {
-    return (k?.buildings || []).some(b => b && !b.__v66Destroyed && b.hp > 0 && b.type === type);
+    return (k?.buildings || []).some(b => b && !b.__v66Destroyed && Number(b.hp) > 0 && b.type === type);
   }
 
-  function freeCivicGranted(k, type) {
-    return !!k?.__v707FreeCivics?.[type];
+  function markFreeCivic(k, type) {
+    k.__v707FreeCivics ||= {};
+    if (!k.__v707FreeCivics[type]) state.freeCivicsGranted++;
+    k.__v707FreeCivics[type] = true;
   }
 
-  async function buildFreeCivic(sim, k, plan) {
-    if (!k?.alive || freeCivicGranted(k, plan.type) || hasBuilding(k, plan.type)) {
-      if (hasBuilding(k, plan.type)) {
-        k.__v707FreeCivics ||= {};
-        k.__v707FreeCivics[plan.type] = true;
-      }
-      return false;
+  async function grantFreeCivic(sim, k, plan) {
+    if (!k?.alive) return false;
+    if (k.__v707FreeCivics?.[plan.type]) return true;
+    if (hasBuilding(k, plan.type)) {
+      markFreeCivic(k, plan.type);
+      return true;
     }
     if (typeof sim.findBuildCell !== 'function' || typeof sim.addBuilding !== 'function') return false;
 
     const cell = sim.findBuildCell(k, plan.type, false);
     if (!cell) return false;
 
-    // Completely free: no resource top-up, no deduction and no refund path.
-    // Preserve lastBuild exactly so the normal city-development cadence is untouched.
-    const previousLastBuild = k.lastBuild;
+    // addBuilding itself does not charge resources or alter lastBuild. The original
+    // buildAI remains the only authority that spends resources and advances lastBuild.
     const building = await sim.addBuilding(k, plan.type, cell[0], cell[1], false, false);
-    k.lastBuild = previousLastBuild;
     if (!building) return false;
-
-    k.__v707FreeCivics ||= {};
-    k.__v707FreeCivics[plan.type] = true;
+    markFreeCivic(k, plan.type);
     k.__v707Civics ||= {};
     k.__v707Civics[plan.type] = sim.age;
     return true;
   }
 
-  function installEarlyCivics(sim) {
-    if (sim.__v707EarlyCivics || typeof sim.buildAI !== 'function') return;
-    sim.__v707EarlyCivics = true;
-    const originalBuildAI = sim.buildAI.bind(sim);
+  function scheduleFoundingCivic(sim, k, plan) {
+    if (!k?.alive) return;
+    k.__v707CivicSchedules ||= {};
+    if (k.__v707CivicSchedules[plan.type]) return;
 
-    sim.buildAI = async function(k) {
-      if (!k?.alive) return originalBuildAI(k);
-      if (!Number.isFinite(k.__v707JoinAge)) k.__v707JoinAge = this.age;
-      const kingdomAge = this.age - k.__v707JoinAge;
-
-      // Free civic attempts are additive. Failure to find a cell never blocks the
-      // original AI; success also does not reset its build timer or spend resources.
-      for (const plan of CIVIC_PLAN) {
-        if (freeCivicGranted(k, plan.type) || kingdomAge < plan.after) continue;
-        await buildFreeCivic(this, k, plan);
+    const slot = k.__v707CivicSchedules[plan.type] = { attempts: 0, done: false };
+    const attempt = async () => {
+      if (!k?.alive || slot.done) return;
+      if (hasBuilding(k, plan.type)) {
+        markFreeCivic(k, plan.type);
+        slot.done = true;
+        return;
       }
 
-      return originalBuildAI(k);
+      // Never compete with the normal simulation tick/buildAI. If a tick is active,
+      // wait and try again outside it instead of making the development loop await us.
+      if (sim.__v69TickBusy || sim.__v707CivicGrantBusy) {
+        setTimeout(attempt, 700);
+        return;
+      }
+
+      sim.__v707CivicGrantBusy = true;
+      let built = false;
+      try {
+        built = await grantFreeCivic(sim, k, plan);
+      } catch (error) {
+        state.errors.push(String(error?.stack || error?.message || error));
+      } finally {
+        sim.__v707CivicGrantBusy = false;
+      }
+
+      if (built) {
+        slot.done = true;
+        return;
+      }
+      slot.attempts++;
+      if (slot.attempts < 24) setTimeout(attempt, 2500);
     };
-    state.earlyCivics = true;
+
+    setTimeout(attempt, Math.max(0, plan.after * 1000));
+  }
+
+  function scheduleFoundingCivics(sim, k) {
+    for (const plan of CIVIC_PLAN) scheduleFoundingCivic(sim, k, plan);
+  }
+
+  function installFoundingCivics(sim) {
+    if (sim.__v707FoundingCivics || typeof sim.join !== 'function') return;
+    sim.__v707FoundingCivics = true;
+
+    const originalJoin = sim.join.bind(sim);
+    sim.join = async function(...args) {
+      const kingdom = await originalJoin(...args);
+      if (kingdom?.alive) scheduleFoundingCivics(this, kingdom);
+      return kingdom;
+    };
+
+    for (const k of sim.kingdoms || []) if (k?.alive) scheduleFoundingCivics(sim, k);
+    state.foundingCivics = true;
   }
 
   function removeWeaponOverlay(container) {
@@ -254,18 +291,18 @@
   async function install() {
     for (let i = 0; i < 2400; i++) {
       const sim = window.__SIM;
-      if (sim?.r && typeof sim.buildAI === 'function') break;
+      if (sim?.r && typeof sim.join === 'function') break;
       await sleep(20);
     }
     const sim = window.__SIM;
     if (!sim?.r) throw new Error('Simulation unavailable for V7.0.7 gameplay polish');
 
     installFarmerAnimationSmoothing(sim);
-    installEarlyCivics(sim);
+    installFoundingCivics(sim);
     installNoDrawnSpears(sim);
 
     state.installed = true;
-    state.civicPlan = CIVIC_PLAN.map(p => ({ type: p.type, after: p.after, free: true, nonBlocking: true }));
+    state.civicPlan = CIVIC_PLAN.map(p => ({ type: p.type, after: p.after, free: true, outsideBuildAI: true }));
     document.documentElement.dataset.gameplayPolish = VERSION;
   }
 
