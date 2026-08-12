@@ -1,20 +1,22 @@
 from PIL import Image, ImageDraw, ImageFilter
-import numpy as np, random, json, math, os, shutil
+import numpy as np, random, json, math, os, shutil, zipfile
 from collections import deque
 
 SEED=260811
 random.seed(SEED)
 np.random.seed(SEED)
 
-OUT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.makedirs(os.path.join(OUT,'assets','map'), exist_ok=True)
+SRC='/mnt/data/TikTok-God-World-Pixi-v3.1-netlify-hotfix'
+OUT='/mnt/data/TikTok-God-World-Pixi-v4-mobile-depth'
+if os.path.exists(OUT): shutil.rmtree(OUT)
+shutil.copytree(SRC, OUT)
 
-GW,GH=88,64
+GW,GH=64,46
 TW,TH=40,20
-ORIGIN_X=1720
-ORIGIN_Y=135
-MAP_W=3900
-MAP_H=1900
+ORIGIN_X=1180
+ORIGIN_Y=110
+MAP_W=2460
+MAP_H=1320
 
 # --- smooth multi-octave noise ---
 def noise_field(w,h,cw,ch,seed):
@@ -36,29 +38,22 @@ for y in range(GH):
     for x in range(GW):
         u=(x/(GW-1)-0.5)*2
         v=(y/(GH-1)-0.5)*2
-        # One clearly readable main island: generous ocean around the silhouette,
-        # irregular bays and peninsulas, while keeping the original renderer/palette.
-        base=1.0-(abs(u)/0.82)**2.35-(abs(v)/0.69)**2.10
+        base=1.0-(u/1.03)**2-(v/0.82)**2
+        # organic lobes / peninsulas
         def gauss(cx,cy,sx,sy,amp):
             return amp*math.exp(-(((u-cx)/sx)**2+((v-cy)/sy)**2))
         shape=base
-        # headlands / peninsulas
-        shape += gauss(-0.58,-0.04,0.35,0.31,0.45)
-        shape += gauss(0.56,-0.15,0.32,0.29,0.36)
-        shape += gauss(0.24,0.56,0.34,0.26,0.23)
-        shape += gauss(-0.24,0.52,0.28,0.24,0.19)
-        # bays / coves that break the oval silhouette
-        shape -= gauss(-0.44,-0.45,0.24,0.20,0.34)
-        shape -= gauss(0.45,0.36,0.23,0.20,0.37)
-        shape -= gauss(-0.66,0.28,0.20,0.22,0.20)
-        shape -= gauss(0.03,0.69,0.22,0.16,0.24)
-        shape -= gauss(0.12,-0.57,0.21,0.17,0.17)
-        shape += 0.20*n1[y,x]+0.08*n2[y,x]+0.022*n3[y,x]
+        shape += gauss(-0.78,0.00,0.44,0.46,0.52)
+        shape += gauss(0.78,-0.08,0.40,0.42,0.45)
+        shape += gauss(0.30,0.72,0.44,0.32,0.28)
+        shape += gauss(-0.15,-0.72,0.34,0.30,0.22)
+        # bays / coves
+        shape -= gauss(-0.62,-0.48,0.25,0.24,0.36)
+        shape -= gauss(0.57,0.54,0.28,0.24,0.40)
+        shape -= gauss(0.04,0.83,0.28,0.20,0.22)
+        shape += 0.20*n1[y,x]+0.085*n2[y,x]+0.025*n3[y,x]
         field[y,x]=shape
-        land[y,x]=1 if shape>0.05 else 0
-
-# Guarantee visible sea around every side of the main island.
-land[:4,:]=0; land[-4:,:]=0; land[:,:4]=0; land[:,-4:]=0
+        land[y,x]=1 if shape>0.02 else 0
 
 # Remove tiny detached noise components; keep main island + medium islets.
 seen=np.zeros_like(land,bool); comps=[]
@@ -80,51 +75,7 @@ for comp in comps[1:]:
 for y in range(GH):
     for x in range(GW): land[y,x]=1 if (x,y) in keep else 0
 
-# Small islands: added as terrain only, using the same tile renderer/palette as the original map.
-for cx,cy,rx,ry in [(9,13,3,2),(80,12,3,2),(81,53,3,2),(13,55,3,2),(73,58,2,2)]:
-    for yy in range(max(1,cy-ry-1),min(GH-1,cy+ry+2)):
-        for xx in range(max(1,cx-rx-1),min(GW-1,cx+rx+2)):
-            if ((xx-cx)/rx)**2+((yy-cy)/ry)**2 <= 1.0:
-                land[yy,xx]=1
-
-# Carve a few irregular inland lakes, but keep all rendering in the original map generator.
-def calc_coast(mask):
-    inf=999
-    out=np.full((GH,GW),inf,dtype=np.int16)
-    qq=deque()
-    for yy in range(GH):
-        for xx in range(GW):
-            if mask[yy,xx]==0:
-                out[yy,xx]=0; qq.append((xx,yy))
-    while qq:
-        xx,yy=qq.popleft()
-        for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)):
-            nx,ny=xx+dx,yy+dy
-            if 0<=nx<GW and 0<=ny<GH and out[ny,nx]>out[yy,xx]+1:
-                out[ny,nx]=out[yy,xx]+1; qq.append((nx,ny))
-    return out
-
-precoast=calc_coast(land)
-lake_candidates=[]
-for yy in range(7,GH-7):
-    for xx in range(7,GW-7):
-        if land[yy,xx] and precoast[yy,xx]>=8:
-            lake_candidates.append((int(precoast[yy,xx]),xx,yy))
-lake_candidates.sort(reverse=True)
-lake_centers=[]
-for _,cx,cy in lake_candidates:
-    if all(math.hypot(cx-ax,cy-ay)>15 for ax,ay in lake_centers):
-        lake_centers.append((cx,cy))
-    if len(lake_centers)>=4: break
-for li,(cx,cy) in enumerate(lake_centers):
-    rx=2.4+(li%2)*0.5; ry=1.7+((li+1)%2)*0.35
-    for yy in range(max(2,cy-4),min(GH-2,cy+5)):
-        for xx in range(max(2,cx-4),min(GW-2,cx+5)):
-            wobble=random.Random(SEED+li*10000+xx*101+yy*307).random()*0.10
-            if ((xx-cx)/rx)**2+((yy-cy)/ry)**2 <= 0.92+wobble and precoast[yy,xx]>=5:
-                land[yy,xx]=0
-
-# Coast distance (Manhattan through land): 0 water, 1 coast land.
+# Coast distance (Manhattan through land): 0 ocean, 1 coast land.
 INF=999
 coast=np.full((GH,GW),INF,dtype=np.int16)
 q=deque()
@@ -175,7 +126,7 @@ starts=[]
 for _,x,y in cands:
     if all(math.hypot(x-a,y-b)>13 for a,b in starts):
         starts.append((x,y))
-    if len(starts)>=5: break
+    if len(starts)>=3: break
 for sx,sy in starts:
     path=[(sx,sy)]; x,y=sx,sy; visited={(x,y)}
     for _ in range(80):
@@ -276,10 +227,11 @@ for path in rivers:
     if len(pts)>1:
         d.line(pts,fill=(72,105,92),width=5,joint='curve')
         d.line(pts,fill=(56,139,166),width=3,joint='curve')
+        # tiny highlight sections
         for i in range(1,len(pts),3):
             x,y=pts[i]; d.line((x-2,y-1,x+3,y-1),fill=(100,181,191),width=1)
 
-# Decorations, same visual language as the previous static map.
+# Decorations, all baked into one map texture for performance.
 def tree(cx,cy,scale=1.0,snow=False):
     s=max(1,int(scale))
     trunk=(93,61,37); outline=(38,70,48)
@@ -315,12 +267,16 @@ def cactus(cx,cy):
 def rock(cx,cy,light=False):
     c=(151,156,150) if light else (96,107,102); hi=(188,191,181) if light else (132,141,133)
     d.polygon([(cx-5,cy+2),(cx-2,cy-5),(cx+4,cy-4),(cx+7,cy+2),(cx+3,cy+5),(cx-4,cy+5)],fill=c)
-    d.polygon([(cx-2,cy-4),(cx+3,cy-3),(cx+1,cy),(cx-4,cy+1)],fill=hi)
+    d.polygon([(cx-2,cy-4),(cx+3,cy-3),(cx+1,cy), (cx-4,cy+1)],fill=hi)
 
 def flower(cx,cy):
     d.point((cx,cy),fill=(56,111,57)); d.point((cx,cy-1),fill=(235,219,89))
 
-# Forest remains the same darker biome. Individual trees come from the existing tree-depth renderer.
+def ruins(cx,cy):
+    d.rectangle((cx-8,cy-5,cx-3,cy+4),fill=(113,111,99)); d.rectangle((cx+2,cy-9,cx+6,cy+4),fill=(126,123,109))
+    d.rectangle((cx-8,cy-7,cx+6,cy-4),fill=(146,142,126)); d.rectangle((cx-1,cy-4,cx+1,cy+4),fill=(78,87,79))
+
+# forest density and landmark distribution
 for depth in range(GW+GH-1):
     for y in range(GH):
         x=depth-y
@@ -328,9 +284,13 @@ for depth in range(GW+GH-1):
         cx,cy=iso(x,y); b=biomes[y][x]
         r=random.Random(SEED+900000+x*1543+y*3571)
         if b=='forest':
-            if r.random()<.08: flower(cx+r.randint(-12,12),cy+r.randint(-4,4))
+            for _ in range(1+(r.random()<.55)+(r.random()<.20)):
+                ox=r.randint(-12,12); oy=r.randint(-4,6)
+                (tree if r.random()<.68 else round_tree)(cx+ox,cy+oy)
         elif b=='grass':
+            if r.random()<.18: round_tree(cx+r.randint(-11,11),cy+r.randint(-3,5))
             if r.random()<.10: flower(cx+r.randint(-12,12),cy+r.randint(-4,4))
+            # V4 clean world: no baked ruins or artificial structures
         elif b=='mountain':
             mountain(cx,cy-2,large=r.random()<.6,snow=y<12)
             if r.random()<.35: rock(cx+r.randint(-12,12),cy+r.randint(1,6))
@@ -343,8 +303,9 @@ for depth in range(GW+GH-1):
         elif b in ('beach','ice_coast'):
             if r.random()<.10: rock(cx+r.randint(-10,10),cy+r.randint(-2,4),light=b=='ice_coast')
 
+# resource micro-icons baked in (subtle)
 for x,y,t in resources:
-    cx,cy=iso(x,y)
+    cx,cy=iso(x,y); r=random.Random(SEED+x*13+y*17)
     if t=='wood':
         d.rectangle((cx-5,cy-1,cx+4,cy+1),fill=(107,67,39)); d.point((cx+4,cy),fill=(178,126,68))
     elif t=='stone': rock(cx,cy)
@@ -353,11 +314,13 @@ for x,y,t in resources:
     elif t=='food':
         for k in range(3): d.line((cx-3+k*3,cy+4,cx-3+k*3,cy-5),fill=(204,170,58),width=1)
 
+# coastline foam highlights
 for y in range(GH):
     for x in range(GW):
         if not land[y,x]: continue
         if coast[y,x]==1:
             cx,cy=iso(x,y)
+            # only on south visible edges
             if x+1>=GW or land[y,x+1]==0: d.line((cx+TW//2-2,cy,cx+2,cy+TH//2-1),fill=(142,205,202),width=1)
             if y+1>=GH or land[y+1,x]==0: d.line((cx-2,cy+TH//2-1,cx-TW//2+2,cy),fill=(142,205,202),width=1)
 
@@ -367,28 +330,11 @@ world={
     'gridW':GW,'gridH':GH,'tileW':TW,'tileH':TH,'originX':ORIGIN_X,'originY':ORIGIN_Y,
     'mapWidth':MAP_W,'mapHeight':MAP_H,'land':land.tolist(),'biomes':biomes,
     'coastDistance':coast.tolist(),'resources':resources,'rivers':rivers,'seed':SEED,
-    'version':'organic-v4-expanded-same-style'
+    'version':'organic-v4-clean'
 }
 with open(os.path.join(OUT,'assets/map/world.json'),'w',encoding='utf-8') as f: json.dump(world,f,separators=(',',':'))
 
-# Data for the existing tree-depth renderer only; no additional runtime system.
-trees=[]
-tree_id=0
-for y in range(GH):
-    for x in range(GW):
-        if not land[y,x]: continue
-        b=biomes[y][x]
-        if b not in ('forest','grass','tundra'): continue
-        r=random.Random(SEED+1300000+x*7907+y*104729)
-        chance=.84 if b=='forest' else (.22 if b=='tundra' else .08)
-        if r.random()>=chance: continue
-        count=1 + (1 if b=='forest' and r.random()<.46 else 0) + (1 if b=='forest' and r.random()<.16 else 0)
-        cx,cy=iso(x,y)
-        for _ in range(count):
-            t='pine-snow' if b=='tundra' else ('pine' if r.random()<.64 else 'round')
-            trees.append({'id':tree_id,'type':t,'x':int(cx+r.randint(-12,12)),'y':int(cy+r.randint(-4,6)),'cell':[x,y]})
-            tree_id+=1
-vegetation={'version':'organic-v4-expanded-same-style','trees':trees}
-with open(os.path.join(OUT,'assets/map/vegetation.json'),'w',encoding='utf-8') as f: json.dump(vegetation,f,separators=(',',':'))
-
-print('generated', map_path, os.path.getsize(map_path)//1024,'KB', 'land',int(land.sum()),'resources',len(resources),'rivers',len(rivers),'trees',len(trees))
+# Store generator inside project for future rerolls.
+tools=os.path.join(OUT,'tools'); os.makedirs(tools,exist_ok=True)
+shutil.copy(__file__,os.path.join(tools,'generate_world_v2.py'))
+print('generated', map_path, os.path.getsize(map_path)//1024,'KB', 'land',int(land.sum()),'resources',len(resources),'rivers',len(rivers))

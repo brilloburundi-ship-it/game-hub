@@ -10,14 +10,14 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="stylesheet" href="v65-overrides.css" />
-  <title>TikTok God World — Stable Integrated</title>
+  <title>TikTok God World — V6.6.2 Startup Recovery</title>
 </head>
 <body>
   <div id="game"></div>
   <div id="loading"><div class="crest">♜</div><strong>TikTok God World</strong><span>Generating the world…</span></div>
 
   <header class="hud topbar">
-    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">STABLE INTEGRATED</span></div>
+    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">V6.6.2 STABLE</span></div>
     <div class="stats"><span id="age">0:00</span><small>world age</small><span id="fps">60 FPS</span><span id="players">0 kingdoms</span></div>
     <div class="bridge command-rotator"><i id="bridgeDot"></i><span id="commandIcon">&#128081;</span><span id="bridgeText">JOIN = create your kingdom</span></div>
   </header>
@@ -35,7 +35,7 @@
   </section>
 
   <div id="toast"></div>
-  <audio id="bgMusic" src="assets/audio/medieval-market-full.mp3" preload="metadata" loop playsinline></audio>
+  <audio id="bgMusic" src="assets/audio/medieval-market-full.mp3" preload="auto" autoplay loop playsinline></audio>
   <canvas id="weatherCanvas" aria-hidden="true"></canvas>
   <div id="worldEvent" class="world-event hud" aria-live="polite"></div>
 
@@ -60,8 +60,8 @@
   <script src="world-effects.js"></script>
   <script src="music.js"></script>
   <script src="living-kingdoms-v65.js"></script>
+  <script src="v651-ground-contact.js"></script>
   <script src="v66-living-battles.js"></script>
   <script src="v661-battle-stability.js"></script>
-  <script src="construction-visuals-v67.js"></script>
 </body>
 </html>
