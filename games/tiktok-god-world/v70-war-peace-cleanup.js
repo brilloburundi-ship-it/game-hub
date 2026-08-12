@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v70-war-peace-cleanup-2-civic';
+  const VERSION = 'v70-war-peace-cleanup-3-civic-unlimited';
   const CIVIC_MAX_CHECKS = 64;
   const CIVIC_RETRY_BASE = 28;
   const CIVIC_COSTS = {
@@ -46,8 +46,6 @@
   }
 
   function boundedCivicCell(sim, kingdom, type) {
-    if (aliveCount(kingdom, type) >= 1) return null;
-
     const farms = (kingdom.buildings || []).filter(b => b.type === 'farm' && !b.__v66Destroyed);
     const houses = (kingdom.buildings || []).filter(b => /^house_[abc]$/.test(b.type) && !b.__v66Destroyed);
     if (type === 'windmill' && farms.length < 2) return null;
@@ -94,9 +92,9 @@
   }
 
   function civicTypeReady(kingdom, age) {
-    const windmillReady = aliveCount(kingdom, 'windmill') < 1 && aliveCount(kingdom, 'farm') >= 2 && affordable(kingdom, CIVIC_COSTS.windmill);
+    const windmillReady = aliveCount(kingdom, 'farm') >= 2 && affordable(kingdom, CIVIC_COSTS.windmill);
     const houses = (kingdom.buildings || []).filter(b => /^house_[abc]$/.test(b.type) && !b.__v66Destroyed).length;
-    const churchReady = aliveCount(kingdom, 'church') < 1 && houses >= 3 && Number(kingdom.pop || 0) >= 10 && affordable(kingdom, CIVIC_COSTS.church);
+    const churchReady = houses >= 3 && Number(kingdom.pop || 0) >= 10 && affordable(kingdom, CIVIC_COSTS.church);
     if (!windmillReady && !churchReady) return null;
     if (windmillReady && churchReady) return ((kingdom.id || 0) + Math.floor(age / 30)) % 2 ? 'church' : 'windmill';
     return windmillReady ? 'windmill' : 'church';
@@ -248,7 +246,6 @@
     const originalAddBuilding = sim.addBuilding.bind(sim);
     sim.addBuilding = function (kingdom, type, x, y, forceCastle = false, instant = false, ...rest) {
       if (!forceCastle && kingdom?.alive && isAtWar(this, kingdom)) return null;
-      if ((type === 'windmill' || type === 'church') && aliveCount(kingdom, type) >= 1) return null;
       return originalAddBuilding(kingdom, type, x, y, forceCastle, instant, ...rest);
     };
 
@@ -298,8 +295,7 @@
       eliminatedKingdomGuardsPurged: true,
       churchEnabled: true,
       windmillEnabled: true,
-      maxChurchesPerKingdom: 1,
-      maxWindmillsPerKingdom: 1,
+      civicHardLimit: false,
       civicPlacementBounded: true,
       civicMaxCandidateChecks: CIVIC_MAX_CHECKS,
       civicNoTerritoryScan: true,
