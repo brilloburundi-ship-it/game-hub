@@ -13,57 +13,98 @@
     setTimeout(() => el.remove(), 2600);
   };
 
+  function silenceLegacyLoadToast() {
+    const clear = () => {
+      $$('#toast .toast').forEach(el => {
+        if (/V6\.4 LIVING KINGDOMS loaded/i.test(el.textContent || '')) el.remove();
+      });
+    };
+    clear();
+    setTimeout(clear, 0);
+    setTimeout(clear, 120);
+    setTimeout(clear, 500);
+  }
+
   function installTestPanelHotfix() {
     const panel = $('#testPanel');
-    const toggle = $('#toggleTest');
-    if (!panel || !toggle || toggle.dataset.v681 === '1') return;
-    toggle.dataset.v681 = '1';
+    const oldToggle = $('#toggleTest');
+    if (!panel || !oldToggle || panel.dataset.v682 === '1') return;
+    panel.dataset.v682 = '1';
 
-    // Keep UI touches entirely outside the Pixi pointer system on iPhone/iPad.
+    // Detach every legacy TEST handler instead of wrapping it. This prevents
+    // the old V6.4 click path and the V6.8 runtime from both reacting to one tap.
+    const toggle = oldToggle.cloneNode(true);
+    oldToggle.replaceWith(toggle);
+
     const stop = e => e.stopPropagation();
-    ['pointerdown', 'pointerup', 'touchstart', 'touchend'].forEach(type => {
-      panel.addEventListener(type, stop, { passive: true });
+    ['pointerdown', 'pointerup', 'pointermove', 'touchstart', 'touchend', 'click'].forEach(type => {
+      panel.addEventListener(type, stop, { passive: type !== 'click' });
     });
 
-    // Replace the old handler with a deterministic toggle. Using pointerup avoids
-    // Safari occasionally swallowing the synthetic click after canvas gestures.
-    let lastPointerToggle = 0;
-    const openClose = e => {
-      e?.preventDefault?.();
-      e?.stopPropagation?.();
+    toggle.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
       panel.classList.toggle('collapsed');
-      lastPointerToggle = performance.now();
-    };
-    toggle.onclick = e => {
-      if (performance.now() - lastPointerToggle < 450) return;
-      openClose(e);
-    };
-    toggle.onpointerup = openClose;
+    });
 
-    // Test actions run in a serialized queue, but never block the UI event itself.
-    let queue = Promise.resolve();
-    $$('[data-test]').forEach(btn => {
-      const old = btn.onclick;
-      if (!old || btn.dataset.v681 === '1') return;
-      btn.dataset.v681 = '1';
-      btn.onclick = e => {
+    // Replace the action buttons too, removing all old onclick callbacks.
+    $$('[data-test]').forEach(oldBtn => {
+      const btn = oldBtn.cloneNode(true);
+      oldBtn.replaceWith(btn);
+      btn.addEventListener('click', e => {
         e.preventDefault();
         e.stopPropagation();
-        const fakeEvent = { preventDefault() {}, stopPropagation() {} };
-        queue = queue
-          .then(() => Promise.resolve(old.call(btn, fakeEvent)))
-          .catch(err => {
-            console.error('[V6.8.1 TEST action]', err);
-            toast('Test action recovered — game is still running');
-          });
-      };
+        runTestAction(btn.dataset.test, btn).catch(err => {
+          console.error('[V6.8.2 TEST action]', err);
+          toast('Test action recovered — simulation continues');
+        });
+      });
     });
+  }
+
+  let actionQueue = Promise.resolve();
+  function runTestAction(act, btn) {
+    actionQueue = actionQueue.then(async () => {
+      const sim = window.__SIM;
+      if (!sim) return;
+      const name = ($('#testName')?.value || 'Player').trim() || 'Player';
+      btn.disabled = true;
+      try {
+        if (act === 'join') await sim.join(name);
+        else if (act === 'like') sim.like(name, 20);
+        else if (act === 'follow') sim.follow(name);
+        else if (act === 'rose') await sim.gift(name, 'Rose', 1);
+        else if (act === 'ice') await sim.gift(name, 'Ice Cream', 1);
+        else if (act === 'fireworks') await sim.gift(name, 'Fireworks', 1);
+        else if (act === 'swan') await sim.gift(name, 'Swan', 1);
+        else if (act === 'concert') await sim.gift(name, 'Concert', 1);
+        else if (act === 'money') await sim.gift(name, 'Money Gun', 1);
+        else if (act === 'jet') await sim.gift(name, 'Private Jet', 1);
+        else if (act === 'meteor') await sim.gift(name, 'Meteor', 1);
+        else if (act === 'car') await sim.gift(name, 'Sports Car', 1);
+        else if (act === 'galaxy') await sim.gift(name, 'Galaxy', 1);
+        else if (act === 'lion') await sim.gift(name, 'Lion', 1);
+        else if (act === 'dragon') await sim.gift(name, 'Dragon', 1);
+        else if (act === 'universe') await sim.gift(name, 'Universe', 1);
+        else if (act === 'boost') sim.boost30?.();
+        else if (act === 'attack') {
+          const a = sim.kingdomByName.get(name.toLowerCase());
+          if (!a) return toast('Create your kingdom with JOIN first');
+          const target = sim.kingdoms.filter(k => k.alive && k !== a).sort((x, y) => sim.power(y) - sim.power(x))[0];
+          if (target) sim.attack(a, target);
+          else toast('At least two kingdoms are required');
+        }
+      } finally {
+        btn.disabled = false;
+      }
+    });
+    return actionQueue;
   }
 
   function installSimulationWatchdog() {
     const sim = window.__SIM;
-    if (!sim || sim.__v681Watchdog) return;
-    sim.__v681Watchdog = true;
+    if (!sim || sim.__v682Watchdog) return;
+    sim.__v682Watchdog = true;
     let lastAge = Number(sim.age) || 0;
     let stalledFor = 0;
 
@@ -76,19 +117,18 @@
       }
       stalledFor += 1;
       if (document.hidden || stalledFor < 3 || sim.__v68TickBusy) return;
-
-      // Recover only a genuinely stalled timer. Do not create a second normal tick loop.
       stalledFor = 0;
-      Promise.resolve(sim.tick?.()).catch(err => console.error('[V6.8.1 watchdog]', err));
+      Promise.resolve(sim.tick?.()).catch(err => console.error('[V6.8.2 watchdog]', err));
     }, 1000);
   }
 
   function install() {
+    silenceLegacyLoadToast();
     installTestPanelHotfix();
     installSimulationWatchdog();
     const tag = document.querySelector('.build-tag');
-    if (tag) tag.textContent = 'V6.8.1 TEST FIX';
-    window.__BUILD_VERSION = '6.8.1-test-freeze-hotfix';
+    if (tag) tag.textContent = 'V6.8.2 SINGLE TEST';
+    window.__BUILD_VERSION = '6.8.2-single-test-handler';
   }
 
   (function wait() {
