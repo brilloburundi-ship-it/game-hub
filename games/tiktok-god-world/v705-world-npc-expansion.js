@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v705-world-npc-expansion-1';
+  const VERSION = 'v705-world-npc-expansion-2';
   const WORLD_SCALE = 4 / 3;
   const FARMER_SPEED_FACTOR = 0.58;
   const FARMER_MIN_SPEED = 9.5;
@@ -185,7 +185,10 @@
 
   async function installRuntimePatches() {
     for (let i = 0; i < 1800; i++) {
-      if (window.__SIM?.r && typeof window.__SIM.spawnFarmer === 'function') break;
+      const sim = window.__SIM, renderer = sim?.r;
+      const pixiReady = renderer?.root?.children?.length && renderer?.entities;
+      const canvasReady = renderer?.map;
+      if (sim && typeof sim.spawnFarmer === 'function' && (pixiReady || canvasReady)) break;
       await sleep(20);
     }
     const sim = window.__SIM, renderer = sim?.r;
