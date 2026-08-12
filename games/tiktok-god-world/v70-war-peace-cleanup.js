@@ -1,12 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v70-war-peace-cleanup-3-civic-unlimited';
+  const VERSION = 'v70-war-peace-cleanup-4-civic-priority';
   const CIVIC_MAX_CHECKS = 64;
-  const CIVIC_RETRY_BASE = 28;
+  const CIVIC_RETRY_BASE = 22;
   const CIVIC_COSTS = {
-    windmill: { wood: 90, stone: 45, gold: 10 },
-    church: { wood: 90, stone: 45, gold: 10 }
+    windmill: { wood: 70, stone: 25, gold: 6 },
+    church: { wood: 80, stone: 35, gold: 8 }
   };
 
   if (window.__V70_WAR_PEACE_CLEANUP?.installed) return;
@@ -25,6 +25,10 @@
 
   function affordable(kingdom, cost) {
     return Object.entries(cost).every(([resource, amount]) => Number(kingdom.resources?.[resource] || 0) >= amount);
+  }
+
+  function aliveBuildings(kingdom, test) {
+    return (kingdom?.buildings || []).filter(b => b && !b.__v66Destroyed && (!Number.isFinite(b.hp) || b.hp > 0) && test(b));
   }
 
   const CIVIC_OFFSETS = [];
@@ -46,17 +50,17 @@
   }
 
   function boundedCivicCell(sim, kingdom, type) {
-    const farms = (kingdom.buildings || []).filter(b => b.type === 'farm' && !b.__v66Destroyed);
-    const houses = (kingdom.buildings || []).filter(b => /^house_[abc]$/.test(b.type) && !b.__v66Destroyed);
-    if (type === 'windmill' && farms.length < 2) return null;
-    if (type === 'church' && (houses.length < 3 || Number(kingdom.pop || 0) < 10)) return null;
+    const farms = aliveBuildings(kingdom, b => b.type === 'farm');
+    const houses = aliveBuildings(kingdom, b => /^house_[abc]$/.test(b.type));
+    if (type === 'windmill' && farms.length < 1) return null;
+    if (type === 'church' && (houses.length < 2 || Number(kingdom.pop || 0) < 7)) return null;
 
     const anchors = type === 'windmill' ? farms : houses;
     const seen = new Set();
     let checked = 0;
     let best = null;
     let bestScore = -Infinity;
-    const shift = ((kingdom.id || 0) * 11 + Math.floor(Number(sim.age || 0) / 20)) % CIVIC_OFFSETS.length;
+    const shift = ((kingdom.id || 0) * 11 + Math.floor(Number(sim.age || 0) / 16)) % CIVIC_OFFSETS.length;
 
     for (let ai = 0; ai < anchors.length && checked < CIVIC_MAX_CHECKS; ai++) {
       const anchor = anchors[(ai + (kingdom.id || 0)) % anchors.length];
@@ -92,11 +96,16 @@
   }
 
   function civicTypeReady(kingdom, age) {
-    const windmillReady = aliveCount(kingdom, 'farm') >= 2 && affordable(kingdom, CIVIC_COSTS.windmill);
-    const houses = (kingdom.buildings || []).filter(b => /^house_[abc]$/.test(b.type) && !b.__v66Destroyed).length;
-    const churchReady = houses >= 3 && Number(kingdom.pop || 0) >= 10 && affordable(kingdom, CIVIC_COSTS.church);
+    const farms = aliveCount(kingdom, 'farm');
+    const windmills = aliveCount(kingdom, 'windmill');
+    const houses = aliveBuildings(kingdom, b => /^house_[abc]$/.test(b.type)).length;
+    const churches = aliveCount(kingdom, 'church');
+
+    // No hard cap: civic buildings scale naturally with the settlement.
+    const windmillReady = farms >= 1 + windmills * 2 && affordable(kingdom, CIVIC_COSTS.windmill);
+    const churchReady = houses >= 2 + churches * 4 && Number(kingdom.pop || 0) >= 7 + churches * 6 && affordable(kingdom, CIVIC_COSTS.church);
     if (!windmillReady && !churchReady) return null;
-    if (windmillReady && churchReady) return ((kingdom.id || 0) + Math.floor(age / 30)) % 2 ? 'church' : 'windmill';
+    if (windmillReady && churchReady) return ((kingdom.id || 0) + Math.floor(age / 24)) % 2 ? 'church' : 'windmill';
     return windmillReady ? 'windmill' : 'church';
   }
 
@@ -210,31 +219,35 @@
     const originalBuildAI = sim.buildAI.bind(sim);
     sim.buildAI = async function (kingdom) {
       if (isAtWar(this, kingdom)) return null;
-
-      const beforeBuild = Number(kingdom?.lastBuild || 0);
-      const result = await originalBuildAI(kingdom);
-      if (!kingdom?.alive || Number(kingdom.lastBuild || 0) !== beforeBuild) return result;
-      if (this.age - Number(kingdom.lastBuild || 0) < 6) return result;
+      if (!kingdom?.alive) return null;
 
       if (!Number.isFinite(kingdom.__v70NextCivicAt)) {
-        kingdom.__v70NextCivicAt = this.age + 12 + ((kingdom.id || 0) % 6) * 2;
+        kingdom.__v70NextCivicAt = this.age + 8 + ((kingdom.id || 0) % 5) * 2;
       }
-      if (this.age < kingdom.__v70NextCivicAt) return result;
-      kingdom.__v70NextCivicAt = this.age + CIVIC_RETRY_BASE + ((kingdom.id || 0) % 5) * 3;
 
-      const type = civicTypeReady(kingdom, this.age);
-      if (!type) return result;
-      const cost = CIVIC_COSTS[type];
-      const cell = this.findBuildCell(kingdom, type, false);
-      if (!cell) return result;
+      // Give church/windmill a bounded, infrequent priority slot BEFORE the normal AI.
+      // This prevents normal houses/farms from consuming every build opportunity while
+      // keeping the original V7.0 construction cadence and renderer untouched.
+      if (this.age - Number(kingdom.lastBuild || 0) >= 6 && this.age >= kingdom.__v70NextCivicAt) {
+        kingdom.__v70NextCivicAt = this.age + CIVIC_RETRY_BASE + ((kingdom.id || 0) % 5) * 2;
+        const type = civicTypeReady(kingdom, this.age);
+        if (type) {
+          const cost = CIVIC_COSTS[type];
+          const cell = this.findBuildCell(kingdom, type, false);
+          if (cell) {
+            const building = await this.addBuilding(kingdom, type, cell[0], cell[1], false);
+            if (building) {
+              for (const [resource, amount] of Object.entries(cost)) kingdom.resources[resource] -= amount;
+              kingdom.lastBuild = this.age;
+              this.r.puff?.(...this.iso(cell[0], cell[1]));
+              this.updateSelected?.();
+              return true;
+            }
+          }
+        }
+      }
 
-      const building = await this.addBuilding(kingdom, type, cell[0], cell[1], false);
-      if (!building) return result;
-      for (const [resource, amount] of Object.entries(cost)) kingdom.resources[resource] -= amount;
-      kingdom.lastBuild = this.age;
-      this.r.puff?.(...this.iso(cell[0], cell[1]));
-      this.updateSelected?.();
-      return true;
+      return originalBuildAI(kingdom);
     };
 
     const originalExpandAI = sim.expandAI.bind(sim);
@@ -296,6 +309,10 @@
       churchEnabled: true,
       windmillEnabled: true,
       civicHardLimit: false,
+      civicPriorityBeforeNormalAI: true,
+      civicScalesWithSettlement: true,
+      firstWindmillFromFarms: 1,
+      firstChurchFromHouses: 2,
       civicPlacementBounded: true,
       civicMaxCandidateChecks: CIVIC_MAX_CHECKS,
       civicNoTerritoryScan: true,
