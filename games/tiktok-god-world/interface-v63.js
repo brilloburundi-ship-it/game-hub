@@ -46,21 +46,32 @@
     setInterval(paint, 4200);
   }
 
-  // The stable V6.6 battle base keeps its internal compatibility flags, but the
-  // player must see one product identity only. Finalize the visible identity once
-  // the integrated battle authority is installed.
+  // Keep one product identity visible even while the proven V6.6 compatibility
+  // layer initializes internally. Legacy module labels are implementation details.
+  const buildTag = document.querySelector('.build-tag');
+  const keepSingleBuildTag = () => {
+    if (buildTag && buildTag.textContent !== 'STABLE INTEGRATED') buildTag.textContent = 'STABLE INTEGRATED';
+  };
+  keepSingleBuildTag();
+  if (buildTag) new MutationObserver(keepSingleBuildTag).observe(buildTag, { childList: true, characterData: true, subtree: true });
+
+  const toastHost = document.querySelector('#toast');
+  const removeLegacyVersionToasts = () => {
+    for (const el of document.querySelectorAll('#toast .toast')) {
+      if (/V6\.4 LIVING KINGDOMS loaded/i.test(el.textContent || '')) el.remove();
+    }
+  };
+  if (toastHost) new MutationObserver(removeLegacyVersionToasts).observe(toastHost, { childList: true, subtree: true });
+
   const finalizeIdentity = () => {
     if (!window.__SIM?.__gwIntegratedBattleInstalled) {
       setTimeout(finalizeIdentity, 50);
       return;
     }
     window.__BUILD_VERSION = 'stable-integrated-1';
-    const tag = document.querySelector('.build-tag');
-    if (tag) tag.textContent = 'STABLE INTEGRATED';
     document.documentElement.dataset.build = 'stable-integrated-1';
-    for (const el of document.querySelectorAll('#toast .toast')) {
-      if (/V6\.4 LIVING KINGDOMS loaded/i.test(el.textContent || '')) el.remove();
-    }
+    keepSingleBuildTag();
+    removeLegacyVersionToasts();
   };
   finalizeIdentity();
 })();
