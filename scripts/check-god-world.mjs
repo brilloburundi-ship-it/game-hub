@@ -7,9 +7,9 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, living, battle, safeFrame, music, game, generator, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, living, battle, safeFrame, construction, music, game, generator, packageJson] = await Promise.all([
   read('index.html'), read('sw.js'), read('version.json'), read('tree-depth.js'),
-  read('living-kingdoms-v65.js'), read('v66-living-battles.js'), read('v661-battle-stability.js'),
+  read('living-kingdoms-v65.js'), read('v66-living-battles.js'), read('v661-battle-stability.js'), read('construction-visuals-v67.js'),
   read('music.js'), read('game.js'), read('tools/generate_world_v2.py'), readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -19,11 +19,11 @@ if (version.marker !== 'god-world-stable-integrated-single-authority') throw new
 if (!index.includes('STABLE INTEGRATED')) throw new Error('Visible stable identity missing');
 if (index.includes(' autoplay')) throw new Error('Music must not autoplay');
 if (!/id="bgMusic"[^>]*preload="metadata"/.test(index)) throw new Error('Music preload must remain metadata');
-if (!sw.includes("const CACHE = 'god-world-stable-integrated-island-style-3'")) throw new Error('Island map cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-stable-integrated-construction-v4'")) throw new Error('Construction cache marker missing');
 
 const expectedScripts = [
   'asset-recovery.js','game.js','tree-depth.js','lan-bridge.js','interface-v63.js','world-effects.js','music.js',
-  'living-kingdoms-v65.js','v66-living-battles.js','v661-battle-stability.js'
+  'living-kingdoms-v65.js','v66-living-battles.js','v661-battle-stability.js','construction-visuals-v67.js'
 ];
 for (const file of expectedScripts) {
   const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -69,6 +69,13 @@ if (!safeFrame.includes('installPostJoinPresentation')) throw new Error('Post-JO
 if (!safeFrame.includes("document.documentElement.dataset.battleSystem = 'stable-v66-safe-frame'")) throw new Error('Safe battle marker missing');
 if (!safeFrame.includes('infrastructure-required')) throw new Error('Military infrastructure gate missing');
 if (safeFrame.includes('setInterval(')) throw new Error('Safe frame must not add recurring loops');
+
+if (!construction.includes("const VERSION = 'construction-visuals-v67'")) throw new Error('Construction visuals runtime missing');
+for (const stage of ['stage-1-foundation.svg','stage-2-scaffold.svg','stage-3-walls.svg']) {
+  if (!construction.includes(stage) || !sw.includes(stage)) throw new Error(`Construction stage missing from runtime/cache: ${stage}`);
+}
+if (!construction.includes('hideFinalBuilding') || !construction.includes('showFinalBuilding')) throw new Error('Construction-to-final building visibility handoff missing');
+if (!construction.includes('playPixiConstruction') || !construction.includes('playCanvasConstruction')) throw new Error('Construction visuals must support both renderers');
 
 if (!music.includes("audio.preload = 'metadata'")) throw new Error('Gesture-safe music preload missing');
 if (music.includes('audio.load()')) throw new Error('Music must not force-load full track at startup');
@@ -158,4 +165,4 @@ for (const match of shellMatch[1].matchAll(/'([^']+)'/g)) {
   if (match[1] !== './') await access(resolve(gameRoot,match[1]));
 }
 
-console.log(`TikTok God World stable: unchanged core, island-shaped same-style 88x64 static map, ${interiorWater} lake cells, ${components-1} islets, ${world.rivers.length} rivers, ${vegetation.trees.length} source trees, starter village, visible buildings and kingdom-colored farmers OK`);
+console.log(`TikTok God World stable: unchanged core, island-shaped same-style 88x64 static map, ${interiorWater} lake cells, ${components-1} islets, ${world.rivers.length} rivers, ${vegetation.trees.length} source trees, starter village, staged 2D construction visuals, visible final buildings and kingdom-colored farmers OK`);
