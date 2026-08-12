@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v707-gameplay-polish-1';
+  const VERSION = 'v707-gameplay-polish-2';
   if (window.__V707_GAMEPLAY_POLISH?.bootstrap) return;
 
   const state = window.__V707_GAMEPLAY_POLISH = {
@@ -20,9 +20,6 @@
     'fish', 'milk_cow', 'push_cart', 'carry_sack', 'carry_log', 'carry_basket'
   ]);
 
-  // Intentionally slow frame cadence. More importantly, work sprites advance by at
-  // most one frame per step, so a dropped browser frame can never skip several poses
-  // and create the bright "flash" effect seen during farming/mining/chopping.
   const WORK_FRAME_MS = {
     harvest: 390,
     plant_seed: 410,
@@ -38,9 +35,11 @@
     carry_basket: 380
   };
 
+  // The first windmill and church are founding gifts. They are attempted before the
+  // ordinary economy starts building, cost no resources and never consume lastBuild.
   const CIVIC_PLAN = [
-    { type: 'windmill', after: 12, cost: { wood: 30, stone: 10 } },
-    { type: 'church', after: 24, cost: { wood: 30, stone: 10, gold: 4 } }
+    { type: 'windmill', after: 2 },
+    { type: 'church', after: 4 }
   ];
 
   function spriteAction(sprite, farmer) {
@@ -88,8 +87,6 @@
         const current = spriteAction(sprite, farmer);
         const now = performance.now();
 
-        // Fixed farm workers used to swap harvest/water sheets every ~3 seconds.
-        // Keep the same gameplay state but avoid a rapid full-sheet swap on screen.
         if (
           farmer?.fixedBuilding && sprite && WORK_ACTIONS.has(current) && WORK_ACTIONS.has(requested) &&
           current !== requested && now - Number(sprite.__v707LastWorkSheetSwap || 0) < 6800
@@ -149,7 +146,6 @@
             if (now < Number(sprite.__v707NextFrameAt || 0)) continue;
             const total = Math.max(1, Number(sprite.totalFrames || sprite.textures?.length || 1));
             if (total > 1) {
-              // No catch-up loop: exactly one pose step, even after a long dropped frame.
               const next = (Number(sprite.currentFrame || 0) + 1) % total;
               try { sprite.gotoAndStop?.(next); } catch (_) {}
             }
@@ -167,27 +163,32 @@
     return (k?.buildings || []).some(b => b && !b.__v66Destroyed && b.hp > 0 && b.type === type);
   }
 
-  async function buildEarlyCivic(sim, k, plan) {
-    if (!k?.alive || hasBuilding(k, plan.type)) return false;
+  function freeCivicGranted(k, type) {
+    return !!k?.__v707FreeCivics?.[type];
+  }
+
+  async function buildFreeCivic(sim, k, plan) {
+    if (!k?.alive || freeCivicGranted(k, plan.type) || hasBuilding(k, plan.type)) {
+      if (hasBuilding(k, plan.type)) {
+        k.__v707FreeCivics ||= {};
+        k.__v707FreeCivics[plan.type] = true;
+      }
+      return false;
+    }
     if (typeof sim.findBuildCell !== 'function' || typeof sim.addBuilding !== 'function') return false;
 
     const cell = sim.findBuildCell(k, plan.type, false);
     if (!cell) return false;
 
-    // Small one-time founding reserve: only fills the exact shortfall for these two
-    // early civic landmarks. It does not alter normal recurring economy or later AI.
-    for (const [resource, amount] of Object.entries(plan.cost)) {
-      k.resources[resource] = Math.max(Number(k.resources[resource] || 0), amount);
-    }
-    for (const [resource, amount] of Object.entries(plan.cost)) k.resources[resource] -= amount;
-
+    // Completely free: no resource top-up, no deduction and no refund path.
+    // Preserve lastBuild exactly so the normal city-development cadence is untouched.
+    const previousLastBuild = k.lastBuild;
     const building = await sim.addBuilding(k, plan.type, cell[0], cell[1], false, false);
-    if (!building) {
-      for (const [resource, amount] of Object.entries(plan.cost)) k.resources[resource] += amount;
-      return false;
-    }
+    k.lastBuild = previousLastBuild;
+    if (!building) return false;
 
-    k.lastBuild = sim.age;
+    k.__v707FreeCivics ||= {};
+    k.__v707FreeCivics[plan.type] = true;
     k.__v707Civics ||= {};
     k.__v707Civics[plan.type] = sim.age;
     return true;
@@ -203,12 +204,11 @@
       if (!Number.isFinite(k.__v707JoinAge)) k.__v707JoinAge = this.age;
       const kingdomAge = this.age - k.__v707JoinAge;
 
+      // Free civic attempts are additive. Failure to find a cell never blocks the
+      // original AI; success also does not reset its build timer or spend resources.
       for (const plan of CIVIC_PLAN) {
-        if (hasBuilding(k, plan.type) || kingdomAge < plan.after) continue;
-        const built = await buildEarlyCivic(this, k, plan);
-        // Once a civic milestone is due, reserve that build opportunity. If the city
-        // needs one more expansion cell, normal expansion runs immediately after this.
-        if (built || !hasBuilding(k, plan.type)) return;
+        if (freeCivicGranted(k, plan.type) || kingdomAge < plan.after) continue;
+        await buildFreeCivic(this, k, plan);
       }
 
       return originalBuildAI(k);
@@ -265,7 +265,7 @@
     installNoDrawnSpears(sim);
 
     state.installed = true;
-    state.civicPlan = CIVIC_PLAN.map(p => ({ type: p.type, after: p.after }));
+    state.civicPlan = CIVIC_PLAN.map(p => ({ type: p.type, after: p.after, free: true, nonBlocking: true }));
     document.documentElement.dataset.gameplayPolish = VERSION;
   }
 
