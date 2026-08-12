@@ -23,7 +23,10 @@
   const waitForRenderer = async () => {
     for (let i = 0; i < 1200; i++) {
       const renderer = window.__SIM?.r;
-      if (renderer?.entities && window.PIXI) return renderer;
+      // Start only after the base game has finished its own initialization and
+      // neutral settlements have been placed. Vegetation remains non-blocking,
+      // but no longer competes with the critical startup path.
+      if (renderer?.entities && window.PIXI && window.TikTokGodWorld) return renderer;
       await sleep(50);
     }
     throw new Error('Pixi renderer unavailable for sparse vegetation');
