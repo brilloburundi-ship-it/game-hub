@@ -36,6 +36,7 @@
     k.popCap = housingCapacity(k);
     k.pop = Math.min(k.pop, k.popCap);
     if (citizens) await sim.syncCitizens(k);
+    keepCiviliansNeutral(k);
   }
 
   async function staffFarms(sim, k) {
@@ -45,20 +46,36 @@
       if (!k.farmers.some(f => !f.fixedBuilding)) break;
       await sim.spawnFarmWorker(k, farm);
     }
+    keepCiviliansNeutral(k);
   }
 
-  function groundBuilding(b, renderer) {
+  function keepCiviliansNeutral(k) {
+    for (const farmer of k?.farmers || []) {
+      if (farmer?._sprite && !farmer._sprite.destroyed) farmer._sprite.tint = 0xffffff;
+    }
+  }
+
+  function groundBuilding(b, renderer, kingdom = null) {
     if (!b) return;
     if (b._foundation) { b._foundation.visible = false; b._foundation.alpha = 0; }
     if (b._shadow) { b._shadow.visible = false; b._shadow.alpha = 0; }
     if (b._sprite) {
+      if (kingdom && renderer?.getBuildingTexture) {
+        const texture = renderer.getBuildingTexture(kingdom, b.type);
+        if (texture?.width > 0 && texture?.height > 0) b._sprite.texture = texture;
+      }
+      b._sprite.visible = true;
+      b._sprite.renderable = true;
+      b._sprite.tint = 0xffffff;
+      b._sprite.alpha = Math.max(.28, Number(b._sprite.alpha) || 0);
       b._sprite.anchor?.set?.(.5, 1);
       b._sprite.y = Math.round(b.sy + (b.type === 'farm' ? 0 : 1));
+      b._sprite.zIndex = Math.round(b.sy * 100) + 20;
       b._sprite.roundPixels = true;
     }
     if (Array.isArray(renderer?.entities)) {
       const entity = renderer.entities.find(entry => entry?.b === b);
-      if (entity) entity.y = Math.round(b.sy + 1);
+      if (entity) { entity.alpha = Math.max(.28, Number(entity.alpha) || 0); entity.y = Math.round(b.sy + 1); }
     }
   }
 
@@ -159,7 +176,7 @@
     sim.addBuilding = async function (...args) {
       const b = await baseAddBuilding(...args);
       if (!b) return b;
-      groundBuilding(b, this.r);
+      groundBuilding(b, this.r, args[0]);
       await syncHousing(this, args[0], false);
       await staffFarms(this, args[0]);
       this.r.redrawSettlementGround?.(this);
@@ -201,10 +218,10 @@
       if (!cell) return;
       const b = await this.addBuilding(k, type, cell[0], cell[1], false);
       if (!b) return;
-      for (const [resource, amount] of Object.entries(cost)) k.resources[resource] -= amount;
+    for (const [resource, amount] of Object.entries(cost)) k.resources[resource] -= amount;
       await syncHousing(this, k, false);
       if (HOUSES.has(type) && k.pop < k.popCap) { k.pop++; await this.syncCitizens(k); }
-      k.lastBuild = this.age;
+      klastBuild = this.age;
       this.r.puff?.(...this.iso(...cell));
       await staffFarms(this, k);
     };
@@ -233,9 +250,9 @@
 
   function giftTier(gift, totalDiamonds) {
     if (/universe|dragon|castle fantasy|interstellar|phoenix/i.test(gift) || totalDiamonds >= 1000) return ['LEGENDARY HELP','👑',24,['house','house','house','farm','farm','barracks','forge','market','stone_tower'],24,420,{food:6000,wood:5500,stone:5000,gold:8000},480];
-    if (/lion/i.test(gift)) return ['ROYAL HELP','🦁',15,['house','house','farm','barracks','forge','watchtower'],14,220,{food:2600,wood:2800,stone:2200,gold:4200},300];
-    if (/galaxy/i.test(gift)) return ['CITY BOOST','🌌',8,['house','farm','barracks'],7,90,{food:1500,wood:1200,stone:900,gold:1800},180];
-    if (/meteor|rocket|planet|supercar/i.test(gift) || totalDiamonds >= 500) return ['MEGA HELP','☄️',13,['house','house','farm','farm','barracks','forge'],10,75,{food:1650,wood:1450,stone:980,gold:1050},180];
+    if (/lion/i.test(gift)) return ['ROYAL HELP','🦩',15,['house','house','farm','barracks','forge','watchtower'],14,220,{food:2600,wood:2800,stone:2200,gold:4200},300];
+    if (/galaxy/i.test(gift)) return ['CITY BOOST','🌝',8,['house','farm','barracks'],7,90,{food:1500,wood:1200,stone:900,gold:1800},180];
+    if (/meteor|rocket|planet|supercar/i.test(gift) || totalDiamonds >= 500) return ['MEGA HELP','☇️',13,['house','house','farm','farm','barracks','forge'],10,75,{food:1650,wood:1450,stone:980,gold:1050},180];
     if (/private jet|yacht|whale diving|sports car|train|money gun|motorcycle|concert/i.test(gift) || totalDiamonds >= 200) return ['BIG HELP','⚡',7,['house','house','farm','market'],6,32,{food:720,wood:620,stone:430,gold:410},110];
     if (/swan|celebration|diamond tree|helicopter|race car/i.test(gift) || totalDiamonds >= 80) return ['INSTANT HELP','✨',3,['house','farm'],3,12,{food:280,wood:240,stone:150,gold:130},65];
     return null;
@@ -259,7 +276,7 @@
       const k = this.kingdomByName.get(String(name).toLowerCase());
       if (!k?.alive || k.followed) return;
       k.followed = true;
-      k.resources.wood += 85; k.resources.stone += 35; k.resources.gold += 20;
+    k.resources.wood += 85; k.resources.stone += 35; k.resources.gold += 20;
       k.boostUntil = Math.max(k.boostUntil, this.age + 30);
       toast(`🔨 ${name}: construction boom`);
       this.r.supportFx?.(k, '🔨', 4);
@@ -275,16 +292,16 @@
         const giftName = String(gift || 'gift'), g = giftName.toLowerCase();
         const n = Math.max(1, Number(repeat) || 1), diamonds = Math.max(0, Number(meta.diamonds || meta.diamondCount || 0));
         if (g.includes('rose')) { k.resources.food += 45*n; k.resources.gold += 12*n; k.boostUntil = Math.max(k.boostUntil,this.age+20); this.r.supportFx?.(k,'🌹',Math.min(6,2+n)); }
-        else if (g.includes('ice cream')) { k.resources.food += 70*n; await this.giftPopulation(k,n); this.r.supportFx?.(k,'🍦',Math.min(6,2+n)); }
+        else if (g.includes('ice cream')) { k.resources.food += 70*n; await this.giftPopulation(k,n); this.r.supportFx?.(k,'🍬',Math.min(6,2+n)); }
         else if (g.includes('coffee') || g.includes('doughnut') || g.includes('donut')) { k.resources.food += 120*n; k.resources.gold += 25*n; k.boostUntil=Math.max(k.boostUntil,this.age+25); this.r.supportFx?.(k,'☕',4); }
-        else if (g.includes('paper crane') || g.includes('heart me') || g.includes('hand heart')) { k.resources.food += 180*n; k.resources.wood += 110*n; await this.giftPopulation(k,2*n); k.boostUntil=Math.max(k.boostUntil,this.age+50); this.r.supportFx?.(k,'💞',6); }
-        else if (g.includes('finger heart')) { k.resources.food += 90*n; k.resources.wood += 55*n; k.boostUntil=Math.max(k.boostUntil,this.age+35); this.r.supportFx?.(k,'🫰',5); }
-        else if (g.includes('perfume')) { k.resources.gold += 120*n; k.resources.stone += 45*n; this.r.supportFx?.(k,'✨',6); }
+        else if (g.includes('paper crane') || g.includes('heart me') || g.includes('hand heart')) { k.resources.food += 180*n; k.resources.wood += 110*n; await this.giftPopulation(k,2*n); k.boostUntil=Math.max(k.boostUntil,this.age+50); this.r.supportFx?.(k,'💾',6); }
+        else if (g.includes('finger heart')) { k.resources.food += 90*n; k.resources.wood += 55*n; k.boostUntil=Math.max(k.boostUntil,this.age+35); this.r.supportFx?.(k,'🊻',5); }
+        else if (g.includes('perfume')) { k.resources.gold += 120*n; k.resources.stone += 45*n; this.r.supportFx?.(k,'☨',6); }
         else if (g.includes('firework')) { k.resources.gold += 260*n; k.resources.wood += 180*n; k.resources.stone += 120*n; k.boostUntil=Math.max(k.boostUntil,this.age+55); this.r.supportFx?.(k,'🎆',7); }
         else if (g.includes('tiktok')) { k.resources.gold += 180*n; k.resources.wood += 120*n; k.boostUntil=Math.max(k.boostUntil,this.age+45); this.r.supportFx?.(k,'🎵',7); }
         else {
           const tier = giftTier(giftName, diamonds * n);
-          if (tier) await applyTier(this, k, tier, n, name);
+          if (tier) await applyTier(this, k, tier, n,.ame);
           else { const value=Math.max(1,diamonds||1); k.resources.gold+=(35+value*.8)*n; k.resources.food+=(35+value*.5)*n; k.resources.wood+=(25+value*.35)*n; this.r.supportFx?.(k,'🎁',3); }
         }
         await syncHousing(this, k, true);
@@ -296,6 +313,25 @@
       queues.set(id, wrapped);
       return wrapped;
     };
+  }
+
+  async function ensureStarterVillage(sim, k) {
+    if (!k?.alive || (k.buildings || []).length !== 1 || k.buildings[0]?.type !== 'castle') return;
+    const starter = ['house_a', 'house_b', 'farm'];
+    for (const type of starter) {
+      let cell = sim.findBuildCell(k, type, true);
+      if (!cell) {
+        sim.claimGiftLand?.(k, 4);
+        cell = sim.findBuildCell(k, type, true);
+      }
+      if (!cell) continue;
+      const b = await sim.addBuilding(k, type, cell[0], cell[1], false, true);
+      if (b) groundBuilding(b, sim.r, k);
+      await nextFrame();
+    }
+    await syncHousing(sim, k, true);
+    await staffFarms(sim, k);
+    sim.r.redrawSettlementGround?.(sim);
   }
 
   function installJoinQueue(sim, renderer) {
@@ -311,9 +347,15 @@
           try {
             const k = await baseJoin(item.name);
             if (k?.alive) {
+              await ensureStarterVillage(sim, k);
               await syncHousing(sim, k, true);
               await staffFarms(sim, k);
-              for (const b of k.buildings || []) groundBuilding(b, renderer);
+              keepCiviliansNeutral(k);
+              for (const b of k.buildings || []) groundBuilding(b, renderer, k);
+              requestAnimationFrame(() => {
+                for (const b of k.buildings || []) groundBuilding(b, renderer, k);
+                renderer.entities && (renderer.entities.sortDirty = true);
+              });
             }
             item.resolve(k || null);
           } catch (error) {
@@ -382,13 +424,13 @@
     document.documentElement.dataset.runtime = 'stable-integrated-single-authority';
     const renderer = sim.r;
     installContextCard(sim, renderer);
-    installCleanRoads(sim, renderer);
+    installCleanRoads(sim, render);
     installEconomy(sim);
     installGifts(sim);
     installJoinQueue(sim, renderer);
     for (const k of sim.kingdoms || []) {
       void syncHousing(sim,k,true).then(()=>staffFarms(sim,k)).catch(()=>{});
-      for (const b of k.buildings || []) groundBuilding(b,renderer);
+      for (const b of k.buildings || []) groundBuilding(b,renderer,k);
     }
     const close=document.querySelector('#closeCard'); if(close)close.onclick=()=>document.querySelector('#kingdomCard')?.classList.add('hidden');
     wireTest(sim);

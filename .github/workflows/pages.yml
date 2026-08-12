@@ -25,6 +25,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate God World static map
+        run: |
+          python -m pip install --disable-pip-version-check pillow numpy
+          python games/tiktok-god-world/tools/generate_world_v2.py
       - run: npm install --ignore-scripts
       - run: npm run check
       - if: github.event_name != 'pull_request'
