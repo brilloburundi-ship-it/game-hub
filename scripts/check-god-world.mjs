@@ -6,23 +6,31 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, worldPolish, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
   read('tree-depth.js'),
+  read('v706-world-polish.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
+// Preserve the proven V6.6.2 gameplay/core identity while validating the current
+// non-destructive visual/runtime polish layers that are intentionally loaded on top.
 const version = JSON.parse(versionText);
-if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable version, found ${version.version}`);
-if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable marker missing');
+if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
+if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v6-6-2-startup-recovery'")) throw new Error('V6.6.2 service-worker cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-0-6-world-polish'")) throw new Error('V7.0.6 world-polish service-worker cache marker missing');
+if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
+if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
+  'v69-runtime-stability.js',
   'asset-recovery.js',
+  'v705-world-npc-expansion.js',
   'game.js',
+  'v706-world-polish.js',
   'tree-depth.js',
   'lan-bridge.js',
   'interface-v63.js',
@@ -31,12 +39,26 @@ const expectedScripts = [
   'living-kingdoms-v65.js',
   'v651-ground-contact.js',
   'v66-living-battles.js',
-  'v661-battle-stability.js'
+  'v661-battle-stability.js',
+  'construction-phases-v662-native-pixel.js',
+  'v67-w1.js',
+  'v67-w2.js',
+  'v67-w3.js',
+  'v67-w4.js',
+  'v67-w5.js',
+  'v67-w6.js',
+  'v67-w7.js',
+  'v67-assets-church.js',
+  'v67-assets-port.js',
+  'v67-pixel-buildings.js',
+  'v68-fishing-asset.js',
+  'v68-fishing-boats.js',
+  'v70-war-peace-cleanup.js'
 ];
 
 for (const file of expectedScripts) {
   const loads = (index.match(new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
-  if (loads !== 1) throw new Error(`${file} must be loaded exactly once by the V6.6.2 stable index, found ${loads}`);
+  if (loads !== 1) throw new Error(`${file} must be loaded exactly once by the current stable index, found ${loads}`);
 }
 
 const forbiddenLaterLayers = [
@@ -47,12 +69,15 @@ const forbiddenLaterLayers = [
   'test-hotfix-v681.js'
 ];
 for (const file of forbiddenLaterLayers) {
-  if (index.includes(file)) throw new Error(`Post-V6.6.2 layer must not be loaded: ${file}`);
-  if (sw.includes(file)) throw new Error(`Post-V6.6.2 layer must not be cached: ${file}`);
+  if (index.includes(file)) throw new Error(`Forbidden obsolete layer must not be loaded: ${file}`);
+  if (sw.includes(file)) throw new Error(`Forbidden obsolete layer must not be cached: ${file}`);
 }
 
-if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = install().catch')) throw new Error('V6.6.2 tree-depth startup promise marker missing');
-if (!treeDepth.includes('window.__TREE_DEPTH_READY')) throw new Error('V6.6.2 tree-depth ready marker missing');
+if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = install().catch')) throw new Error('Tree-depth startup promise marker missing');
+if (!treeDepth.includes('window.__TREE_DEPTH_READY')) throw new Error('Tree-depth ready marker missing');
+if (!treeDepth.includes('excludesSnowPine: true')) throw new Error('Snow-pine exclusion marker missing');
+if (!worldPolish.includes('createTerrainCanvas')) throw new Error('Clean terrain rebuild marker missing');
+if (!worldPolish.includes('installAnimationGovernor')) throw new Error('Farmer animation governor marker missing');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
@@ -73,4 +98,13 @@ for (const entry of shellEntries) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World V6.6.2 STABLE: exact runtime stack, syntax and cache shell checks OK');
+for (const atlasPart of [
+  'assets/vegetation/flora-atlas.part0',
+  'assets/vegetation/flora-atlas.part1',
+  'assets/vegetation/flora-atlas.part2',
+  'assets/vegetation/flora-atlas.part3'
+]) {
+  if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
+}
+
+console.log('TikTok God World: V6.6.2 stable core + V7.0.6 terrain/flora polish stack, syntax and cache shell checks OK');
