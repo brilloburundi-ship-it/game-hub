@@ -9,14 +9,14 @@
   <meta name="apple-mobile-web-app-title" content="God World" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
-  <title>TikTok God World — Stable Core</title>
+  <title>TikTok God World — Living Kingdoms</title>
 </head>
 <body>
   <div id="game"></div>
   <div id="loading"><div class="crest">♜</div><strong>TikTok God World</strong><span>Generating the world…</span></div>
 
   <header class="hud topbar">
-    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">STABLE CORE</span></div>
+    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">V6.4 LIVING KINGDOMS</span></div>
     <div class="stats"><span id="age">0:00</span><small>world age</small><span id="fps">60 FPS</span><span id="players">0 kingdoms</span></div>
     <div class="bridge command-rotator"><i id="bridgeDot"></i><span id="commandIcon">&#128081;</span><span id="bridgeText">JOIN = create your kingdom</span></div>
   </header>
@@ -35,14 +35,24 @@
 
   <div id="toast"></div>
   <audio id="bgMusic" src="assets/audio/medieval-market-full.mp3" preload="metadata" loop playsinline></audio>
-  <canvas id="weatherCanvas" aria-hidden="true"></canvas>
-  <div id="worldEvent" class="world-event hud" aria-live="polite"></div>
 
   <section id="testPanel" class="hud test-panel collapsed">
     <button id="toggleTest">TEST</button>
     <div class="test-inner">
       <input id="testName" value="Player" maxlength="18" />
-      <button data-test="join">JOIN</button><button data-test="like">LIKE ×20</button><button data-test="follow">FOLLOW</button><button data-test="rose">ROSE</button><button data-test="ice">ICE CREAM</button><button data-test="fireworks">FIREWORKS</button><button data-test="swan">SWAN</button><button data-test="concert">CONCERT</button><button data-test="money">MONEY GUN</button><button data-test="jet">PRIVATE JET</button><button data-test="meteor">METEOR</button><button data-test="car">SPORTS CAR</button><button data-test="galaxy">GALAXY</button><button data-test="lion">LION</button><button data-test="dragon">DRAGON</button><button data-test="universe">UNIVERSE</button><button data-test="attack">ATTACK</button><button data-test="boost">+30s</button>
+      <button data-test="join">JOIN</button>
+      <button data-test="like">LIKE ×20</button>
+      <button data-test="follow">FOLLOW</button>
+      <button data-test="rose">ROSE</button>
+      <button data-test="ice">ICE CREAM</button>
+      <button data-test="fireworks">FIREWORKS</button>
+      <button data-test="car">SPORTS CAR</button>
+      <button data-test="galaxy">GALAXY</button>
+      <button data-test="lion">LION</button>
+      <button data-test="dragon">DRAGON</button>
+      <button data-test="universe">UNIVERSE</button>
+      <button data-test="attack">ATTACK</button>
+      <button data-test="boost">+30s</button>
     </div>
   </section>
 
@@ -50,11 +60,6 @@
   <div class="zoom hud"><button id="zoomIn">＋</button><button id="zoomOut">－</button><button id="homeCam">⌂</button></div>
 
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
-  <script src="asset-recovery.js"></script>
-  <script src="game.js"></script>
-  <script src="tree-depth.js"></script>
-  <script src="lan-bridge.js"></script>
-  <script src="world-effects.js"></script>
-  <script src="music.js"></script>
+  <script src="game.js?single-core=1"></script>
 </body>
 </html>
