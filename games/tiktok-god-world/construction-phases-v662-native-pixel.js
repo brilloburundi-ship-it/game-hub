@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // Additive V6.6.2 construction visuals. Completed prefabs remain untouched.
+  // Additive V6.6.2 construction visuals. Completed prefab artwork and core game stay untouched.
   const BUILDINGS = {
     barracks:{file:'assets/buildings/barracks.png',w:106,h:84},
     castle:{file:'assets/buildings/castle.png',w:161,h:190},
@@ -26,8 +26,11 @@
 
   const TYPES = new Set(Object.keys(BUILDINGS));
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const stableSprites = new Set();
-  let stableSmallScale = null;
+
+  // The stable/setta prefab was explicitly requested to stay at the smaller in-game size.
+  // This matches the small construction presentation (72% of the original 28px world-height target)
+  // and prevents the original grow tween from leaving one instance larger than another.
+  const STABLE_SMALL_SCALE = (28 * .72) / BUILDINGS.stable.h;
 
   const aliases = new Map([
     ['house','house_a'],['home','house_a'],['field','farm'],['farm_field','farm'],
@@ -92,9 +95,19 @@
   }
 
   function inferKingdomColor(args,result,sprite) {
+    // sim.addBuilding(k, type, x, y, ...) always passes the owning kingdom first.
+    // Prefer that exact palette so construction phases can never fall back to another kingdom colour.
+    const directKingdom = args.find(v => v && typeof v === 'object' && colorNumber(v.color) !== null);
+    if (directKingdom) return colorNumber(directKingdom.color);
+
+    const ownerId = Number.isInteger(result?.owner) ? result.owner : Number.isInteger(sprite?.__owner) ? sprite.__owner : null;
+    const ownerKingdom = ownerId !== null ? window.__SIM?.kingdoms?.[ownerId] : null;
+    const ownerColor = colorNumber(ownerKingdom?.color);
+    if (ownerColor !== null) return ownerColor;
+
     const objects = [...args,result].filter(v=>v && typeof v === 'object');
     for (const object of objects) {
-      for (const key of ['color','tint','primaryColor','kingdomColor','accent']) {
+      for (const key of ['color','primaryColor','kingdomColor','accent','tint']) {
         const n = colorNumber(object[key]);
         if (n !== null) return n;
       }
@@ -221,7 +234,10 @@
       });
     }));
     window.__CONSTRUCTION_PIXEL_TEXTURES=result;
-    window.__CONSTRUCTION_PIXEL_META={version:'v662-native-pixel-1',stages:3,nativeSizes:true,tintMasks:true};
+    window.__CONSTRUCTION_PIXEL_META={
+      version:'v662-native-pixel-2',stages:3,nativeSizes:true,tintMasks:true,
+      kingdomColorLocked:true,stableSmallScale:true,farmFoundationHidden:true
+    };
     document.documentElement.dataset.constructionAssets='ready';
     return result;
   }
@@ -234,6 +250,7 @@
 
   function resultSprite(result) {
     if (!result || typeof result !== 'object') return null;
+    if (result._sprite?.texture) return result._sprite;
     for (const key of ['sprite','view','display','entity','node']) if (result[key]?.texture) return result[key];
     return null;
   }
@@ -242,17 +259,20 @@
     try { return Math.abs((sprite.width||0)*(sprite.height||0)); } catch (_) { return 0; }
   }
 
-  function normalizeStable(sprite) {
+  function forceStableSmallScale(sprite) {
     if (!sprite?.scale) return;
-    stableSprites.add(sprite);
-    const current={x:Math.abs(Number(sprite.scale.x)||0),y:Math.abs(Number(sprite.scale.y)||0)};
-    if (!current.x || !current.y) return;
-    if (!stableSmallScale) stableSmallScale=current;
-    else stableSmallScale={x:Math.min(stableSmallScale.x,current.x),y:Math.min(stableSmallScale.y,current.y)};
-    for (const item of [...stableSprites]) {
-      if (!item || item.destroyed || !item.scale) { stableSprites.delete(item); continue; }
-      const sx=item.scale.x<0?-1:1,sy=item.scale.y<0?-1:1;
-      item.scale.set(stableSmallScale.x*sx,stableSmallScale.y*sy);
+    const sx=sprite.scale.x<0?-1:1, sy=sprite.scale.y<0?-1:1;
+    sprite.scale.set(STABLE_SMALL_SCALE*sx,STABLE_SMALL_SCALE*sy);
+    sprite.__stableSmallScaleLocked=true;
+  }
+
+  function hideFarmFoundation(result) {
+    if (!result || result.type !== 'farm') return;
+    if (result._foundation) {
+      result._foundation.visible=false;
+      result._foundation.renderable=false;
+      result._foundation.alpha=0;
+      result._foundation.__farmFoundationHidden=true;
     }
   }
 
@@ -269,7 +289,9 @@
   async function play(sprite,type,color,renderer) {
     if (!sprite?.parent || sprite.destroyed || sprite.__constructionStagesPlayed) return;
     sprite.__constructionStagesPlayed=true;
-    if (type==='stable') normalizeStable(sprite);
+    sprite.__constructionKingdomColor=color;
+    if (type==='stable') forceStableSmallScale(sprite);
+
     const textures=await window.__CONSTRUCTION_TEXTURES_READY;
     const frames=textures?.[type];
     if (!frames?.length || !sprite?.parent || sprite.destroyed) return;
@@ -280,9 +302,13 @@
       const durations=['castle','keep','gate'].includes(type)?[720,760,820]:[520,570,620];
       for (let i=0;i<3;i++) {
         for (const item of active) if (!item.destroyed) item.destroy();
+        if (type==='stable') forceStableSmallScale(sprite);
         const base=new window.PIXI.Sprite(frames[i].base),mask=new window.PIXI.Sprite(frames[i].mask);
-        copyTransform(sprite,base);copyTransform(sprite,mask);mask.tint=color;
-        base.label=`construction-${type}-stage-${i+1}`;mask.label=`construction-${type}-faction-${i+1}`;
+        copyTransform(sprite,base);copyTransform(sprite,mask);
+        mask.tint=color;
+        base.label=`construction-${type}-stage-${i+1}`;
+        mask.label=`construction-${type}-faction-${i+1}`;
+        mask.__kingdomColor=color;
         parent.addChild(base);parent.addChild(mask);active=[base,mask];
         if (parent.sortableChildren) parent.sortDirty=true;
         await sleep(durations[i]);
@@ -292,7 +318,7 @@
       for (const item of active) if (item && !item.destroyed) item.destroy();
       if (sprite && !sprite.destroyed) {
         sprite.visible=wasVisible;sprite.renderable=wasRenderable;
-        if (type==='stable') normalizeStable(sprite);
+        if (type==='stable') forceStableSmallScale(sprite);
       }
       if (renderer?.entities?.sortableChildren) renderer.entities.sortDirty=true;
     }
@@ -307,9 +333,13 @@
     if (!sim || !renderer || !parent || typeof sim.addBuilding!=='function' || sim.__constructionNativePixelV662) return;
     sim.__constructionNativePixelV662=true;
     const original=sim.addBuilding;
+
     sim.addBuilding=function(...args) {
       const before=new Set(parent.children||[]);
       const finalize=result => {
+        // This only removes the generic diamond foundation for farm fields; no other building is changed.
+        hideFarmFoundation(result);
+
         queueMicrotask(() => {
           const candidates=(parent.children||[]).filter(child=>!before.has(child) && child?.texture);
           const type=inferType(args,result,candidates);
@@ -319,20 +349,29 @@
             sprite=candidates.find(item=>typeFromSprite(item)===type) || [...candidates].sort((a,b)=>area(b)-area(a))[0];
           }
           if (!sprite || sprite.destroyed || !sprite.texture) return;
+
           sprite.__buildingType=type;
-          if (type==='stable') normalizeStable(sprite);
+          sprite.__owner=Number.isInteger(result?.owner)?result.owner:sprite.__owner;
+          if (type==='stable') forceStableSmallScale(sprite);
+
           const color=inferKingdomColor(args,result,sprite);
+          sprite.__constructionKingdomColor=color;
           play(sprite,type,color,renderer).catch(error=>{
             console.error('[construction-phases-v662]',error);
-            if (sprite && !sprite.destroyed) { sprite.visible=true;sprite.renderable=true; }
+            if (sprite && !sprite.destroyed) {
+              sprite.visible=true;sprite.renderable=true;
+              if (type==='stable') forceStableSmallScale(sprite);
+            }
           });
         });
         return result;
       };
+
       const result=original.apply(this,args);
       if (result && typeof result.then==='function') return result.then(finalize);
       return finalize(result);
     };
+
     document.documentElement.dataset.constructionStages='v662-native-pixel-installed';
   }
 
