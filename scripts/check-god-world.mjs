@@ -51,8 +51,8 @@ for (const file of forbiddenLaterLayers) {
   if (sw.includes(file)) throw new Error(`Post-V6.6.2 layer must not be cached: ${file}`);
 }
 
-if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = null')) throw new Error('V6.6.2 vegetation must remain non-blocking during JOIN/building creation');
-if (!treeDepth.includes('window.__TREE_DEPTH_LOADING')) throw new Error('V6.6.2 vegetation background loading marker missing');
+if (!treeDepth.includes('window.__TREE_DEPTH_PROMISE = install().catch')) throw new Error('V6.6.2 tree-depth startup promise marker missing');
+if (!treeDepth.includes('window.__TREE_DEPTH_READY')) throw new Error('V6.6.2 tree-depth ready marker missing');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
@@ -73,4 +73,4 @@ for (const entry of shellEntries) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World V6.6.2 STABLE: exact runtime stack, syntax, cache shell and non-blocking startup checks OK');
+console.log('TikTok God World V6.6.2 STABLE: exact runtime stack, syntax and cache shell checks OK');
