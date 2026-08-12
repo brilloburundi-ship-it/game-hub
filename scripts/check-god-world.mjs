@@ -6,12 +6,13 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, worldPolish, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
   read('tree-depth.js'),
   read('v706-world-polish.js'),
+  read('v707-gameplay-polish.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -21,8 +22,9 @@ const version = JSON.parse(versionText);
 if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
 if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v7-0-6-world-polish'")) throw new Error('V7.0.6 world-polish service-worker cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-0-7-gameplay-polish'")) throw new Error('V7.0.7 gameplay-polish service-worker cache marker missing');
 if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
+if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-1'")) throw new Error('V7.0.7 gameplay-polish runtime marker missing');
 if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
@@ -53,7 +55,8 @@ const expectedScripts = [
   'v67-pixel-buildings.js',
   'v68-fishing-asset.js',
   'v68-fishing-boats.js',
-  'v70-war-peace-cleanup.js'
+  'v70-war-peace-cleanup.js',
+  'v707-gameplay-polish.js'
 ];
 
 for (const file of expectedScripts) {
@@ -78,6 +81,10 @@ if (!treeDepth.includes('window.__TREE_DEPTH_READY')) throw new Error('Tree-dept
 if (!treeDepth.includes('excludesSnowPine: true')) throw new Error('Snow-pine exclusion marker missing');
 if (!worldPolish.includes('createTerrainCanvas')) throw new Error('Clean terrain rebuild marker missing');
 if (!worldPolish.includes('installAnimationGovernor')) throw new Error('Farmer animation governor marker missing');
+if (!gameplayPolish.includes('WORK_FRAME_MS')) throw new Error('Manual work-frame pacing marker missing');
+if (!gameplayPolish.includes("{ type: 'windmill', after: 12")) throw new Error('Early windmill milestone missing');
+if (!gameplayPolish.includes("{ type: 'church', after: 24")) throw new Error('Early church milestone missing');
+if (!gameplayPolish.includes('removeWeaponOverlay')) throw new Error('Drawn-spear removal marker missing');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
@@ -107,4 +114,4 @@ for (const atlasPart of [
   if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
 }
 
-console.log('TikTok God World: V6.6.2 stable core + V7.0.6 terrain/flora polish stack, syntax and cache shell checks OK');
+console.log('TikTok God World: V6.6.2 stable core + V7.0.6 terrain/flora + V7.0.7 worker/civic/combat polish stack OK');
