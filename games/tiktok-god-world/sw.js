@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v7-0-7-gameplay-polish';
+const CACHE = 'god-world-v7-0-7-free-civics';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'v69-runtime-stability.js', 'asset-recovery.js', 'v705-world-npc-expansion.js', 'game.js', 'v706-world-polish.js', 'tree-depth.js',
