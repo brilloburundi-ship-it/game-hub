@@ -1,8 +1,8 @@
-const CACHE = 'god-world-single-game-core';
+const CACHE = 'god-world-v6-6-2-startup-recovery';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'game.js?single-core=1', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
-  'assets/map/world.json', 'assets/map/world.png',
-  'assets/buildings/manifest.json', 'assets/npc/manifest.json',
+  './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
+  'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
+  'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/npc/manifest.json',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
   'assets/buildings/house_a.png', 'assets/buildings/house_b.png', 'assets/buildings/house_c.png', 'assets/buildings/keep.png', 'assets/buildings/market.png', 'assets/buildings/silo.png',
   'assets/buildings/stable.png', 'assets/buildings/stone_tower.png', 'assets/buildings/wall.png', 'assets/buildings/wall_corner.png', 'assets/buildings/warehouse.png', 'assets/buildings/watchtower.png', 'assets/buildings/windmill.png',
@@ -21,11 +21,11 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key !== CACHE).map(key => caches.delete(key)));
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k.startsWith('god-world-') && k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', event => {
@@ -33,12 +33,15 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const response = await fetch(event.request, { cache: 'no-store' });
-      if (response && response.ok) {
-        cache.put(event.request, response.clone()).catch(() => {});
-        return response;
-      }
-    } catch (_) {}
-    return (await cache.match(event.request)) || (await cache.match(event.request, { ignoreSearch: true })) || Response.error();
+      const response = await fetch(event.request);
+      if (response && response.ok) cache.put(event.request, response.clone()).catch(() => {});
+      if (response && response.ok) return response;
+      const hit = await cache.match(event.request, { ignoreSearch: true });
+      return hit || response;
+    } catch (err) {
+      const hit = await cache.match(event.request, { ignoreSearch: true });
+      if (hit) return hit;
+      throw err;
+    }
   })());
 });
