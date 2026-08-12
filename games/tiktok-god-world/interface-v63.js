@@ -1,5 +1,6 @@
 (() => {
   'use strict';
+
   const commands = [
     ['👑', 'JOIN = create your kingdom'],
     ['❤️', 'LIKE = speed up the economy'],
@@ -29,17 +30,48 @@
     ['🏰', 'CASTLE FANTASY = legendary boost'],
     ['⚔️', 'ATTACK name = declare war']
   ];
+
   const icon = document.querySelector('#commandIcon');
   const text = document.querySelector('#bridgeText');
-  if (!icon || !text) return;
-  let index = 0;
-  const paint = () => {
-    const [symbol, label] = commands[index++ % commands.length];
-    icon.textContent = symbol;
-    text.textContent = label;
-    text.classList.remove('command-pop');
-    requestAnimationFrame(() => text.classList.add('command-pop'));
+  if (icon && text) {
+    let index = 0;
+    const paint = () => {
+      const [symbol, label] = commands[index++ % commands.length];
+      icon.textContent = symbol;
+      text.textContent = label;
+      text.classList.remove('command-pop');
+      requestAnimationFrame(() => text.classList.add('command-pop'));
+    };
+    paint();
+    setInterval(paint, 4200);
+  }
+
+  // Keep one product identity visible even while the proven V6.6 compatibility
+  // layer initializes internally. Legacy module labels are implementation details.
+  const buildTag = document.querySelector('.build-tag');
+  const keepSingleBuildTag = () => {
+    if (buildTag && buildTag.textContent !== 'STABLE INTEGRATED') buildTag.textContent = 'STABLE INTEGRATED';
   };
-  paint();
-  setInterval(paint, 4200);
+  keepSingleBuildTag();
+  if (buildTag) new MutationObserver(keepSingleBuildTag).observe(buildTag, { childList: true, characterData: true, subtree: true });
+
+  const toastHost = document.querySelector('#toast');
+  const removeLegacyVersionToasts = () => {
+    for (const el of document.querySelectorAll('#toast .toast')) {
+      if (/V6\.4 LIVING KINGDOMS loaded/i.test(el.textContent || '')) el.remove();
+    }
+  };
+  if (toastHost) new MutationObserver(removeLegacyVersionToasts).observe(toastHost, { childList: true, subtree: true });
+
+  const finalizeIdentity = () => {
+    if (!window.__SIM?.__gwIntegratedBattleInstalled) {
+      setTimeout(finalizeIdentity, 50);
+      return;
+    }
+    window.__BUILD_VERSION = 'stable-integrated-1';
+    document.documentElement.dataset.build = 'stable-integrated-1';
+    keepSingleBuildTag();
+    removeLegacyVersionToasts();
+  };
+  finalizeIdentity();
 })();
