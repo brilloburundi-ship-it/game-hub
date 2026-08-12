@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v6-8-1-test-fix';
+const CACHE = 'god-world-v6-8-2-single-test';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'runtime-v68.js', 'test-hotfix-v681.js', 'tree-depth.js', 'lan-bridge.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
