@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v6-6-2-pixel-buildings-v1';
+const CACHE = 'god-world-v6-6-2-startup-recovery';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css', 'asset-recovery.js', 'game.js', 'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js', 'tree-depth.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
