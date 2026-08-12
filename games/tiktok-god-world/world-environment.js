@@ -4,6 +4,7 @@
   const VERSION = 'stable-large-water-1';
   const key = (x, y) => `${x},${y}`;
   const STARTER = ['house_a', 'house_b', 'farm'];
+  const STARTER_TERRITORY_TARGET = 20;
 
   function neutralizeCivilianTexture(renderer, texture) {
     try {
@@ -100,18 +101,28 @@
     document.documentElement.dataset.freshWater = `${sim.w.lakes?.length || 0}-lake-cells:${sim.w.rivers?.length || 0}-rivers`;
   }
 
-  function forceBuildingVisible(building) {
+  function forceBuildingVisible(building, renderer, kingdom) {
     const sprite = building?._sprite;
     if (!sprite || sprite.destroyed) return;
+    try {
+      const validTexture = sprite.texture && Number(sprite.texture.width) > 0 && Number(sprite.texture.height) > 0;
+      if (!validTexture) {
+        const fallback = renderer?.getBuildingTexture?.(kingdom, building.type) || renderer?.buildTex?.[building.type] || renderer?.buildTex?.house_a;
+        if (fallback) sprite.texture = fallback;
+      }
+    } catch (_) {}
     sprite.visible = true;
     sprite.renderable = true;
     sprite.alpha = 1;
     sprite.tint = 0xffffff;
+    sprite.zIndex = Math.round(building.sy * 100) + 20;
+    renderer?.entities && (renderer.entities.sortDirty = true);
     const restore = () => {
       if (!sprite.destroyed) {
         sprite.visible = true;
         sprite.renderable = true;
         sprite.alpha = 1;
+        sprite.tint = 0xffffff;
       }
     };
     requestAnimationFrame(restore);
@@ -120,16 +131,37 @@
     setTimeout(restore, 1500);
   }
 
-  async function seedStarterVillage(sim, kingdom) {
-    if (!kingdom?.alive || kingdom.__gwStarterVillage) return kingdom;
-    kingdom.__gwStarterVillage = true;
-
+  function cleanStarterWater(sim, kingdom) {
     for (const token of [...kingdom.territory]) {
       const [x, y] = token.split(',').map(Number);
-      if (!sim.isLake(x, y)) continue;
+      if (!sim.isFreshWater(x, y)) continue;
       kingdom.territory.delete(token);
       if (sim.getOwner(x, y) === kingdom.id) sim.setOwner(x, y, -1);
     }
+  }
+
+  function ensureStarterLand(sim, kingdom) {
+    cleanStarterWater(sim, kingdom);
+    if (kingdom.territory.size >= STARTER_TERRITORY_TARGET) return;
+    const [cx, cy] = kingdom.capital;
+    for (let radius = 1; radius <= 6 && kingdom.territory.size < STARTER_TERRITORY_TARGET; radius++) {
+      for (let dy = -radius; dy <= radius && kingdom.territory.size < STARTER_TERRITORY_TARGET; dy++) {
+        for (let dx = -radius; dx <= radius && kingdom.territory.size < STARTER_TERRITORY_TARGET; dx++) {
+          if (Math.abs(dx) + Math.abs(dy) !== radius) continue;
+          const x = cx + dx, y = cy + dy;
+          if (!sim.inBounds(x, y) || sim.getOwner(x, y) !== -1 || !sim.land(x, y) || sim.isFreshWater(x, y)) continue;
+          if (!sim.isBuildableCell(x, y, 'house_a') && !sim.isBuildableCell(x, y, 'farm')) continue;
+          sim.setOwner(x, y, kingdom.id);
+          kingdom.territory.add(key(x, y));
+        }
+      }
+    }
+  }
+
+  async function seedStarterVillage(sim, kingdom) {
+    if (!kingdom?.alive || kingdom.__gwStarterVillage) return kingdom;
+    kingdom.__gwStarterVillage = true;
+    ensureStarterLand(sim, kingdom);
 
     const existingHouses = () => kingdom.buildings.filter(b => /^house_/.test(b.type) && !b.__v66Destroyed).length;
     const existingFarms = () => kingdom.buildings.filter(b => b.type === 'farm' && !b.__v66Destroyed).length;
@@ -140,16 +172,16 @@
     for (const type of required) {
       let cell = sim.findBuildCell(kingdom, type, true);
       if (!cell) {
-        sim.claimGiftLand?.(kingdom, 4);
+        ensureStarterLand(sim, kingdom);
         cell = sim.findBuildCell(kingdom, type, true);
       }
       if (!cell) continue;
       const building = await sim.addBuilding(kingdom, type, cell[0], cell[1], false, true);
-      forceBuildingVisible(building);
+      forceBuildingVisible(building, sim.r, kingdom);
       await new Promise(resolve => requestAnimationFrame(resolve));
     }
 
-    for (const building of kingdom.buildings || []) forceBuildingVisible(building);
+    for (const building of kingdom.buildings || []) forceBuildingVisible(building, sim.r, kingdom);
     if (typeof sim.giftPopulation === 'function' && kingdom.pop < Math.min(6, kingdom.popCap)) {
       await sim.giftPopulation(kingdom, Math.min(6, kingdom.popCap) - kingdom.pop);
     }
