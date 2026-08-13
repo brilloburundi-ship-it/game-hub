@@ -47,13 +47,17 @@ const localScriptSrcs = [...index.matchAll(/<script src="(?!https?:\/\/)([^"]+)"
 for (const src of localScriptSrcs) if (!src.includes(`v=${token}`)) throw new Error(`Local script is not pinned to the one V7.1.2 release token: ${src}`);
 
 if (!worldShape.includes("const VERSION = 'v712-latest-world-shape-1'")) throw new Error('Rounded latest-world marker missing');
-if (!worldShape.includes('const rx=halfX*.82,ry=halfY*.94')) throw new Error('Rounder island silhouette ratios missing');
+if (!worldShape.includes('const rx=halfX*.80,ry=halfY*.92')) throw new Error('Island silhouette ratios missing');
+if (!worldShape.includes('sculptCoast')) throw new Error('Organic coast sculpting missing');
+if (!worldShape.includes('extendRiverToSea')) throw new Error('River-to-sea continuation missing');
+if (!worldShape.includes('state.riverMouths++')) throw new Error('River mouth completion marker missing');
 if (!worldShape.includes('quadraticCurveTo')) throw new Error('Smooth curved terrain rivers missing');
 if (!worldShape.includes('recomputeCoast')) throw new Error('Coast-distance recomputation missing after reshaping');
 if (!worldShape.includes('sim.riverSet.clear()')) throw new Error('River collision set must follow reshaped world');
 
 if (!visuals.includes("const VERSION='v712-latest-visuals-1'")) throw new Error('Latest visual layer marker missing');
 if (!visuals.includes('quadraticCurveTo')) throw new Error('Smooth wide-river overlay missing');
+if (!visuals.includes('riverMouthBlend')) throw new Error('River mouth blend into sea missing');
 if (!visuals.includes('0x2f7898') || !visuals.includes('0x4e9fba') || !visuals.includes('0x8bc5d2')) throw new Error('Unified sea/river palette missing');
 
 if (!gameplay.includes('WORK_FRAME_MS')) throw new Error('Worker animation smoothing missing');
@@ -81,4 +85,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1])) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World: V7.1.2 latest-only release + rounder island + smooth rivers OK');
+console.log('TikTok God World: V7.1.2 latest-only + organic island coasts + rivers joined to sea OK');
