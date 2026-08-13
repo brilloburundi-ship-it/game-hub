@@ -3,6 +3,7 @@
 
   const VERSION = 'v711-building-scale-lock-3-targeted';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
+  const SELF_URL = document.currentScript?.src || location.href;
 
   const STABLE_LOCKED_WORLD_HEIGHT = 17.5;
   const FORGE_LOCKED_WORLD_HEIGHT = 29;
@@ -105,6 +106,16 @@
     return true;
   }
 
+  function loadLivePower() {
+    if (document.querySelector('script[data-v713-live-power]')) return;
+    const script = document.createElement('script');
+    script.src = new URL('live-power.js', SELF_URL).href;
+    script.async = true;
+    script.dataset.v713LivePower = '1';
+    script.onerror = () => state.errors.push('live-power.js failed to load');
+    document.head.appendChild(script);
+  }
+
   function installScaleLock(sim) {
     const renderer = sim?.r;
     if (!renderer || renderer.__v711ScaleLock || typeof renderer.buildingScale !== 'function') return false;
@@ -150,6 +161,7 @@
 
     normalizeAll(sim);
     installPortGuard(sim);
+    loadLivePower();
     state.installed = true;
     document.documentElement.dataset.buildingScaleLock = VERSION;
     return true;
