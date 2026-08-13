@@ -8,16 +8,16 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="God World" />
   <link rel="apple-touch-icon" href="icon-192.png" />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="v65-overrides.css" />
-  <title>TikTok God World — V6.6.2 Startup Recovery</title>
+  <link rel="stylesheet" href="styles.css?v=20260813-1236-v712" />
+  <link rel="stylesheet" href="v65-overrides.css?v=20260813-1236-v712" />
+  <title>TikTok God World — V7.1.2 Latest</title>
 </head>
 <body>
   <div id="game"></div>
   <div id="loading"><div class="crest">♜</div><strong>TikTok God World</strong><span>Generating the world…</span></div>
 
   <header class="hud topbar">
-    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">V6.6.2 STABLE</span></div>
+    <div class="brand"><span class="live">LIVE</span><b>TikTok God World</b><span class="build-tag">V7.1.2 LATEST</span></div>
     <div class="stats"><span id="age">0:00</span><small>world age</small><span id="fps">60 FPS</span><span id="players">0 kingdoms</span></div>
     <div class="bridge command-rotator"><i id="bridgeDot"></i><span id="commandIcon">&#128081;</span><span id="bridgeText">JOIN = create your kingdom</span></div>
   </header>
@@ -48,42 +48,44 @@
   </section>
 
   <div id="feed" hidden></div>
-
   <div class="zoom hud"><button id="zoomIn">＋</button><button id="zoomOut">－</button><button id="homeCam">⌂</button></div>
 
+  <!-- One atomic release token: old V7.0.x/V7.1.0/V7.1.1 patch paths are not loaded here. -->
+  <script>window.__GOD_WORLD_RELEASE='7.1.2-latest';window.__GOD_WORLD_RELEASE_TOKEN='20260813-1236-v712';</script>
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
-  <script src="v69-runtime-stability.js?v=20260812-2031"></script>
-  <script src="asset-recovery.js"></script>
-  <script src="v705-world-npc-expansion.js?v=20260812-2328"></script>
-  <script src="game.js"></script>
-  <script src="v706-world-polish.js?v=20260812-2350"></script>
-  <script src="tree-depth.js?v=20260812-2350"></script>
-  <script src="lan-bridge.js"></script>
-  <script src="interface-v63.js"></script>
-  <script src="world-effects.js"></script>
-  <script src="music.js"></script>
-  <script src="living-kingdoms-v65.js"></script>
-  <script src="v651-ground-contact.js"></script>
-  <script src="v66-living-battles.js"></script>
-  <script src="v661-battle-stability.js"></script>
-  <script src="construction-phases-v662-native-pixel.js?v=20260812-1926"></script>
-  <script src="v67-w1.js?v=20260812-1926"></script>
-  <script src="v67-w2.js?v=20260812-1926"></script>
-  <script src="v67-w3.js?v=20260812-1926"></script>
-  <script src="v67-w4.js?v=20260812-1926"></script>
-  <script src="v67-w5.js?v=20260812-1926"></script>
-  <script src="v67-w6.js?v=20260812-1926"></script>
-  <script src="v67-w7.js?v=20260812-1926"></script>
-  <script src="v67-assets-church.js?v=20260812-1926"></script>
-  <script src="v67-assets-port.js?v=20260812-1926"></script>
-  <script src="v67-pixel-buildings.js?v=20260812-1926"></script>
-  <script src="v68-fishing-asset.js?v=20260812-1940"></script>
-  <script src="v68-fishing-boats.js?v=20260812-1940"></script>
-  <script src="v70-war-peace-cleanup.js?v=20260812-2301"></script>
-  <script src="v707-gameplay-polish.js?v=20260813-0044"></script>
-  <script src="v708-water-camera-fishing.js?v=20260813-0052"></script>
-  <script src="v709-water-palette.js?v=20260813-0109"></script>
-  <script src="v710-farmer-direction.js?v=20260813-1149"></script>
-  <script src="v711-building-scale-lock.js?v=20260813-1214"></script>
+  <script src="latest/runtime-stability.js?v=20260813-1236-v712"></script>
+  <script src="asset-recovery.js?v=20260813-1236-v712"></script>
+  <script src="latest/world-npc-expansion.js?v=20260813-1236-v712"></script>
+  <script src="game.js?v=20260813-1236-v712"></script>
+  <script src="latest/world-base.js?v=20260813-1236-v712"></script>
+  <script src="latest/world-shape.js?v=20260813-1236-v712"></script>
+  <script src="latest/flora-loader.js?v=20260813-1236-v712"></script>
+  <script src="lan-bridge.js?v=20260813-1236-v712"></script>
+  <script src="interface-v63.js?v=20260813-1236-v712"></script>
+  <script src="world-effects.js?v=20260813-1236-v712"></script>
+  <script src="music.js?v=20260813-1236-v712"></script>
+  <script src="living-kingdoms-v65.js?v=20260813-1236-v712"></script>
+  <script src="v651-ground-contact.js?v=20260813-1236-v712"></script>
+  <script src="v66-living-battles.js?v=20260813-1236-v712"></script>
+  <script src="v661-battle-stability.js?v=20260813-1236-v712"></script>
+  <script src="construction-phases-v662-native-pixel.js?v=20260813-1236-v712"></script>
+  <script src="v67-w1.js?v=20260813-1236-v712"></script>
+  <script src="v67-w2.js?v=20260813-1236-v712"></script>
+  <script src="v67-w3.js?v=20260813-1236-v712"></script>
+  <script src="v67-w4.js?v=20260813-1236-v712"></script>
+  <script src="v67-w5.js?v=20260813-1236-v712"></script>
+  <script src="v67-w6.js?v=20260813-1236-v712"></script>
+  <script src="v67-w7.js?v=20260813-1236-v712"></script>
+  <script src="v67-assets-church.js?v=20260813-1236-v712"></script>
+  <script src="v67-assets-port.js?v=20260813-1236-v712"></script>
+  <script src="v67-pixel-buildings.js?v=20260813-1236-v712"></script>
+  <script src="v68-fishing-asset.js?v=20260813-1236-v712"></script>
+  <script src="v68-fishing-boats.js?v=20260813-1236-v712"></script>
+  <script src="latest/war-peace-cleanup.js?v=20260813-1236-v712"></script>
+  <script src="latest/gameplay.js?v=20260813-1236-v712"></script>
+  <script src="latest/water-base.js?v=20260813-1236-v712"></script>
+  <script src="latest/visuals.js?v=20260813-1236-v712"></script>
+  <script src="latest/farmer-direction.js?v=20260813-1236-v712"></script>
+  <script src="latest/building-scale.js?v=20260813-1236-v712"></script>
 </body>
 </html>
