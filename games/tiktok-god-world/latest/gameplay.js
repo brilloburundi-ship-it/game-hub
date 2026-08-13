@@ -434,3 +434,386 @@
     console.error('[v707-gameplay-polish]', error);
   });
 })();
+
+// Targeted V7.1.2 recovery/engagement layer. It deliberately lives inside the
+// existing latest/gameplay.js release file so no additional patch script is loaded.
+(() => {
+  'use strict';
+
+  const VERSION = 'v712-engagement-recovery-1';
+  if (window.__V712_ENGAGEMENT_RECOVERY?.bootstrap) return;
+
+  const state = window.__V712_ENGAGEMENT_RECOVERY = {
+    bootstrap: true,
+    installed: false,
+    version: VERSION,
+    interactionPower: false,
+    bigHelpCity: false,
+    windmillRecovery: false,
+    portRecovery: false,
+    likePowerEvents: 0,
+    giftPowerEvents: 0,
+    bigHelpCities: 0,
+    recoveredWindmills: 0,
+    portsBuilt: 0,
+    errors: []
+  };
+
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const LIKE_POWER_PER = 0.035;
+  const FOLLOW_POWER = 4;
+  const PORT_MIN_AGE = 30;
+  const PORT_COST = { wood: 90, stone: 24, gold: 12 };
+
+  const BIG_CITY_GIFTS = [
+    'meteor', 'galaxy', 'lion', 'universe', 'dragon', 'castle fantasy',
+    'interstellar', 'phoenix'
+  ];
+
+  const BIG_CITY_TYPES = [
+    'house', 'house', 'house', 'house', 'house',
+    'farm', 'farm', 'farm',
+    'warehouse', 'warehouse', 'market',
+    'barracks', 'barracks', 'forge', 'stable', 'silo',
+    'church', 'windmill', 'watchtower', 'stone_tower', 'port'
+  ];
+
+  function kingdomByName(sim, name) {
+    return sim?.kingdomByName?.get?.(String(name || '').toLowerCase()) || null;
+  }
+
+  function hasPort(k) {
+    return (k?.buildings || []).some(b => b?.type === 'port' && !b.__v66Destroyed && Number(b.hp) > 0);
+  }
+
+  function giftFallbackValue(name) {
+    const g = String(name || '').toLowerCase();
+    if (g.includes('rose')) return 1;
+    if (g.includes('ice cream') || g.includes('finger heart')) return 5;
+    if (g.includes('coffee') || g.includes('doughnut') || g.includes('donut')) return 15;
+    if (g.includes('perfume') || g.includes('firework') || g.includes('tiktok')) return 50;
+    if (g.includes('money gun') || g.includes('train') || g.includes('motorcycle')) return 180;
+    if (g.includes('sports car') || g.includes('yacht') || g.includes('private jet') || g.includes('whale diving')) return 600;
+    if (BIG_CITY_GIFTS.some(token => g.includes(token))) return 1500;
+    return 1;
+  }
+
+  function giftValue(gift, repeat, meta) {
+    const n = Math.max(1, Number(repeat) || 1);
+    const diamonds = Math.max(0, Number(meta?.diamonds || meta?.diamondCount || 0));
+    return Math.max(1, diamonds || giftFallbackValue(gift)) * n;
+  }
+
+  function giftPower(value) {
+    if (value >= 1000) return 24;
+    if (value >= 500) return 15;
+    if (value >= 100) return 8;
+    if (value >= 20) return 4;
+    if (value >= 5) return 2;
+    return 0.9;
+  }
+
+  function strengthenViewerMeter(sim, k, points, duration) {
+    if (!k?.alive) return;
+    k.__v712ViewerSupport = clamp(Number(k.__v712ViewerSupport || 0) + points, 0, 32);
+    k.__v712ViewerSupportUntil = Math.max(Number(k.__v712ViewerSupportUntil || 0), sim.age + duration);
+  }
+
+  function isBigHelpGift(gift, repeat, meta) {
+    const g = String(gift || '').toLowerCase();
+    return BIG_CITY_GIFTS.some(token => g.includes(token)) || giftValue(gift, repeat, meta) >= 1000;
+  }
+
+  async function buildPowerCity(sim, k, repeat = 1) {
+    if (!k?.alive || k.__v712BigHelpBusy || typeof sim.instantGiftBuild !== 'function') return 0;
+    k.__v712BigHelpBusy = true;
+    try {
+      const scale = clamp(Math.max(1, Number(repeat) || 1), 1, 3);
+      k.resources.food += 1800 * scale;
+      k.resources.wood += 1500 * scale;
+      k.resources.stone += 1050 * scale;
+      k.resources.gold += 750 * scale;
+      k.military += 120 * scale;
+      k.popCap += 22 * scale;
+
+      sim.claimGiftLand?.(k, Math.round(26 + scale * 8));
+      const types = hasPort(k) ? BIG_CITY_TYPES.filter(type => type !== 'port') : BIG_CITY_TYPES;
+      const built = await sim.instantGiftBuild(k, types);
+      if (typeof sim.giftPopulation === 'function') await sim.giftPopulation(k, Math.round(16 * scale));
+      k.lastBuild -= 8;
+      k.lastExpand -= 5;
+      k.lastPop -= 4;
+      strengthenViewerMeter(sim, k, 16, 120);
+      sim.r?.supportFx?.(k, '👑', 14);
+      sim.updateSelected?.();
+      state.bigHelpCities++;
+      state.bigHelpCity = true;
+      return built || 0;
+    } catch (error) {
+      state.errors.push(String(error?.stack || error?.message || error));
+      return 0;
+    } finally {
+      k.__v712BigHelpBusy = false;
+    }
+  }
+
+  function installInteractionPower(sim) {
+    if (sim.__v712InteractionPower) return false;
+    sim.__v712InteractionPower = true;
+
+    if (typeof sim.like === 'function') {
+      const originalLike = sim.like.bind(sim);
+      sim.like = function(name, count = 1) {
+        const out = originalLike(name, count);
+        const k = kingdomByName(this, name);
+        if (k?.alive) {
+          const n = Math.max(1, Number(count) || 1);
+          // Power impact is intentionally contained: engagement helps, gifts remain stronger.
+          k.military += n * LIKE_POWER_PER;
+          strengthenViewerMeter(this, k, Math.min(3.5, n * 0.035), Math.min(40, 12 + n * 0.25));
+          state.likePowerEvents++;
+          this.updateSelected?.();
+        }
+        return out;
+      };
+    }
+
+    if (typeof sim.follow === 'function') {
+      const originalFollow = sim.follow.bind(sim);
+      sim.follow = function(name, ...rest) {
+        const before = kingdomByName(this, name)?.followed;
+        const out = originalFollow(name, ...rest);
+        const k = kingdomByName(this, name);
+        if (k?.alive && !before && k.followed) {
+          k.military += FOLLOW_POWER;
+          strengthenViewerMeter(this, k, 5, 45);
+          this.updateSelected?.();
+        }
+        return out;
+      };
+    }
+
+    if (typeof sim.gift === 'function') {
+      const originalGift = sim.gift.bind(sim);
+      sim.gift = async function(name, gift, repeat = 1, meta = {}) {
+        const out = await originalGift(name, gift, repeat, meta);
+        const k = kingdomByName(this, name);
+        if (!k?.alive) return out;
+
+        const value = giftValue(gift, repeat, meta);
+        const power = giftPower(value);
+        k.military += power;
+        strengthenViewerMeter(this, k, clamp(power * 0.42, 0.6, 10), clamp(30 + power * 4, 35, 120));
+        k.lastBuild -= clamp(power * 0.16, 0.2, 4.5);
+        k.lastExpand -= clamp(power * 0.10, 0.15, 3.0);
+        k.lastPop -= clamp(power * 0.07, 0.1, 2.0);
+        state.giftPowerEvents++;
+
+        if (isBigHelpGift(gift, repeat, meta)) await buildPowerCity(this, k, repeat);
+        this.updateSelected?.();
+        return out;
+      };
+    }
+
+    state.interactionPower = true;
+    return true;
+  }
+
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.decoding = 'async';
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Windmill recovery frame failed to load'));
+      image.src = url;
+    });
+  }
+
+  async function installWindmillRecovery(sim) {
+    const r = sim.r, P = window.PIXI;
+    const list = window.__V67_ASSET_DATA?.windmill;
+    if (!r?.app?.ticker || !P?.Texture || !Array.isArray(list) || list.length < 7 || !r.textureToCanvas || !r.recolorTeamCanvas) return false;
+    if (r.__v712WindmillRecovery) return true;
+    r.__v712WindmillRecovery = true;
+
+    const images = await Promise.all(list.slice(3).map(loadImage));
+    const baseFrames = images.map(image => P.Texture.from(image));
+    const cache = new Map();
+    const recovered = new Set();
+    const health = new WeakMap();
+
+    const framesFor = k => {
+      if (cache.has(k.id)) return cache.get(k.id);
+      const frames = baseFrames.map(tex => {
+        const canvas = r.textureToCanvas(tex);
+        if (!canvas) return tex;
+        r.recolorTeamCanvas(canvas, k.color);
+        return P.Texture.from(canvas);
+      });
+      cache.set(k.id, frames);
+      return frames;
+    };
+
+    const recover = (k, b, now) => {
+      if (!b?._sprite || b._sprite.destroyed || b.__v66Destroyed) return;
+      b.__v712WindFrames = framesFor(k);
+      b.__v712WindClock = Math.random() * 0.5;
+      recovered.add(b);
+      health.set(b, { texture: b._sprite.texture, changedAt: now });
+      state.recoveredWindmills++;
+    };
+
+    let scanClock = 0;
+    r.app.ticker.add(() => {
+      const dt = Math.min(0.05, r.app.ticker.deltaMS / 1000);
+      const now = performance.now();
+      scanClock -= dt;
+      if (scanClock <= 0) {
+        scanClock = 0.30;
+        for (const k of sim.kingdoms || []) {
+          if (!k?.alive) continue;
+          for (const b of k.buildings || []) {
+            if (b?.type !== 'windmill' || !b._sprite || b._sprite.destroyed || b.__v66Destroyed) continue;
+            if (b._sprite.visible === false || b._sprite.renderable === false) continue;
+            let h = health.get(b);
+            if (!h) {
+              h = { texture: b._sprite.texture, changedAt: now };
+              health.set(b, h);
+            } else if (!recovered.has(b) && h.texture !== b._sprite.texture) {
+              h.texture = b._sprite.texture;
+              h.changedAt = now;
+            }
+            // Healthy V6.7 windmills keep their original animation. Only a mill
+            // stuck on one frame for >1s is adopted by this recovery ticker.
+            if (!recovered.has(b) && now - h.changedAt > 1050) recover(k, b, now);
+          }
+        }
+      }
+
+      for (const b of [...recovered]) {
+        const s = b?._sprite;
+        if (!s || s.destroyed || b.__v66Destroyed) {
+          recovered.delete(b);
+          continue;
+        }
+        if (s.visible === false || s.renderable === false) continue;
+        const frames = b.__v712WindFrames;
+        if (!frames?.length) continue;
+        b.__v712WindClock += dt;
+        const index = Math.floor(b.__v712WindClock / 0.18) % frames.length;
+        if (s.texture !== frames[index]) s.texture = frames[index];
+      }
+    });
+
+    state.windmillRecovery = true;
+    return true;
+  }
+
+  function isSea(sim, x, y) {
+    return sim.inBounds?.(x, y) && !sim.land(x, y);
+  }
+
+  function fallbackPortCell(sim, k) {
+    let best = null, bestScore = -Infinity;
+    for (const token of k.territory || []) {
+      const [x, y] = String(token).split(',').map(Number);
+      if (!sim.inBounds?.(x, y) || !sim.land(x, y) || sim.isRiver?.(x, y) || sim.getOwner?.(x, y) !== k.id) continue;
+      if (['mountain', 'ice_coast'].includes(sim.biome?.(x, y))) continue;
+      if ((sim.coastDistance?.(x, y) ?? 99) > 1) continue;
+      if (sim.buildingBlockingCell?.(x, y) || !sim.buildingSpacingOK?.(k, 'port', x, y)) continue;
+      if ((k.farmers || []).some(f => f.cell?.[0] === x && f.cell?.[1] === y)) continue;
+
+      let direction = null;
+      if (isSea(sim, x, y + 1)) direction = [0, 1];
+      else if (isSea(sim, x + 1, y)) direction = [1, 0];
+      if (!direction) continue;
+      const beach = sim.biome?.(x, y) === 'beach' ? 5 : 0;
+      const distance = Math.hypot(x - k.capital[0], y - k.capital[1]);
+      const score = beach - distance * 0.04 + Math.random() * 0.35;
+      if (score > bestScore) {
+        bestScore = score;
+        best = { cell: [x, y], direction };
+      }
+    }
+    return best;
+  }
+
+  async function buildIndependentPort(sim, k) {
+    if (!k?.alive || hasPort(k) || k.__v712PortBusy) return false;
+    if (sim.age < PORT_MIN_AGE || k.pop < 6 || k.territory.size < 10) return false;
+    for (const [resource, cost] of Object.entries(PORT_COST)) if (Number(k.resources?.[resource] || 0) < cost) return false;
+
+    k.__v712PortBusy = true;
+    try {
+      let cell = typeof sim.findBuildCell === 'function' ? sim.findBuildCell(k, 'port', false) : null;
+      let direction = cell ? [0, 1] : null;
+      let force = false;
+      if (!cell) {
+        const fallback = fallbackPortCell(sim, k);
+        if (!fallback) return false;
+        cell = fallback.cell;
+        direction = fallback.direction;
+        force = true;
+      }
+
+      const b = await sim.addBuilding(k, 'port', cell[0], cell[1], force, false);
+      if (!b) return false;
+      for (const [resource, cost] of Object.entries(PORT_COST)) k.resources[resource] -= cost;
+      b.__v712PortDirection = direction;
+      if (direction?.[0] === 1 && b._sprite?.scale) b._sprite.scale.x = -Math.abs(b._sprite.scale.x);
+      // The port is an independent milestone: do not consume the normal construction timer.
+      sim.r?.puff?.(...sim.iso(cell[0], cell[1]));
+      state.portsBuilt++;
+      sim.updateSelected?.();
+      return true;
+    } catch (error) {
+      state.errors.push(String(error?.stack || error?.message || error));
+      return false;
+    } finally {
+      k.__v712PortBusy = false;
+    }
+  }
+
+  function installPortRecovery(sim) {
+    if (sim.__v712IndependentPortRecovery || !sim.r?.app?.ticker) return false;
+    sim.__v712IndependentPortRecovery = true;
+    let scan = 0;
+    sim.r.app.ticker.add(() => {
+      scan -= Math.min(0.05, sim.r.app.ticker.deltaMS / 1000);
+      if (scan > 0) return;
+      scan = 2.5;
+      for (const k of sim.kingdoms || []) {
+        if (k?.alive && !hasPort(k)) void buildIndependentPort(sim, k);
+      }
+    });
+    state.portRecovery = true;
+    return true;
+  }
+
+  async function install() {
+    for (let i = 0; i < 2400; i++) {
+      if (
+        window.__SIM?.r && window.__V707_GAMEPLAY_POLISH?.installed &&
+        window.__V67_PIXEL_BUILDINGS?.installed && window.__V68_FISHING_BOATS?.installed
+      ) break;
+      await sleep(20);
+    }
+    const sim = window.__SIM;
+    if (!sim?.r) throw new Error('Simulation unavailable for engagement recovery');
+
+    installInteractionPower(sim);
+    await installWindmillRecovery(sim);
+    installPortRecovery(sim);
+
+    state.boatsPerPort = 2;
+    state.normalDevelopmentUntouched = true;
+    state.installed = true;
+    document.documentElement.dataset.engagementRecovery = VERSION;
+  }
+
+  install().catch(error => {
+    state.errors.push(String(error?.stack || error?.message || error));
+    console.error('[v712-engagement-recovery]', error);
+  });
+})();
