@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const gameSource = await readFile(resolve(root, 'games/tiktok-god-world-v8-mobile/game.js'), 'utf8');
 const gameplaySource = await readFile(resolve(root, 'games/tiktok-god-world-v8-mobile/latest/gameplay.js'), 'utf8');
+const constructionSource = await readFile(resolve(root, 'games/tiktok-god-world-v8-mobile/construction-phases-v662-native-pixel.js'), 'utf8');
 const simStart = gameSource.indexOf('class Simulation {');
 const simEnd = gameSource.indexOf('class PixiRenderer', simStart);
 const simClass = simStart >= 0 && simEnd > simStart ? gameSource.slice(simStart, simEnd).trim() : '';
@@ -239,4 +240,50 @@ await gatewayContext.handleEvent(gatewaySimulation, {
 });
 assert(routedGifts.length === 3 && routedGifts[2][1] === 'Lion' && routedGifts[2][2] === 3, 'Final unidentified streak payload was not routed once');
 
-console.log(`V8.0.1 deterministic logic OK (irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56, queuedGifts=2/2, streak=2)`);
+const constructionStart = constructionSource.indexOf('function copyTransform');
+const constructionEnd = constructionSource.indexOf('async function install()', constructionStart);
+const constructionChunk = constructionStart >= 0 && constructionEnd > constructionStart ? constructionSource.slice(constructionStart, constructionEnd) : '';
+assert(constructionChunk, 'Construction completion owner could not be isolated');
+const makeVector = () => ({ x: 0, y: 0, copyFrom(other) { this.x = Number(other?.x || 0); this.y = Number(other?.y || 0); } });
+class ConstructionSprite {
+  constructor(texture) {
+    this.texture = texture;
+    this.position = makeVector(); this.anchor = makeVector(); this.pivot = makeVector(); this.skew = makeVector(); this.scale = makeVector();
+    this.rotation = 0; this.alpha = 1; this.zIndex = 0; this.visible = true; this.renderable = true; this.destroyed = false;
+  }
+  destroy() { this.destroyed = true; this.parent = null; }
+}
+const constructionContext = {
+  console, Promise,
+  window: {
+    PIXI: { Sprite: ConstructionSprite },
+    __CONSTRUCTION_TEXTURES_READY: Promise.resolve({ castle: [
+      { base: 'base-1', mask: 'mask-1' }, { base: 'base-2', mask: 'mask-2' }, { base: 'base-3', mask: 'mask-3' }
+    ] })
+  }
+};
+vm.createContext(constructionContext);
+vm.runInContext(`
+  const kingdomFrames=()=>null;
+  const sleep=async()=>{};
+  ${constructionChunk}
+  globalThis.playConstruction=play;
+`, constructionContext);
+const constructionParent = {
+  children: [], sortableChildren: true, sortDirty: false,
+  addChild(...items) { for (const item of items) { item.parent = this; this.children.push(item); } }
+};
+const completedCastle = new ConstructionSprite('castle');
+completedCastle.parent = constructionParent;
+completedCastle.visible = false;
+completedCastle.renderable = false;
+completedCastle.__v800RestoreVisible = true;
+completedCastle.__v800RestoreRenderable = true;
+let constructionCullCalls = 0;
+const constructionRenderer = { entities: constructionParent, __v800RequestCull() { constructionCullCalls++; } };
+await constructionContext.playConstruction(completedCastle, 'castle', 0x336699, constructionRenderer);
+assert(completedCastle.visible && completedCastle.renderable, 'Completed castle restored stale hidden visibility');
+assert(completedCastle.__constructionStagesComplete && !completedCastle.__constructionStagesPlaying, 'Construction completion state is inconsistent');
+assert(constructionCullCalls === 1, 'Completed castle did not re-evaluate the current mobile viewport');
+
+console.log(`V8.0.2 deterministic logic OK (castlePersistent=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56, queuedGifts=2/2, streak=2)`);

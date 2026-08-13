@@ -4,7 +4,7 @@
   // V8 owns only the hot-path bookkeeping. Gameplay systems continue to call the
   // same public Simulation/Renderer methods, but those methods now share one set
   // of indexes instead of repeatedly scanning every territory and building.
-  const VERSION = 'v801-mobile-performance-kernel-2-targeted-growth';
+  const VERSION = 'v802-mobile-performance-kernel-3-castle-persistence';
   if (window.__V800_PERFORMANCE_KERNEL?.bootstrap) return;
 
   const state = window.__V800_PERFORMANCE_KERNEL = {
@@ -654,7 +654,7 @@
     };
     state.installed = true;
     document.documentElement.dataset.performanceKernel = VERSION;
-    document.documentElement.dataset.completeRelease = '8.0.1-mobile';
+    document.documentElement.dataset.completeRelease = '8.0.2-mobile';
     document.title = 'TikTok God World — V8 Mobile';
     const buildTag = document.querySelector('.build-tag');
     if (buildTag) buildTag.textContent = 'V8 MOBILE';

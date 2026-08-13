@@ -277,7 +277,7 @@
     }));
     window.__CONSTRUCTION_PIXEL_TEXTURES=result;
     window.__CONSTRUCTION_PIXEL_META={
-      version:'v662-native-pixel-4-single-scale-owner',stages:3,nativeSizes:true,tintMasks:true,
+      version:'v662-native-pixel-5-final-visibility',stages:3,nativeSizes:true,tintMasks:true,
       kingdomColorLocked:true,kingdomStageTextureSource:true,stableScaleDelegated:true,farmFoundationHidden:true
     };
     document.documentElement.dataset.constructionAssets='ready';
@@ -321,6 +321,21 @@
     to.roundPixels=true;to.eventMode='none';
   }
 
+  function finishCompletedSprite(sprite,renderer) {
+    if (!sprite || sprite.destroyed) return;
+    sprite.__constructionStagesPlaying=false;
+    sprite.__constructionStagesComplete=true;
+    // Visibility may have been false only because the mobile culler saw the
+    // building before JOIN focused its capital. Never restore that stale state.
+    sprite.visible=true;
+    sprite.renderable=true;
+    delete sprite.__v800RestoreVisible;
+    delete sprite.__v800RestoreRenderable;
+    // Re-evaluate the current camera immediately: an actually off-screen prefab
+    // is culled again, while the focused completed castle remains visible.
+    renderer?.__v800RequestCull?.();
+  }
+
   async function play(sprite,type,color,renderer) {
     if (!sprite?.parent || sprite.destroyed || sprite.__constructionStagesPlayed) return;
     sprite.__constructionStagesPlayed=true;
@@ -328,7 +343,10 @@
     const fallback=await window.__CONSTRUCTION_TEXTURES_READY;
     const frames=kingdomFrames(sprite,type,color,renderer)||fallback?.[type];
     if (!frames?.length || !sprite?.parent || sprite.destroyed) return;
-    const parent=sprite.parent,wasVisible=sprite.visible,wasRenderable=sprite.renderable;
+    const parent=sprite.parent;
+    sprite.__constructionStagesPlaying=true;
+    delete sprite.__v800RestoreVisible;
+    delete sprite.__v800RestoreRenderable;
     sprite.visible=false;sprite.renderable=false;
     let active=[];
     try {
@@ -349,9 +367,7 @@
       }
     } finally {
       for (const item of active) if (item && !item.destroyed) item.destroy();
-      if (sprite && !sprite.destroyed) {
-        sprite.visible=wasVisible;sprite.renderable=wasRenderable;
-      }
+      finishCompletedSprite(sprite,renderer);
       if (renderer?.entities?.sortableChildren) renderer.entities.sortDirty=true;
     }
   }

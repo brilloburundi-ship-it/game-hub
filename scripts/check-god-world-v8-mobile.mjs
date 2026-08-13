@@ -31,11 +31,11 @@ const [
 ]);
 
 const version = JSON.parse(versionText);
-if (version.version !== '8.0.1-mobile') throw new Error(`Expected mobile V8.0.1 release, found ${version.version}`);
-if (version.marker !== 'god-world-v801-natural-growth-and-founding') throw new Error('V8.0.1 targeted gameplay marker missing');
+if (version.version !== '8.0.2-mobile') throw new Error(`Expected mobile V8.0.2 release, found ${version.version}`);
+if (version.marker !== 'god-world-v802-castle-persistence') throw new Error('V8.0.2 castle persistence marker missing');
 requireText(index, 'V8 MOBILE', 'V8 MOBILE UI marker missing');
-requireText(index, "window.__GOD_WORLD_RELEASE='8.0.1-mobile'", 'Atomic V8.0.1 Mobile release marker missing');
-requireText(sw, "const CACHE = 'god-world-v8-0-1-mobile-1'", 'V8.0.1 Mobile service-worker cache marker missing');
+requireText(index, "window.__GOD_WORLD_RELEASE='8.0.2-mobile'", 'Atomic V8.0.2 Mobile release marker missing');
+requireText(sw, "const CACHE = 'god-world-v8-0-2-mobile-1'", 'V8.0.2 Mobile service-worker cache marker missing');
 rejectText(index, 'V7.1.2 LATEST', 'Stale V7 UI label remains active');
 requireText(projectsText, '"rootPath": "games/tiktok-god-world-v8-mobile"', 'Separate Game Hub project path missing');
 requireText(projectsText, 'https://brilloburundi-ship-it.github.io/game-hub/games/tiktok-god-world-v8-mobile/', 'Separate live URL missing');
@@ -64,7 +64,7 @@ for (const file of releaseScripts) {
   requireText(sw, `'${file}'`, `${file} missing from V8 cache shell`);
 }
 
-const token = '20260813-1903-v801';
+const token = '20260813-2110-v802';
 const localScriptSrcs = [...index.matchAll(/<script src="(?!https?:\/\/)([^"]+)"/g)].map(match => match[1]);
 for (const src of localScriptSrcs) {
   if (!src.includes(`v=${token}`)) throw new Error(`Local script is not pinned to V8: ${src}`);
@@ -87,10 +87,14 @@ requireText(worldShape, 'function extendRiverToSea', 'River mouths must reach th
 requireText(visuals, "const VERSION='v712-latest-visuals-1'", 'Accepted water visual layer missing');
 
 // Construction pipeline and original pixel palette remain authoritative.
-requireText(construction, "version:'v662-native-pixel-4-single-scale-owner'", 'Construction phase pipeline missing');
+requireText(construction, "version:'v662-native-pixel-5-final-visibility'", 'Construction phase pipeline missing');
 requireText(construction, 'function kingdomFrames', 'Kingdom-coloured construction frames missing');
 requireText(construction, 'renderer?.textureToCanvas?.(sprite?.texture)', 'Construction stages must derive from completed prefab');
 requireText(construction, 'return recolorTeamCanvas(canvas,color)', 'Construction palette fallback missing');
+requireText(construction, 'function finishCompletedSprite(sprite,renderer)', 'Construction completion visibility owner missing');
+requireText(construction, 'sprite.__constructionStagesComplete=true', 'Completed castle state marker missing');
+requireText(construction, 'renderer?.__v800RequestCull?.()', 'Completed castle must re-evaluate current viewport');
+rejectText(construction, 'sprite.visible=wasVisible', 'Construction still restores stale pre-focus castle visibility');
 
 // Smooth civilian direction is one final presentation owner.
 requireText(farmerDirection, 'const LOOKAHEAD = 4', 'Civilian route lookahead missing');
@@ -141,8 +145,8 @@ requireText(livePower, '__v713GiftBuildOverride=k.__v713GiftBuildOverrideCount>0
 requireText(livePower, 'dataset.lastGiftPowerDelta', 'Runtime gift delta diagnostic missing');
 
 // V8 hot paths use shared indexes and revision-based rendering.
-requireText(performanceKernel, "const VERSION = 'v801-mobile-performance-kernel-2-targeted-growth'", 'V8.0.1 Mobile kernel marker missing');
-requireText(performanceKernel, "dataset.completeRelease = '8.0.1-mobile'", 'V8.0.1 Mobile runtime release diagnostic missing');
+requireText(performanceKernel, "const VERSION = 'v802-mobile-performance-kernel-3-castle-persistence'", 'V8.0.2 Mobile kernel marker missing');
+requireText(performanceKernel, "dataset.completeRelease = '8.0.2-mobile'", 'V8.0.2 Mobile runtime release diagnostic missing');
 requireText(performanceKernel, 'mapGeometryChanged: false', 'V8 map-preservation diagnostic missing');
 requireText(performanceKernel, 'function rebuildBuildingIndex()', 'Building spatial index missing');
 requireText(performanceKernel, 'function cachedTerritory(kingdom)', 'Territory parse cache missing');

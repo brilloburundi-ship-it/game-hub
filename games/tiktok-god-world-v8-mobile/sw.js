@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v8-0-1-mobile-1';
+const CACHE = 'god-world-v8-0-2-mobile-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
