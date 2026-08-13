@@ -180,6 +180,7 @@ const iso = (x, y) => [(x - y) * 20 + 600, (x + y) * 10 + 100];
 director.sim = { kingdoms: [cameraA, cameraB], wars: [], iso, selected: cameraA, updateSelected() {} };
 director.installAutoCamera();
 director.autoCamera.tourStartedAt = 0;
+assert(director.autoCamera.transitionSeconds === 4.8, 'Automatic camera did not adopt the softer settling time');
 cameraContext.setClock(0);
 assert(director.autoCameraTarget(0) && director.autoCamera.mode === 'overview', 'Automatic director did not begin with a ten-second overview');
 const panStart = director.autoCameraTarget(10000);
@@ -421,4 +422,4 @@ assert(completedCastle.visible && completedCastle.renderable, 'Completed castle 
 assert(completedCastle.__constructionStagesComplete && !completedCastle.__constructionStagesPlaying, 'Construction completion state is inconsistent');
 assert(constructionCullCalls === 1, 'Completed castle did not re-evaluate the current mobile viewport');
 
-console.log(`V8.0.4 deterministic logic OK (castlePersistent=true, castleCollapse=neutral+AIoff, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);
+console.log(`V8.0.5 deterministic logic OK (softCamera=true, castlePersistent=true, castleCollapse=neutral+AIoff, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);

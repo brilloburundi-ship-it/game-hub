@@ -37,9 +37,9 @@
 @media(max-width:700px){.kingdom-card{top:176px;width:202px;padding:10px}.resources{gap:5px}.resources span{padding:6px}.k-grid span{padding:6px}.k-zoom-note{display:none}}
 @media(max-width:420px){.kingdom-card{top:170px;right:8px;width:190px}.ranking{width:136px}.k-head b{font-size:13px}.resources em{font-size:15px}.resources b,.k-grid b{font-size:11px}}
 
-/* V8.0.4 Kingdom War wooden tablet HUD */
+/* V8.0.5 Kingdom War compact wooden tablet HUD */
 .live{display:none!important}
-.topbar{top:max(7px,env(safe-area-inset-top));left:8px;right:8px;height:58px;padding:0 16px;gap:16px;border:3px solid #4c2b14;border-radius:8px;background:repeating-linear-gradient(3deg,transparent 0 9px,#2c160918 10px 11px),linear-gradient(180deg,#9a612e 0%,#74401f 47%,#593018 52%,#7d4924 100%);box-shadow:0 4px 0 #321a0d,0 9px 24px #0009,inset 0 2px #d69a5b,inset 0 -2px #32180b;backdrop-filter:none}
+.topbar{top:max(1px,env(safe-area-inset-top));left:8px;right:8px;height:58px;padding:0 16px;gap:16px;border:3px solid #4c2b14;border-radius:8px;background:repeating-linear-gradient(3deg,transparent 0 9px,#2c160918 10px 11px),linear-gradient(180deg,#9a612e 0%,#74401f 47%,#593018 52%,#7d4924 100%);box-shadow:0 4px 0 #321a0d,0 9px 24px #0009,inset 0 2px #d69a5b,inset 0 -2px #32180b;backdrop-filter:none}
 .topbar:before,.topbar:after{content:"";position:absolute;top:50%;width:8px;height:8px;border-radius:50%;background:radial-gradient(circle at 35% 32%,#dfb36c 0 16%,#6c3a16 30%,#261006 75%);box-shadow:0 1px 2px #000;transform:translateY(-50%)}
 .topbar:before{left:5px}.topbar:after{right:5px}
 .brand{flex:0 0 auto}.brand b,.age-title,#age{font-family:Georgia,"Times New Roman",serif;font-variant:small-caps;font-weight:900;color:#ffe5a0;letter-spacing:.055em;text-shadow:0 2px 0 #3a1707,0 0 7px #f3b84f66}

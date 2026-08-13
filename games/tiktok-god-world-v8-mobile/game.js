@@ -1231,11 +1231,11 @@
       this.autoCamera = {
         tourStartedAt: performance.now(), manualUntil: 0, critical: null, criticalQueue: [], gift: null,
         warShot: null, lastWarId: null, hadActiveWars: false,
-        mode: 'overview', kingdomIndex: -1, focusKingdom: null, shotKey: 'overview-0', transitionSeconds: 2.6
+        mode: 'overview', kingdomIndex: -1, focusKingdom: null, shotKey: 'overview-0', transitionSeconds: 4.8
       };
       this.detailPresentationOwned = true;
       this.detailShot = { key: '', shownAt: 0 };
-      document.documentElement.dataset.autoCamera = 'director-10s-slots-pan-v804';
+      document.documentElement.dataset.autoCamera = 'director-soft-10s-slots-pan-v805';
     }
     notifyCameraGift(k, seconds = 10) {
       if (!this.autoCamera || !k?.alive) return;
@@ -1284,7 +1284,7 @@
       const width = bounds.maxX - bounds.minX, height = bounds.maxY - bounds.minY;
       const panX = width > viewW * .78, panY = height > viewH * .70;
       const progress = clamp((now - shotStartedAt) / 10000, 0, 1);
-      const eased = progress * progress * (3 - 2 * progress);
+      const eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10);
       const halfW = viewW * .36, halfH = viewH * .32;
       const startX = panX ? bounds.minX + halfW : (bounds.minX + bounds.maxX) * .5;
       const endX = panX ? bounds.maxX - halfW : startX;
