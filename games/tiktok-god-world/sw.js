@@ -1,10 +1,13 @@
-const CACHE = 'god-world-v7-1-1-building-scale-lock';
+const CACHE = 'god-world-v7-1-2-latest-only';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
-  'v69-runtime-stability.js', 'asset-recovery.js', 'v705-world-npc-expansion.js', 'game.js', 'v706-world-polish.js', 'tree-depth.js',
+  'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
+  'latest/world-base.js', 'latest/world-shape.js', 'latest/flora-loader.js', 'latest/flora.js',
   'living-kingdoms-v65.js', 'v651-ground-contact.js', 'v66-living-battles.js', 'v661-battle-stability.js',
   'interface-v63.js', 'world-effects.js', 'music.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png',
-  'v67-w1.js', 'v67-w2.js', 'v67-w3.js', 'v67-w4.js', 'v67-w5.js', 'v67-w6.js', 'v67-w7.js', 'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js', 'v68-fishing-asset.js', 'v68-fishing-boats.js', 'v70-war-peace-cleanup.js', 'v707-gameplay-polish.js', 'v708-water-camera-fishing.js', 'v709-water-palette.js', 'v710-farmer-direction.js', 'v711-building-scale-lock.js',
+  'v67-w1.js', 'v67-w2.js', 'v67-w3.js', 'v67-w4.js', 'v67-w5.js', 'v67-w6.js', 'v67-w7.js',
+  'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js', 'v68-fishing-asset.js', 'v68-fishing-boats.js',
+  'latest/war-peace-cleanup.js', 'latest/gameplay.js', 'latest/water-base.js', 'latest/visuals.js', 'latest/farmer-direction.js', 'latest/building-scale.js',
   'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/npc/manifest.json',
   'assets/vegetation/flora-atlas.part0', 'assets/vegetation/flora-atlas.part1', 'assets/vegetation/flora-atlas.part2', 'assets/vegetation/flora-atlas.part3',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
@@ -17,19 +20,13 @@ const SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then(cache => Promise.allSettled(SHELL.map(url => cache.add(url))))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil(caches.open(CACHE).then(cache => Promise.allSettled(SHELL.map(url => cache.add(url)))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k.startsWith('god-world-') && k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('god-world-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 
 self.addEventListener('fetch', event => {
@@ -37,11 +34,10 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const response = await fetch(event.request);
+      const response = await fetch(event.request, { cache: 'no-store' });
       if (response && response.ok) cache.put(event.request, response.clone()).catch(() => {});
       if (response && response.ok) return response;
-      const hit = await cache.match(event.request, { ignoreSearch: true });
-      return hit || response;
+      return (await cache.match(event.request, { ignoreSearch: true })) || response;
     } catch (err) {
       const hit = await cache.match(event.request, { ignoreSearch: true });
       if (hit) return hit;
