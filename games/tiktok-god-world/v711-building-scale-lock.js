@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v711-building-scale-lock-3';
+  const VERSION = 'v711-building-scale-lock-2';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
 
   // Stable/setta keeps the exact small presentation already used by the
