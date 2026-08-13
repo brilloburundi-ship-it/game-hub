@@ -9,6 +9,7 @@
     version: VERSION,
     rounded: false,
     coastSculpted: false,
+    coastAdded: 0,
     riverMouths: 0,
     terrain: false,
     errors: []
@@ -108,8 +109,7 @@
       (ul && dr && !ur && !dl) || (ur && dl && !ul && !dr);
   }
 
-  // Four erosion passes deliberately break long isometric ruler-lines into coves,
-  // headlands and short beaches. Only exposed perimeter cells are touched.
+  // Four erosion passes carve bays into the original land mass.
   function sculptCoast(land, biomes) {
     for (let pass = 0; pass < 4; pass++) {
       const remove = [];
@@ -141,6 +141,61 @@
     }
   }
 
+  function neighbourBiome(land, biomes, x, y) {
+    const count = new Map();
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || !landAt(land, x + dx, y + dy)) continue;
+        const b = biomes[y + dy]?.[x + dx];
+        if (!b || b === 'ocean' || b === 'beach') continue;
+        count.set(b, (count.get(b) || 0) + 1);
+      }
+    }
+    return [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 'grass';
+  }
+
+  // Add real connected land outside selected coast runs. These are not decorative
+  // pixels: they become part of w.land, so the silhouette gains actual coves and
+  // promontories instead of only visually wobbling a straight isometric edge.
+  function growCoastalTerrain(land, biomes) {
+    let added = 0;
+    const h = land.length, w = land[0]?.length || 0;
+    const orthDirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    const diagDirs = [[1,1],[-1,-1],[1,-1],[-1,1]];
+
+    for (let pass = 0; pass < 2; pass++) {
+      const additions = [];
+      for (let y = 3; y < h - 3; y++) {
+        for (let x = 3; x < w - 3; x++) {
+          if (land[y][x]) continue;
+          let orth = 0, diag = 0;
+          for (const [dx,dy] of orthDirs) if (landAt(land,x+dx,y+dy)) orth++;
+          for (const [dx,dy] of diagDirs) if (landAt(land,x+dx,y+dy)) diag++;
+          if (orth < 1 || orth + diag < 3) continue;
+
+          const along =
+            Math.sin(x * .43 + y * .17 + pass * 1.37) * .17 +
+            Math.cos(y * .39 - x * .11 - pass * .73) * .12 +
+            Math.sin((x - y) * .27 + pass * .4) * .08;
+          const rnd = hash01(x, y, 3301 + pass * 131);
+          const straightRunCandidate = orth === 1 && diag >= 2;
+          const supportedCorner = orth >= 2 && diag >= 1;
+          const threshold = straightRunCandidate ? .78 + pass * .10 : .91 + pass * .08;
+          if ((straightRunCandidate || supportedCorner) && rnd + along > threshold) {
+            additions.push([x, y, neighbourBiome(land, biomes, x, y)]);
+          }
+        }
+      }
+      for (const [x,y,biome] of additions) {
+        if (land[y][x]) continue;
+        land[y][x] = 1;
+        biomes[y][x] = biome;
+        added++;
+      }
+    }
+    return added;
+  }
+
   function longestSegment(w, river) {
     const segments = [];
     let current = [];
@@ -158,8 +213,6 @@
     return segments[0]?.length >= 2 ? segments[0] : null;
   }
 
-  // The river follows the coast-distance gradient and then continues two or three
-  // cells into open water. This makes the final rendered mouth part of the sea.
   function extendRiverToSea(w, river) {
     if (!river?.length || river.length < 2) return river;
     const out = river.slice();
@@ -232,8 +285,6 @@
         const nx = (sx - mx) / rx, ny = (sy - my) / ry;
         const radius = Math.hypot(nx, ny), angle = Math.atan2(ny, nx);
 
-        // A strong multi-frequency coastline plus deliberate bays/headlands.
-        // This avoids the long straight diamond sides visible on the isometric grid.
         const angular =
           Math.sin(angle * 2.35 + .28) * .064 +
           Math.sin(angle * 4.9 - 1.02) * .044 +
@@ -273,6 +324,7 @@
     }
 
     sculptCoast(land, biomes);
+    state.coastAdded = growCoastalTerrain(land, biomes);
     w.land = land;
     w.biomes = biomes;
     const coast = recomputeCoast(w);
@@ -413,8 +465,6 @@
     }
     ctx.globalAlpha = 1;
 
-    // Stronger contour wobble is intentional: it prevents long perfectly straight
-    // isometric shore segments even when several edge cells line up.
     const coastPath = pathFor(w, loops(w.land), d, 18, 31);
     ctx.fillStyle = '#6e9a48';
     ctx.fill(coastPath, 'evenodd');
