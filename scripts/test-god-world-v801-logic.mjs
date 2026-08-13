@@ -15,11 +15,13 @@ const context = { console: { error() {}, warn() {}, log() {} }, window: {}, Math
 vm.createContext(context);
 vm.runInContext(`
   const key=(x,y)=>\`${'${x},${y}'}\`;
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const pick=a=>a[0];
   const rand=(a,b)=>(a+b)/2;
   const COLORS=[0x27a7ff];
   const COLORCSS=['#27a7ff'];
   const MAX_VISIBLE_FARMERS=24;
+  const MAX_GIFT_VISIBLE_FARMERS=36;
   const BUILD_Y_OFFSET={};
   const BUILD_FOOTPRINT={castle:1};
   const toast=()=>{};
@@ -41,13 +43,13 @@ function makeRenderer() {
     async addKingdom() {},
     async addBuilding(k, building) { building._sprite = { destroyed: false, destroy() { this.destroyed = true; } }; },
     async addFarmer() {},
-    redrawTerritories() {}, redrawSettlementGround() {}, focusCell() {}, supportFx() {}, puff() {},
+    redrawTerritories() {}, redrawSettlementGround() {}, focusCell() {}, supportFx() {}, puff() {}, endWar() {},
     entities: [], labels: []
   };
 }
 
 function kingdom(id, capital) {
-  return { id, name: `K${id}`, capital, territory: new Set(), buildings: [], farmers: [], alive: true, aggressive: null };
+  return { id, name: `K${id}`, capital, territory: new Set(), buildings: [], farmers: [], alive: true, aggressive: null, allies: new Set() };
 }
 
 function seed(sim, k, radius = 1) {
@@ -95,6 +97,28 @@ assert([...kc.territory].every(token => {
   const [x, y] = token.split(',').map(Number);
   return Math.min(x, y, 40 - x, 40 - y) > 1;
 }), 'A bounded gift claim created an artificial line to the coast');
+
+const navigationRenderer = makeRenderer();
+navigationRenderer.depthTreesByCell = new Map([['16,15', [{ destroyed: false, __treeData: { category: 'tree' } }]]]);
+const navigation = new Simulation(makeWorld(), navigationRenderer);
+const navigationKingdom = kingdom(0, [15, 15]);
+navigation.kingdoms.push(navigationKingdom);
+for (let y = 14; y <= 16; y++) for (let x = 15; x <= 17; x++) {
+  navigation.setOwner(x, y, navigationKingdom.id);
+  navigationKingdom.territory.add(`${x},${y}`);
+}
+const treeSafePath = navigation.findPath(navigationKingdom, [15, 15], [17, 15]);
+assert(treeSafePath.length > 2, 'NPC navigation did not route around a tree');
+assert(!treeSafePath.some(([x, y]) => x === 16 && y === 15), 'NPC path still crosses the middle of a tree');
+
+const allies = new Simulation(makeWorld(), makeRenderer());
+const allyA = kingdom(0, [10, 10]), allyB = kingdom(1, [11, 10]);
+allies.kingdoms.push(allyA, allyB);
+seed(allies, allyA, 0); seed(allies, allyB, 0);
+assert(allies.adjacentEnemies(allyA).includes(allyB.id), 'Adjacent non-allied kingdom was not considered an enemy');
+assert(allies.ally(allyA, allyB) && allies.areAllied(allyA, allyB), 'ALLY did not create a reciprocal alliance');
+assert(!allies.adjacentEnemies(allyA).includes(allyB.id), 'Allied kingdom remained an automatic war target');
+assert(allies.attack(allyA, allyB) === false, 'An allied kingdom could still be attacked');
 
 const rollbackRenderer = makeRenderer();
 const d = new Simulation(makeWorld(), rollbackRenderer);
@@ -180,6 +204,7 @@ vm.runInContext(`
 `, cityContext);
 let activePlans = 0, maximumActivePlans = 0;
 const requestedPlans = [];
+const citizenGains = [];
 const citySimulation = {
   claimGiftLand() {},
   async instantGiftBuild(k, types) {
@@ -190,7 +215,7 @@ const citySimulation = {
     activePlans--;
     return types.length;
   },
-  async giftPopulation() {},
+  async giftPopulation(k, amount) { citizenGains.push(amount); },
   r: { supportFx() {} }, updateSelected() {}
 };
 const cityKingdom = {
@@ -203,6 +228,20 @@ await Promise.all([
 ]);
 assert(requestedPlans.join(',') === '40,40', `Concurrent Universe plans were lost (${requestedPlans.join(',')})`);
 assert(maximumActivePlans === 1, 'Concurrent high-gift building plans were not serialized');
+assert(cityKingdom.__v712VisibleCitizenCap === 32, `Universe visible citizen cap is not proportional (${cityKingdom.__v712VisibleCitizenCap})`);
+assert(citizenGains.join(',') === '26,26', `Universe citizen gains are not tied to its realized building plan (${citizenGains.join(',')})`);
+
+const visibleGiftSimulation = new Simulation(makeWorld(), makeRenderer());
+const visibleGiftKingdom = kingdom(0, [15, 15]);
+visibleGiftKingdom.pop = 40;
+visibleGiftKingdom.__v712VisibleCitizenCap = 32;
+visibleGiftSimulation.kingdoms.push(visibleGiftKingdom);
+for (let y = 11; y <= 19; y++) for (let x = 11; x <= 19; x++) {
+  visibleGiftSimulation.setOwner(x, y, visibleGiftKingdom.id);
+  visibleGiftKingdom.territory.add(`${x},${y}`);
+}
+await visibleGiftSimulation.syncCitizens(visibleGiftKingdom);
+assert(visibleGiftKingdom.farmers.length === 32, `High-gift visible citizens were not actually spawned (${visibleGiftKingdom.farmers.length})`);
 
 const gatewayStart = gameSource.indexOf('const giftProgress = new Map();');
 const gatewayEnd = gameSource.indexOf('function connectBridge', gatewayStart);
@@ -286,4 +325,4 @@ assert(completedCastle.visible && completedCastle.renderable, 'Completed castle 
 assert(completedCastle.__constructionStagesComplete && !completedCastle.__constructionStagesPlaying, 'Construction completion state is inconsistent');
 assert(constructionCullCalls === 1, 'Completed castle did not re-evaluate the current mobile viewport');
 
-console.log(`V8.0.2 deterministic logic OK (castlePersistent=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56, queuedGifts=2/2, streak=2)`);
+console.log(`V8.0.3 deterministic logic OK (castlePersistent=true, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);

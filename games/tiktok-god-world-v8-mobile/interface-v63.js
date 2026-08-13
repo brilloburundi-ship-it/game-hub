@@ -27,7 +27,8 @@
     ['🌠', 'UNIVERSE = legendary kingdom boost'],
     ['🔥', 'PHOENIX / INTERSTELLAR = legendary boost'],
     ['🏰', 'CASTLE FANTASY = legendary boost'],
-    ['⚔️', 'ATTACK name = declare war']
+    ['⚔️', 'ATTACK name = declare war'],
+    ['🤝', 'ALLY name = form an alliance']
   ];
   const icon = document.querySelector('#commandIcon');
   const text = document.querySelector('#bridgeText');

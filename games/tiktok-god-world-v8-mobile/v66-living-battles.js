@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '6.6-living-battles-2-single-scale-owner';
+  const VERSION = '8.0.3-living-battles-navigation-3';
   const PEACE_GUARD_MAX = 8;
   const WAR_GUARD_MAX = 14;
   const MAX_FRAME_DT = 0.05;
@@ -27,7 +27,7 @@
     for (const token of k.territory || []) {
       const cell = parseCell(token);
       if (!sim.isWalkableCell?.(cell[0], cell[1])) continue;
-      if (sim.buildingAt?.(cell[0], cell[1])) continue;
+      if (sim.buildingBlockingCell?.(cell[0], cell[1]) || sim.vegetationBlocksCell?.(cell[0], cell[1])) continue;
       if (preferCapital && Math.hypot(cell[0] - k.capital[0], cell[1] - k.capital[1]) > 5.5) continue;
       seen++;
       if (Math.random() < 1 / seen) chosen = cell;
@@ -251,24 +251,92 @@
     return [sx, sy];
   }
 
-  function buildingSteer(sim, u) {
+  function buildingRadii(b) {
+    const width = Number(b?._sprite?.width) || (b?.type === 'castle' ? 76 : 44);
+    const height = Number(b?._sprite?.height) || (b?.type === 'castle' ? 92 : 46);
+    return [clamp(width * 0.34, 12, 32), clamp(height * 0.13, 7, 15)];
+  }
+
+  function buildingAttackRadius(b, role) {
+    const [rx, ry] = buildingRadii(b);
+    return Math.hypot(rx, ry) * 0.72 + (role === 'archer' ? 18 : 5);
+  }
+
+  function worldCell(sim, worldX, worldY) {
+    const halfW = Math.max(1, Number(sim.w?.tileW) / 2);
+    const halfH = Math.max(1, Number(sim.w?.tileH) / 2);
+    const dx = (worldX - Number(sim.w?.originX || 0)) / halfW;
+    const dy = (worldY - 6 - Number(sim.w?.originY || 0)) / halfH;
+    return [Math.round((dx + dy) / 2), Math.round((dy - dx) / 2)];
+  }
+
+  function nearbyVegetation(sim, worldX, worldY) {
+    const byCell = sim.r?.depthTreesByCell;
+    if (!byCell?.get) return [];
+    const [cx, cy] = worldCell(sim, worldX, worldY), result = [];
+    for (let oy = -1; oy <= 1; oy++) for (let ox = -1; ox <= 1; ox++) {
+      for (const sprite of byCell.get(`${cx + ox},${cy + oy}`) || []) {
+        if (!sprite?.destroyed && ['tree', 'bush'].includes(sprite.__treeData?.category)) result.push(sprite);
+      }
+    }
+    return result;
+  }
+
+  function navigationObstacle(sim, worldX, worldY) {
+    for (const k of sim.kingdoms || []) {
+      if (!k.alive) continue;
+      for (const b of k.buildings || []) {
+        if (b.__v66Destroyed) continue;
+        const [rx, ry] = buildingRadii(b), cx = b.sx, cy = b.sy - 2;
+        const nx = (worldX - cx) / rx, ny = (worldY - cy) / ry;
+        if (nx * nx + ny * ny < 1) return { source: b, x: cx, y: cy };
+      }
+    }
+    for (const sprite of nearbyVegetation(sim, worldX, worldY)) {
+      const rx = clamp((Number(sprite.width) || 18) * 0.24, 4, 8), ry = clamp((Number(sprite.height) || 24) * 0.12, 3, 6);
+      const nx = (worldX - sprite.x) / rx, ny = (worldY - (sprite.y - 2)) / ry;
+      if (nx * nx + ny * ny < 1) return { source: sprite, x: sprite.x, y: sprite.y - 2 };
+    }
+    return null;
+  }
+
+  function obstacleSteer(sim, u) {
     let sx = 0, sy = 0;
     for (const k of sim.kingdoms || []) {
       if (!k.alive) continue;
       for (const b of k.buildings || []) {
         if (b.__v66Destroyed) continue;
-        const dx = u.x - b.sx;
-        const dy = u.y - (b.sy - 5);
-        if (Math.abs(dx) > 28 || Math.abs(dy) > 24) continue;
-        const d = Math.max(0.1, Math.hypot(dx, dy));
-        const radius = b.type === 'castle' ? 25 : (b.type === 'farm' ? 17 : 15);
-        if (d >= radius) continue;
-        const f = (radius - d) / radius;
-        sx += dx / d * f * 1.8;
-        sy += dy / d * f * 1.3;
+        const [rx, ry] = buildingRadii(b), dx = u.x - b.sx, dy = u.y - (b.sy - 2);
+        const normalized = Math.hypot(dx / (rx * 1.35), dy / (ry * 1.5));
+        if (normalized >= 1) continue;
+        const d = Math.max(0.1, Math.hypot(dx, dy)), force = (1 - normalized) * 2.4;
+        sx += dx / d * force; sy += dy / d * force;
       }
     }
+    for (const sprite of nearbyVegetation(sim, u.x, u.y)) {
+      const dx = u.x - sprite.x, dy = u.y - (sprite.y - 2), d = Math.max(0.1, Math.hypot(dx, dy));
+      if (d > 13) continue;
+      const force = (13 - d) / 13 * 2.1;
+      sx += dx / d * force; sy += dy / d * force;
+    }
     return [sx, sy];
+  }
+
+  function navigableVelocity(sim, u, vx, vy, step) {
+    const current = navigationObstacle(sim, u.x, u.y);
+    for (const angle of [0, 0.38, -0.38, 0.72, -0.72, 1.08, -1.08]) {
+      const cos = Math.cos(angle), sin = Math.sin(angle);
+      const nx = vx * cos - vy * sin, ny = vx * sin + vy * cos;
+      const nextX = u.x + nx * step, nextY = u.y + ny * step;
+      const next = navigationObstacle(sim, nextX, nextY);
+      if (!next) return [nx, ny];
+      if (current?.source === next.source) {
+        const before = Math.hypot(u.x - current.x, u.y - current.y);
+        const after = Math.hypot(nextX - next.x, nextY - next.y);
+        if (after > before) return [nx, ny];
+      }
+    }
+    return null;
   }
 
   function moveGuard(sim, r, u, tx, ty, dt, speed, peers) {
@@ -280,12 +348,15 @@
     }
     let vx = dx / d, vy = dy / d;
     const sep = separationVector(u, peers);
-    const obs = buildingSteer(sim, u);
+    const obs = obstacleSteer(sim, u);
     vx += sep[0] * 0.72 + obs[0];
     vy += sep[1] * 0.72 + obs[1];
     const len = Math.max(0.001, Math.hypot(vx, vy));
     vx /= len; vy /= len;
     const step = Math.min(d, speed * dt);
+    const safeVelocity = navigableVelocity(sim, u, vx, vy, step);
+    if (!safeVelocity) { setAnim(r, u, 'idle'); return false; }
+    vx = safeVelocity[0]; vy = safeVelocity[1];
     u.x += vx * step;
     u.y += vy * step;
     u.s.position.set(u.x, u.y);
@@ -368,7 +439,8 @@
     faceTarget(u, target.x);
     setAnim(r, u, 'attack');
     if (u.attackCooldown > 0) return;
-    u.attackCooldown = rand(0.55, 0.9);
+    u.attackCooldown = rand(0.9, 1.25);
+    if (u.role === 'archer') r.spawnBattleArrow?.(u, target.x, target.y - 7);
     target.hurt = 0.12;
     if (Math.random() < 0.34) bloodBurst(r, target.x, target.y - 6, 0.45);
   }
@@ -388,7 +460,8 @@
     faceTarget(u, b.sx);
     setAnim(r, u, 'attack');
     if (u.attackCooldown > 0) return;
-    u.attackCooldown = rand(0.65, 1.05);
+    u.attackCooldown = rand(0.95, 1.35);
+    if (u.role === 'archer') r.spawnBattleArrow?.(u, b.sx, b.sy - 9);
 
     if (b.type === 'castle') {
       startBuildingFire(r, b);
@@ -418,9 +491,10 @@
 
     // A unit that has reached the village may peel off to burn/destroy nearby
     // structures while the rest of the formation keeps enemy guards occupied.
-    if (building && buildingDistance < 34 && guardDistance > 24) {
+    const buildingRange = building ? buildingAttackRadius(building, u.role) : 14;
+    if (building && buildingDistance < buildingRange + 24 && guardDistance > 24) {
       u.targetBuilding = building;
-      if (buildingDistance > 14) moveGuard(sim, r, u, building.sx, building.sy + 5, dt, 19, peers);
+      if (buildingDistance > buildingRange) moveGuard(sim, r, u, building.sx, building.sy + 5, dt, 19, peers);
       else attackBuilding(sim, r, u, enemy, building, dt);
       return;
     }
@@ -435,7 +509,7 @@
     }
 
     if (building) {
-      if (buildingDistance > 14) moveGuard(sim, r, u, building.sx, building.sy + 5, dt, 19, peers);
+      if (buildingDistance > buildingRange) moveGuard(sim, r, u, building.sx, building.sy + 5, dt, 19, peers);
       else attackBuilding(sim, r, u, enemy, building, dt);
       return;
     }
@@ -625,12 +699,11 @@
     }
     sim.__v66LivingBattlesInstalled = true;
     window.__BUILD_VERSION = VERSION;
-    document.documentElement.dataset.battleSystem = 'living-v66';
-    const tag = document.querySelector('.build-tag');
-    if (tag) tag.textContent = 'V6.6 LIVING BATTLES';
+    document.documentElement.dataset.battleSystem = 'living-v803-navigation';
 
     r.__v66Guards = new Map();
     r.__v66Fires = new Map();
+    r.__v66NavigationBlocked = (x, y) => !!navigationObstacle(sim, x, y);
     makeBloodPool(r);
     enforceGroundContact(sim);
 

@@ -8,8 +8,6 @@
   const queuedEvents = [];
 
   function setStatus(label, color) {
-    const dot = document.querySelector('#bridgeDot');
-    if (dot) dot.style.background = color;
     document.documentElement.dataset.bridgeStatus = label;
   }
 

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v710-farmer-direction-stability-2';
+  const VERSION = 'v803-farmer-direction-fluid-3';
   if (window.__V710_FARMER_DIRECTION?.bootstrap) return;
 
   const state = window.__V710_FARMER_DIRECTION = {
@@ -9,9 +9,10 @@
     installed: false,
     version: VERSION,
     lookaheadCells: 4,
-    oppositeFlipHoldMs: 240,
+    oppositeFlipHoldMs: 170,
     directionChanges: 0,
     smoothMotion: false,
+    frameContinuity: false,
     antiTrain: false,
     errors: []
   };
@@ -19,9 +20,9 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const LOOKAHEAD = 4;
-  const TURN_HOLD_MS = 125;
-  const OPPOSITE_HOLD_MS = 240;
-  const WALK_ANIMATION_SPEED = 0.11;
+  const TURN_HOLD_MS = 90;
+  const OPPOSITE_HOLD_MS = 170;
+  const WALK_ANIMATION_SPEED = 0.133;
 
   function clearDirection(farmer) {
     if (!farmer) return;
@@ -43,7 +44,9 @@
       if (!Array.isArray(cell) || cell.length < 2) continue;
       const point = sim.iso(cell[0], cell[1]);
       const tx = point[0], ty = point[1] + 6;
-      const weight = 1 + i * 0.55;
+      // The next cell owns facing. Later cells soften a corner without making
+      // the farmer turn before actually reaching it.
+      const weight = 1 / (1 + i * 0.85);
       sumX += (tx - farmer.x) * weight;
       sumY += (ty - farmer.y) * weight;
       weightTotal += weight;
@@ -51,8 +54,8 @@
     if (weightTotal > 0) {
       const lx = sumX / weightTotal;
       const ly = sumY / weightTotal;
-      vx = lx * 0.86 + vx * 0.14;
-      vy = ly * 0.86 + vy * 0.14;
+      vx = lx * 0.9 + vx * 0.1;
+      vy = ly * 0.9 + vy * 0.1;
     }
     return [vx, vy];
   }
@@ -104,6 +107,19 @@
     if (direction === 'right') return [1, 0];
     if (direction === 'up') return [0, -1];
     return [0, 1];
+  }
+
+  function preserveWalkFrame(sprite, run) {
+    if (!sprite || sprite.destroyed) return run();
+    const previousAction = String(sprite._action || '');
+    const previousFrame = Number(sprite.currentFrame) || 0;
+    const result = run();
+    const nextAction = String(sprite._action || '');
+    if (previousAction.startsWith('walk_') && nextAction.startsWith('walk_') && previousAction !== nextAction) {
+      const frameCount = Math.max(1, sprite.textures?.length || 1);
+      sprite.gotoAndPlay?.(previousFrame % frameCount);
+    }
+    return result;
   }
 
   function resolveDirection(sim, farmer, dx = 0, dy = 0, immediate = false) {
@@ -193,7 +209,7 @@
       farmer.__v710DisplayX = sprite.x;
       farmer.__v710DisplayY = sprite.y;
     }
-    const alpha = 1 - Math.exp(-30 * dt);
+    const alpha = 1 - Math.exp(-44 * dt);
     farmer.__v710DisplayX += (tx - farmer.__v710DisplayX) * alpha;
     farmer.__v710DisplayY += (ty - farmer.__v710DisplayY) * alpha;
     sprite.position.set(farmer.__v710DisplayX, farmer.__v710DisplayY);
@@ -217,7 +233,7 @@
       renderer.setFarmerAction = function(farmer, action) {
         if (String(action) === 'walk' && farmer?.path?.length) {
           const direction = resolveDirection(sim, farmer, 0, 0, !farmer.__v710WalkDir);
-          return originalSet(farmer, `walk_${direction}`);
+          return preserveWalkFrame(farmer?._sprite, () => originalSet(farmer, `walk_${direction}`));
         }
         if (String(action) !== 'walk') clearDirection(farmer);
         return originalSet(farmer, action);
@@ -234,13 +250,14 @@
         const direction = resolveDirection(sim, farmer, dx, dy, !farmer.__v710WalkDir);
         const [stableDx, stableDy] = syntheticVector(direction);
         // Only the facing vector is stabilized; movement still uses the real simulation vector.
-        result = originalUpdate(farmer, stableDx, stableDy);
+        result = preserveWalkFrame(farmer?._sprite, () => originalUpdate(farmer, stableDx, stableDy));
       }
       smoothFarmerSprite(sim, this, farmer, dx, dy);
       return result;
     };
 
     state.smoothMotion = true;
+    state.frameContinuity = true;
     state.installed = true;
     document.documentElement.dataset.farmerDirection = VERSION;
     return true;

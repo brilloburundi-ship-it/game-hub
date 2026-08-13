@@ -4,7 +4,7 @@
   // V8 owns only the hot-path bookkeeping. Gameplay systems continue to call the
   // same public Simulation/Renderer methods, but those methods now share one set
   // of indexes instead of repeatedly scanning every territory and building.
-  const VERSION = 'v802-mobile-performance-kernel-3-castle-persistence';
+  const VERSION = 'v803-mobile-performance-kernel-4-kingdom-war';
   if (window.__V800_PERFORMANCE_KERNEL?.bootstrap) return;
 
   const state = window.__V800_PERFORMANCE_KERNEL = {
@@ -532,7 +532,7 @@
 
           if (farmer.action === 'walk' && farmer.path?.length) {
             const next = farmer.path[0];
-            if (!this.isWalkableCell(next[0], next[1]) || this.getOwner(next[0], next[1]) !== kingdom.id || this.buildingBlockingCell(next[0], next[1])) {
+            if (!this.isNpcWalkableCell(kingdom, next[0], next[1])) {
               farmer.path = [];
               farmer.action = 'idle';
               farmer.actionUntil = 0;
@@ -654,10 +654,8 @@
     };
     state.installed = true;
     document.documentElement.dataset.performanceKernel = VERSION;
-    document.documentElement.dataset.completeRelease = '8.0.2-mobile';
-    document.title = 'TikTok God World — V8 Mobile';
-    const buildTag = document.querySelector('.build-tag');
-    if (buildTag) buildTag.textContent = 'V8 MOBILE';
+    document.documentElement.dataset.completeRelease = '8.0.3-mobile';
+    document.title = 'Kingdom War';
   }
 
   async function boot() {

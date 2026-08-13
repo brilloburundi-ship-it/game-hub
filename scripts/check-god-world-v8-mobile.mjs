@@ -17,7 +17,7 @@ const [
   index, sw, versionText, worldShape, visuals, gameplay, waterBase,
   farmerDirection, buildingScale, livePower, performanceKernel,
   construction, fishingBoats, warCleanup, groundContact, livingKingdoms, gameCore, packageJson,
-  projectsText
+  projectsText, flora, battles, battleStability, interfaceSource, styles, manifestText, lanBridge
 ] = await Promise.all([
   read('index.html'), read('sw.js'), read('version.json'),
   read('latest/world-shape.js'), read('latest/visuals.js'), read('latest/gameplay.js'),
@@ -27,18 +27,27 @@ const [
   read('latest/war-peace-cleanup.js'), read('v651-ground-contact.js'),
   read('living-kingdoms-v65.js'),
   read('game.js'),
-  readFile(resolve(root, 'package.json'), 'utf8'), readFile(resolve(root, 'data/projects.json'), 'utf8')
+  readFile(resolve(root, 'package.json'), 'utf8'), readFile(resolve(root, 'data/projects.json'), 'utf8'),
+  read('latest/flora.js'), read('v66-living-battles.js'), read('v661-battle-stability.js'),
+  read('interface-v63.js'), read('styles.css'), read('manifest.webmanifest'), read('lan-bridge.js')
 ]);
 
 const version = JSON.parse(versionText);
-if (version.version !== '8.0.2-mobile') throw new Error(`Expected mobile V8.0.2 release, found ${version.version}`);
-if (version.marker !== 'god-world-v802-castle-persistence') throw new Error('V8.0.2 castle persistence marker missing');
-requireText(index, 'V8 MOBILE', 'V8 MOBILE UI marker missing');
-requireText(index, "window.__GOD_WORLD_RELEASE='8.0.2-mobile'", 'Atomic V8.0.2 Mobile release marker missing');
-requireText(sw, "const CACHE = 'god-world-v8-0-2-mobile-1'", 'V8.0.2 Mobile service-worker cache marker missing');
+if (version.game !== 'Kingdom War') throw new Error(`Expected Kingdom War identity, found ${version.game}`);
+if (version.version !== '8.0.3-mobile') throw new Error(`Expected mobile V8.0.3 release, found ${version.version}`);
+if (version.marker !== 'kingdom-war-v803-npc-combat-camera') throw new Error('V8.0.3 NPC/combat/camera marker missing');
+requireText(index, '<b>Kingdom War</b>', 'Kingdom War wooden-tablet title missing');
+requireText(index, '<span class="age-title">World Age</span><span id="age">', 'Fantasy World Age label/time pair missing');
+rejectText(index, 'build-tag', 'The game version is still visible in the top bar');
+rejectText(index, 'bridgeDot', 'The old red bridge dot is still present');
+rejectText(lanBridge, 'bridgeDot', 'The removed bridge dot still has a runtime owner');
+requireText(manifestText, '"name": "Kingdom War"', 'Installed-game identity was not renamed');
+requireText(index, "window.__GOD_WORLD_RELEASE='8.0.3-mobile'", 'Atomic V8.0.3 Mobile release marker missing');
+requireText(sw, "const CACHE = 'kingdom-war-v8-0-3-mobile-1'", 'V8.0.3 Mobile service-worker cache marker missing');
 rejectText(index, 'V7.1.2 LATEST', 'Stale V7 UI label remains active');
 requireText(projectsText, '"rootPath": "games/tiktok-god-world-v8-mobile"', 'Separate Game Hub project path missing');
 requireText(projectsText, 'https://brilloburundi-ship-it.github.io/game-hub/games/tiktok-god-world-v8-mobile/', 'Separate live URL missing');
+requireText(projectsText, '"name": "Kingdom War"', 'Game Hub display name was not updated');
 
 const forbiddenActivePatchPaths = [
   'v69-runtime-stability.js', 'v705-world-npc-expansion.js', 'v706-world-polish.js', 'tree-depth.js',
@@ -64,7 +73,7 @@ for (const file of releaseScripts) {
   requireText(sw, `'${file}'`, `${file} missing from V8 cache shell`);
 }
 
-const token = '20260813-2110-v802';
+const token = '20260813-2033-v803';
 const localScriptSrcs = [...index.matchAll(/<script src="(?!https?:\/\/)([^"]+)"/g)].map(match => match[1]);
 for (const src of localScriptSrcs) {
   if (!src.includes(`v=${token}`)) throw new Error(`Local script is not pinned to V8: ${src}`);
@@ -98,10 +107,34 @@ rejectText(construction, 'sprite.visible=wasVisible', 'Construction still restor
 
 // Smooth civilian direction is one final presentation owner.
 requireText(farmerDirection, 'const LOOKAHEAD = 4', 'Civilian route lookahead missing');
-requireText(farmerDirection, 'const OPPOSITE_HOLD_MS = 240', 'Opposite-direction debounce missing');
-requireText(farmerDirection, 'const WALK_ANIMATION_SPEED = 0.11', 'Civilian walk cadence missing');
+requireText(farmerDirection, "const VERSION = 'v803-farmer-direction-fluid-3'", 'Fluid civilian direction owner missing');
+requireText(farmerDirection, 'const OPPOSITE_HOLD_MS = 170', 'Opposite-direction debounce missing');
+requireText(farmerDirection, 'oppositeFlipHoldMs: 170', 'Civilian direction diagnostic is stale');
+requireText(farmerDirection, 'const WALK_ANIMATION_SPEED = 0.133', 'Civilian walk cadence is not aligned to the source animation');
+requireText(farmerDirection, 'function preserveWalkFrame(sprite, run)', 'Walking direction changes still reset the footstep frame');
+requireText(farmerDirection, 'previousFrame % frameCount', 'Directional walk frame continuity missing');
 requireText(farmerDirection, 'sprite.roundPixels = false', 'Fractional walking missing');
-requireText(farmerDirection, 'Math.exp(-30 * dt)', 'Civilian interpolation missing');
+requireText(farmerDirection, 'Math.exp(-44 * dt)', 'Civilian interpolation missing');
+
+// Trees and building footprints are one navigation constraint for civilians and armies.
+requireText(gameCore, 'vegetationBlocksCell(x, y)', 'Shared vegetation collision query missing');
+requireText(gameCore, 'isNpcWalkableCell(k, x, y)', 'Shared civilian walkability owner missing');
+requireText(gameCore, 'approachVegetationCell(k, target', 'Workers have no safe approach cell around trees');
+requireText(flora, "const VERSION = 'v803-sparse-pixel-flora-navigation-2'", 'Active flora navigation index missing');
+requireText(flora, 'buildSim.approachVegetationCell?.(kingdom', 'Construction workers still walk through vegetation');
+requireText(battles, 'function navigationObstacle(sim, worldX, worldY)', 'Military obstacle owner missing');
+requireText(battles, 'function buildingRadii(b)', 'Military navigation does not respect rendered building size');
+requireText(battles, 'nearbyVegetation(sim, worldX, worldY)', 'Military tree avoidance missing');
+requireText(battles, 'navigableVelocity(sim, u, vx, vy, step)', 'Military collision-safe steering missing');
+
+// Combat is deliberately slower and ranged attacks have readable projectiles.
+requireText(battleStability, "const VERSION = '8.0.3-battle-readability-arrows-2'", 'Readable combat owner missing');
+requireText(battleStability, 'function ensureArrowPool(r)', 'Pooled archer projectiles missing');
+requireText(battleStability, 'function updateBattleArrows(r, dt)', 'Archer projectile flight missing');
+requireText(battles, "r.spawnBattleArrow?.(u, target.x, target.y - 7)", 'Archers do not release arrows at units');
+requireText(battles, "r.spawnBattleArrow?.(u, b.sx, b.sy - 9)", 'Archers do not release arrows at buildings');
+requireText(battleStability, "sprite.animationSpeed = role === 'archer' ? 0.055 : 0.07", 'Combat attack animation was not slowed');
+requireText(battleStability, 'rand(1050, 1400)', 'Combat hit cadence remains too fast to read');
 
 // Building scale is event-driven; no perpetual rescanning is allowed.
 requireText(buildingScale, 'const STABLE_LOCKED_WORLD_HEIGHT = 17.5', 'Reduced stable height missing');
@@ -145,8 +178,9 @@ requireText(livePower, '__v713GiftBuildOverride=k.__v713GiftBuildOverrideCount>0
 requireText(livePower, 'dataset.lastGiftPowerDelta', 'Runtime gift delta diagnostic missing');
 
 // V8 hot paths use shared indexes and revision-based rendering.
-requireText(performanceKernel, "const VERSION = 'v802-mobile-performance-kernel-3-castle-persistence'", 'V8.0.2 Mobile kernel marker missing');
-requireText(performanceKernel, "dataset.completeRelease = '8.0.2-mobile'", 'V8.0.2 Mobile runtime release diagnostic missing');
+requireText(performanceKernel, "const VERSION = 'v803-mobile-performance-kernel-4-kingdom-war'", 'V8.0.3 Mobile kernel marker missing');
+requireText(performanceKernel, "dataset.completeRelease = '8.0.3-mobile'", 'V8.0.3 Mobile runtime release diagnostic missing');
+requireText(performanceKernel, "document.title = 'Kingdom War'", 'Runtime title still exposes the old game identity');
 requireText(performanceKernel, 'mapGeometryChanged: false', 'V8 map-preservation diagnostic missing');
 requireText(performanceKernel, 'function rebuildBuildingIndex()', 'Building spatial index missing');
 requireText(performanceKernel, 'function cachedTerritory(kingdom)', 'Territory parse cache missing');
@@ -174,6 +208,11 @@ requireText(gameCore, 'e.giftName ?? e.gift_name ?? details.giftName', 'TikFinit
 requireText(livingKingdoms, "queueFoundingInteraction?.(k, 'follow'", 'FOLLOW must not be lost during founding');
 requireText(gameplay, 'function bigCityBuildingCount', 'High-gift building scaling missing');
 requireText(gameplay, 'lastBigHelpBuilt', 'High-gift build diagnostic missing');
+requireText(gameplay, 'lastBigHelpCitizens', 'High-gift visible-citizen diagnostic missing');
+requireText(gameplay, 'k.__v712VisibleCitizenCap', 'High gifts do not raise the existing citizen visibility owner');
+requireText(gameplay, 'const citizenGain = clamp(Math.round(realizedPlan * 0.65), 18, 32)', 'High-gift citizens are not proportional to realized construction');
+requireText(gameCore, 'MAX_GIFT_VISIBLE_FARMERS = 36', 'High-gift citizen performance cap missing');
+requireText(gameCore, 'dataset.visibleCitizens', 'Visible citizen runtime diagnostic missing');
 requireText(gameplay, 'k.__v712BigHelpQueue', 'High gifts must be serialized per kingdom');
 rejectText(gameplay, 'k.__v712BigHelpBusy ||', 'Concurrent high gifts still discard a building plan');
 requireText(gameplay, '__v712HighGiftPlan: true', 'High-gift building owner route missing');
@@ -197,6 +236,26 @@ requireText(performanceKernel, 'warUpdateAccumulator >= 1 / 30', 'Fixed-rate com
 requireText(gameCore, 'if (this.__v800RequestSort) this.__v800RequestSort()', 'Farmer depth sorting still bypasses the V8 scheduler');
 requireText(gameCore, 'this.__v800RequestCull?.()', 'New entities are not culled at creation time');
 requireText(gameCore, 'autoDensity: true, resolution: 1', 'Pixel-art renderer must use the stable 1x fill-rate budget');
+
+// Alliances and the renderer-owned automatic camera do not add parallel loops.
+requireText(interfaceSource, 'ALLY name = form an alliance', 'ALLY command is missing from the English command/gift rotator');
+requireText(gameCore, 'ally(a, b)', 'Reciprocal alliance command owner missing');
+requireText(gameCore, 'if (this.areAllied(attacker, target))', 'Allies can still be attacked manually');
+requireText(gameCore, '!this.areAllied(k, this.kingdoms[o])', 'Allies remain automatic war candidates');
+requireText(gameCore, 'installAutoCamera()', 'Renderer-owned automatic camera missing');
+requireText(gameCore, "dataset.autoCamera = 'overview-10s-kingdoms-10s'", 'Automatic camera timing diagnostic missing');
+requireText(gameCore, 'dataset.autoCameraMode = this.autoCamera.mode', 'Automatic camera mode diagnostic missing');
+requireText(gameCore, 'elapsed < 10000', 'Whole-map opening shot is not ten seconds');
+requireText(gameCore, '(elapsed - 10000) / 10000', 'Kingdom shots are not ten seconds each');
+requireText(gameCore, "director.mode = 'war'", 'Active wars do not own camera priority');
+requireText(gameCore, "director.mode = 'gift'", 'Gift castle focus is missing');
+requireText(gameCore, 'this.r.notifyCameraGift?.(k, 10)', 'Gift gateway does not notify the camera owner');
+requireText(gameCore, 'Math.exp(-Math.max(.35, 3 / this.autoCamera.transitionSeconds)', 'Automatic camera transitions are not smoothed');
+requireText(gameCore, "UI.ranking.classList.toggle('hidden', !overview)", 'WORLD POWERS is not tied to map overview zoom');
+requireText(waterBase, 'r.syncOverviewHud?.()', 'Final water/camera clamp bypasses WORLD POWERS zoom visibility');
+requireText(styles, 'V8.0.3 Kingdom War wooden tablet HUD', 'Wooden tablet HUD styling missing');
+requireText(styles, '.brand b,.age-title,#age', 'Game name and World Age do not share the fantasy style');
+rejectText(styles, '.age-title{display:none}', 'World Age becomes hidden on narrow mobile screens');
 
 // Prefabs are already lightweight. Protect quality by enforcing a generous
 // lossless ceiling rather than resampling the supplied pixel art.
@@ -232,4 +291,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(match => match
   await access(resolve(gameRoot, entry));
 }
 
-console.log(`TikTok God World V8 Mobile: fixed map + transactional JOIN + natural coastal expansion + irregular frontier + scaled high gifts + exact ROSE power + indexed long-run runtime OK (${buildingFiles.length} lossless prefabs, ${prefabBytes} bytes)`);
+console.log(`Kingdom War V8.0.3 Mobile: shared NPC obstacles + fluid civilians + readable archer combat + proportional gift citizens + alliances + automatic camera + fixed map/runtime OK (${buildingFiles.length} lossless prefabs, ${prefabBytes} bytes)`);

@@ -12,6 +12,7 @@
   const COLORCSS = COLORS.map(c => '#' + c.toString(16).padStart(6, '0'));
   const NAMES = ['Greenvale', 'Highrock', 'Brightwood', 'Moonstone', 'Riverhold', 'Goldfield', 'Bluepeak', 'Royal Oak'];
   const MAX_VISIBLE_FARMERS = 24;
+  const MAX_GIFT_VISIBLE_FARMERS = 36;
   const FARMER_WORLD_HEIGHT = 18;
   const CAMERA_MIN = .30, CAMERA_MAX = 2.45;
 
@@ -50,7 +51,7 @@
   const BUILD_MIN_SEP = { castle: 0, farm: 2.0, house_a: 2.15, house_b: 2.15, house_c: 2.15, stable: 2.35, barracks: 2.35, forge: 2.25, market: 2.3, church: 2.4, windmill: 2.35, warehouse: 2.2, silo: 2.2, watchtower: 2.0, stone_tower: 2.0 };
 
   const UI = {
-    age: $('#age'), fps: $('#fps'), players: $('#players'), rank: $('#rankRows'), bridgeDot: $('#bridgeDot'), bridgeText: $('#bridgeText'), feed: $('#feed'),
+    age: $('#age'), fps: $('#fps'), players: $('#players'), rank: $('#rankRows'), ranking: $('#ranking'), bridgeText: $('#bridgeText'), feed: $('#feed'),
     card: $('#kingdomCard'), kColor: $('#kColor'), kName: $('#kName'), food: $('#rFood'), wood: $('#rWood'), stone: $('#rStone'), gold: $('#rGold'), pop: $('#rPop'), terr: $('#rTerr'), power: $('#rPower'), build: $('#rBuild')
   };
 
@@ -131,6 +132,16 @@
         for (const b of k.buildings) if (this.buildingBlocksCell(b, x, y)) return b;
       }
       return null;
+    }
+
+    vegetationBlocksCell(x, y) {
+      const props = this.r?.depthTreesByCell?.get?.(key(x, y)) || [];
+      return props.some(sprite => !sprite?.destroyed && ['tree', 'bush'].includes(sprite.__treeData?.category));
+    }
+
+    isNpcWalkableCell(k, x, y) {
+      return this.isWalkableCell(x, y) && this.getOwner(x, y) === k.id &&
+        !this.buildingBlockingCell(x, y) && !this.vegetationBlocksCell(x, y);
     }
 
     buildingSpacingOK(k, type, x, y) {
@@ -233,7 +244,7 @@
         id, name, color, css, capital: pos, territory: new Set(),
         resources: { food: 150, wood: 135, stone: 80, gold: 42 },
         pop: 4, popCap: 4, military: 8, buildings: [], farmers: [], alive: false, founding: true, pendingInteractions: [], score: 0,
-        followed: false, boostUntil: 0, lastExpand: this.age, lastBuild: this.age, lastPop: this.age, aggressive: null
+        followed: false, boostUntil: 0, lastExpand: this.age, lastBuild: this.age, lastPop: this.age, aggressive: null, allies: new Set()
       };
       this.kingdoms.push(k);
       this.kingdomByName.set(nameKey, k);
@@ -267,7 +278,7 @@
         return null;
       }
 
-      for (let i = 0; i < Math.min(k.pop, MAX_VISIBLE_FARMERS); i++) {
+      for (let i = 0; i < Math.min(k.pop, this.visibleCitizenLimit(k)); i++) {
         try { await this.spawnFarmer(k); } catch (error) { console.warn('[join-citizen]', error); }
       }
       k.founding = false;
@@ -370,7 +381,7 @@
     visibleFarmerSpawnCell(k) {
       const cells = [...k.territory]
         .map(s => s.split(',').map(Number))
-        .filter(([x, y]) => this.isWalkableCell(x, y) && !this.buildingBlockingCell(x, y));
+        .filter(([x, y]) => this.isNpcWalkableCell(k, x, y));
       if (!cells.length) return k.capital;
       let best = cells[0], bestScore = -1e9;
       for (const c of cells) {
@@ -383,7 +394,7 @@
     }
 
     async spawnFarmer(k) {
-      if (k.farmers.filter(f => !f.fixedBuilding).length >= MAX_VISIBLE_FARMERS) return null;
+      if (k.farmers.length >= this.visibleCitizenLimit(k)) return null;
       const cell = this.visibleFarmerSpawnCell(k);
       const [sx, sy] = this.iso(...cell);
       const f = {
@@ -421,7 +432,7 @@
     }
 
     async syncCitizens(k) {
-      const target = Math.min(k.pop, MAX_VISIBLE_FARMERS);
+      const target = Math.min(k.pop, this.visibleCitizenLimit(k));
       while (k.farmers.length < target) await this.spawnFarmer(k);
       while (k.farmers.length > target) {
         let index = -1;
@@ -430,6 +441,10 @@
         const [removed] = k.farmers.splice(index, 1);
         this.r.removeFarmer?.(removed);
       }
+    }
+
+    visibleCitizenLimit(k) {
+      return clamp(Math.max(MAX_VISIBLE_FARMERS, Number(k?.__v712VisibleCitizenCap) || 0), MAX_VISIBLE_FARMERS, MAX_GIFT_VISIBLE_FARMERS);
     }
 
     select(k) { this.selected = k; UI.card.classList.toggle('hidden', !k); this.updateSelected(); this.r.selectKingdom?.(k); }
@@ -580,7 +595,7 @@
     }
 
     ownWalkableCells(k) {
-      return [...k.territory].map(s => s.split(',').map(Number)).filter(([x, y]) => this.getOwner(x, y) === k.id && this.isWalkableCell(x, y) && !this.buildingBlockingCell(x, y));
+      return [...k.territory].map(s => s.split(',').map(Number)).filter(([x, y]) => this.isNpcWalkableCell(k, x, y));
     }
 
     approachCell(k, b) {
@@ -591,16 +606,23 @@
         if (Math.max(Math.abs(dx),Math.abs(dy)) !== r) continue;
         cand.push([b.x+dx,b.y+dy]);
       }
-      const safe = cand.filter(([x,y]) => this.getOwner(x,y) === k.id && this.isWalkableCell(x,y) && !this.buildingBlockingCell(x,y));
+      const safe = cand.filter(([x,y]) => this.isNpcWalkableCell(k, x, y));
       if (!safe.length) return null;
       safe.sort((a,b2) => Math.hypot(a[0]-k.capital[0],a[1]-k.capital[1]) - Math.hypot(b2[0]-k.capital[0],b2[1]-k.capital[1]));
       return safe[0];
     }
 
+    approachVegetationCell(k, target, from = k.capital) {
+      if (!Array.isArray(target)) return null;
+      const safe = this.neigh(target[0], target[1]).filter(([x, y]) => this.isNpcWalkableCell(k, x, y));
+      safe.sort((a, b) => Math.hypot(a[0] - from[0], a[1] - from[1]) - Math.hypot(b[0] - from[0], b[1] - from[1]));
+      return safe[0] || null;
+    }
+
     findPath(k, start, goal, maxNodes = 350) {
       const sk = key(...start), gk = key(...goal);
       if (sk === gk) return [];
-      const canStep = (x,y) => this.isWalkableCell(x,y) && this.getOwner(x,y) === k.id && !this.buildingBlockingCell(x,y);
+      const canStep = (x,y) => this.isNpcWalkableCell(k, x, y);
       if (!canStep(goal[0], goal[1])) return [];
       const q = [start], prev = new Map([[sk, null]]);
       let head = 0;
@@ -637,6 +659,18 @@
         return grass.length ? pick(grass) : pick(own);
       }
       if (f.job === 'wood') {
+        const trees = [];
+        for (const [token, props] of this.r?.depthTreesByCell?.entries?.() || []) {
+          if (!props.some(sprite => !sprite?.destroyed && sprite.__treeData?.category === 'tree')) continue;
+          const cell = token.split(',').map(Number);
+          if (this.getOwner(cell[0], cell[1]) !== k.id) continue;
+          const approach = this.approachVegetationCell(k, cell, f.cell);
+          if (approach) trees.push(approach);
+        }
+        if (trees.length) {
+          trees.sort((a, b) => Math.hypot(a[0] - f.cell[0], a[1] - f.cell[1]) - Math.hypot(b[0] - f.cell[0], b[1] - f.cell[1]));
+          return trees[Math.min(trees.length - 1, Math.floor(Math.random() * Math.min(4, trees.length)))];
+        }
         const forest = own.filter(([x, y]) => this.biome(x, y) === 'forest');
         return forest.length ? pick(forest) : pick(own);
       }
@@ -692,7 +726,7 @@
             const next = f.path[0];
             // A newly completed building can close a street while a farmer is en route.
             // Replan immediately instead of ever letting an NPC slide underneath it.
-            if (!this.isWalkableCell(next[0], next[1]) || this.getOwner(next[0], next[1]) !== k.id || this.buildingBlockingCell(next[0], next[1])) {
+            if (!this.isNpcWalkableCell(k, next[0], next[1])) {
               f.path = []; f.action = 'idle'; f.actionUntil = 0; this.r.setFarmerAction(f, 'idle'); continue;
             }
             const [tx, ty0] = this.iso(...next), ty = ty0 + 6;
@@ -720,10 +754,26 @@
         const [x, y] = s.split(',').map(Number);
         for (const [a, b] of this.neigh(x, y)) {
           const o = this.getOwner(a, b);
-          if (o >= 0 && o !== k.id && this.kingdoms[o]?.alive) out.add(o);
+          if (o >= 0 && o !== k.id && this.kingdoms[o]?.alive && !this.areAllied(k, this.kingdoms[o])) out.add(o);
         }
       }
       return [...out];
+    }
+    areAllied(a, b) { return !!a?.allies?.has?.(b?.id) && !!b?.allies?.has?.(a?.id); }
+    ally(a, b) {
+      if (!a?.alive || !b?.alive || a === b) return false;
+      a.allies ||= new Set(); b.allies ||= new Set();
+      a.allies.add(b.id); b.allies.add(a.id);
+      if (a.aggressive === b.id) a.aggressive = null;
+      if (b.aggressive === a.id) b.aggressive = null;
+      for (const war of this.wars) {
+        if (war.done || !((war.a === a.id && war.b === b.id) || (war.a === b.id && war.b === a.id))) continue;
+        war.done = true;
+        this.r.endWar?.(war);
+      }
+      toast(`🤝 ${a.name} and ${b.name} formed an alliance`);
+      feed('WORLD', `${a.name} 🤝 ${b.name}`);
+      return true;
     }
     borderPair(a, b) {
       for (const s of a.territory) {
@@ -734,15 +784,18 @@
     }
     attack(attacker, target) {
       if (!attacker?.alive || !target?.alive || attacker === target) return false;
+      if (this.areAllied(attacker, target)) { toast(`${attacker.name}: ${target.name} is an ally`); return false; }
       attacker.aggressive = target.id;
       const pair = this.borderPair(attacker, target);
       if (!pair) { toast(`${attacker.name}: advancing toward ${target.name}`); return false; }
       return this.startWar(attacker, target);
     }
     startWar(a, b) {
+      if (this.areAllied(a, b)) return false;
       if (this.wars.some(w => !w.done && ((w.a === a.id && w.b === b.id) || (w.a === b.id && w.b === a.id)))) return true;
       const pair = this.borderPair(a, b); if (!pair) return false;
       const w = { id: `${a.id}-${b.id}-${Date.now()}`, a: a.id, b: b.id, front: pair, lastCapture: this.age, done: false, pulse: 0, fxClock: 0, arrowClock: 0 };
+      this.r.notifyCameraWar?.(w, this);
       this.wars.push(w); this.r.startWar(w, this); toast(`⚔️ ${a.name} attacks ${b.name}`); feed('WORLD', `${a.name} ⚔ ${b.name}`); return true;
     }
     warAI() {
@@ -899,6 +952,7 @@
 
     async gift(name, gift, repeat = 1, meta = {}) {
       const k = await this.waitForKingdomReady(name); if (!k) return;
+      this.r.notifyCameraGift?.(k, 10);
       const g = String(gift || '').toLowerCase(), n = Math.max(1, Number(repeat) || 1);
       const diamonds = Number(meta.diamonds || meta.diamondCount || 0);
       if (g.includes('rose')) {
@@ -953,6 +1007,7 @@
       const alive = this.kingdoms.filter(k => k.alive); UI.players.textContent = `${alive.length} kingdoms`;
       document.documentElement.dataset.farms = String(alive.reduce((sum, k) => sum + k.buildings.filter(b => b.type === 'farm').length, 0));
       document.documentElement.dataset.fixedFarmWorkers = String(alive.reduce((sum, k) => sum + k.farmers.filter(f => f.fixedBuilding).length, 0));
+      document.documentElement.dataset.visibleCitizens = String(alive.reduce((sum, k) => sum + k.farmers.length, 0));
       document.documentElement.dataset.activeWars = String(this.wars.filter(w => !w.done).length);
       const rank = [...alive].sort((a, b) => this.power(b) - this.power(a)).slice(0, 5);
       UI.rank.innerHTML = rank.map((k, i) => `<div class="rank-row"><b>${i + 1}</b><i style="background:${k.css}"></i><span>${escapeHtml(k.name)}</span><span class="score">${fmt(this.power(k))}</span></div>`).join('');
@@ -964,7 +1019,7 @@
     constructor(world, buildManifest, npcManifest) {
       this.w = world; this.bm = buildManifest; this.nm = npcManifest;
       this.app = null; this.root = null; this.territory = null; this.settlement = null; this.entities = null; this.labels = null; this.fx = null;
-      this.buildTex = {}; this.anim = {}; this.unitAnim = {}; this.kingdomBuildTex = new Map(); this.kingdomUnitAnim = new Map(); this.kingdomFlagTex = new Map(); this.farmerSprites = new Map(); this.warVisuals = new Map(); this.drag = null; this.selected = null;
+      this.buildTex = {}; this.anim = {}; this.unitAnim = {}; this.kingdomBuildTex = new Map(); this.kingdomUnitAnim = new Map(); this.kingdomFlagTex = new Map(); this.farmerSprites = new Map(); this.warVisuals = new Map(); this.drag = null; this.selected = null; this.autoCamera = null;
     }
 
     async init(sim) {
@@ -983,9 +1038,9 @@
       this.entities.sortableChildren = true;
       this.root.addChild(await this.makeMap(), this.territory, this.settlement, this.entities, this.labels, this.fx);
       this.app.stage.addChild(this.root);
-      await this.preload(); this.installCamera(); this.home();
+      await this.preload(); this.installCamera(); this.installAutoCamera(); this.home(false);
       let last = performance.now();
-      this.app.ticker.add(() => { const now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; sim.update(dt); this.updateFx(dt); });
+      this.app.ticker.add(() => { const now = performance.now(), dt = Math.min(.05, (now - last) / 1000); last = now; sim.update(dt); this.updateFx(dt); this.updateAutoCamera(dt, now); });
     }
 
     async makeMap() { const tex = await this.P.Assets.load('assets/map/world.png'); const s = new this.P.Sprite(tex); s.eventMode = 'static'; return s; }
@@ -1117,7 +1172,7 @@
       const mid = p => ({ x:(p[0].x+p[1].x)/2, y:(p[0].y+p[1].y)/2 });
       c.addEventListener('contextmenu', e => e.preventDefault());
       c.addEventListener('pointerdown', e => {
-        e.preventDefault(); c.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+        e.preventDefault(); this.pauseAutoCamera(15); c.setPointerCapture?.(e.pointerId); pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
         down = {x:e.clientX,y:e.clientY,t:performance.now()};
         if (pointers.size === 1) this.drag = {x:e.clientX,y:e.clientY,ox:this.root.x,oy:this.root.y};
         if (pointers.size === 2) {
@@ -1150,16 +1205,87 @@
       c.addEventListener('wheel',e=>{e.preventDefault();this.zoomTo(this.root.scale.x*(e.deltaY>0?.9:1.1),e.clientX,e.clientY);},{passive:false});
       ['gesturestart','gesturechange','gestureend'].forEach(n=>document.addEventListener(n,e=>e.preventDefault(),{passive:false}));
     }
+
+    overviewScale() {
+      const sx = innerWidth / this.w.mapWidth, sy = innerHeight / this.w.mapHeight;
+      return clamp(Math.min(sx, sy) * 1.04, CAMERA_MIN, .9);
+    }
+    pauseAutoCamera(seconds = 15) {
+      if (this.autoCamera) this.autoCamera.manualUntil = performance.now() + seconds * 1000;
+    }
+    installAutoCamera() {
+      this.autoCamera = {
+        tourStartedAt: performance.now(), manualUntil: 0, gift: null,
+        mode: 'overview', kingdomIndex: -1, transitionSeconds: 1.8
+      };
+      document.documentElement.dataset.autoCamera = 'overview-10s-kingdoms-10s';
+    }
+    notifyCameraGift(k, seconds = 10) {
+      if (!this.autoCamera || !k?.alive) return;
+      this.autoCamera.gift = { kingdom: k, until: performance.now() + Math.max(1, seconds) * 1000 };
+      this.autoCamera.manualUntil = 0;
+    }
+    notifyCameraWar() {
+      if (this.autoCamera) this.autoCamera.manualUntil = 0;
+    }
+    autoCameraTarget(now) {
+      const director = this.autoCamera;
+      if (!director) return null;
+      if (director.gift && now < director.gift.until && director.gift.kingdom?.alive) {
+        director.mode = 'gift';
+        const [x, y] = this.sim.iso(...director.gift.kingdom.capital), scale = innerWidth < 600 ? .82 : .92;
+        return { scale, x: innerWidth * .5 - x * scale, y: innerHeight * .47 - y * scale };
+      }
+      director.gift = null;
+
+      const wars = (this.sim.wars || []).filter(war => !war.done && Array.isArray(war.front));
+      if (wars.length) {
+        director.mode = 'war';
+        const war = wars[Math.floor(now / 10000) % wars.length];
+        const a = this.sim.iso(...war.front[0]), b = this.sim.iso(...war.front[1]);
+        const x = (a[0] + b[0]) * .5, y = (a[1] + b[1]) * .5, scale = innerWidth < 600 ? .92 : 1.02;
+        return { scale, x: innerWidth * .5 - x * scale, y: innerHeight * .5 - y * scale };
+      }
+
+      const elapsed = Math.max(0, now - director.tourStartedAt);
+      const kingdoms = (this.sim.kingdoms || []).filter(k => k.alive && !k.founding);
+      if (elapsed < 10000 || !kingdoms.length) {
+        director.mode = 'overview'; director.kingdomIndex = -1;
+        const scale = this.overviewScale();
+        return { scale, x: (innerWidth - this.w.mapWidth * scale) * .5, y: (innerHeight - this.w.mapHeight * scale) * .5 };
+      }
+      director.kingdomIndex = Math.floor((elapsed - 10000) / 10000) % kingdoms.length;
+      director.mode = 'kingdom';
+      const kingdom = kingdoms[director.kingdomIndex], point = this.sim.iso(...kingdom.capital), scale = innerWidth < 600 ? .82 : .92;
+      return { scale, x: innerWidth * .5 - point[0] * scale, y: innerHeight * .47 - point[1] * scale };
+    }
+    updateAutoCamera(dt, now = performance.now()) {
+      if (!this.autoCamera || !this.root || this.drag || now < this.autoCamera.manualUntil) return;
+      const target = this.autoCameraTarget(now); if (!target) return;
+      document.documentElement.dataset.autoCameraMode = this.autoCamera.mode;
+      const alpha = 1 - Math.exp(-Math.max(.35, 3 / this.autoCamera.transitionSeconds) * Math.max(.001, dt));
+      const scale = this.root.scale.x + (target.scale - this.root.scale.x) * alpha;
+      this.root.scale.set(scale);
+      this.root.position.set(this.root.x + (target.x - this.root.x) * alpha, this.root.y + (target.y - this.root.y) * alpha);
+      this.constrainCamera();
+    }
     constrainCamera() {
       const s=this.root.scale.x, mw=this.w.mapWidth*s, mh=this.w.mapHeight*s, margin=80;
       const minX=innerWidth-mw-margin,maxX=margin,minY=innerHeight-mh-margin,maxY=margin;
       this.root.x = mw+margin*2<=innerWidth ? (innerWidth-mw)/2 : clamp(this.root.x,minX,maxX);
       this.root.y = mh+margin*2<=innerHeight ? (innerHeight-mh)/2 : clamp(this.root.y,minY,maxY);
       this.syncKingdomDetail();
+      this.syncOverviewHud();
     }
-    zoomTo(scale,sx,sy) { scale=clamp(scale,CAMERA_MIN,CAMERA_MAX); const old=this.root.scale.x,wx=(sx-this.root.x)/old,wy=(sy-this.root.y)/old; this.root.scale.set(scale); this.root.position.set(sx-wx*scale,sy-wy*scale); this.constrainCamera(); }
-    home() { const sx=innerWidth/this.w.mapWidth,sy=innerHeight/this.w.mapHeight,s=clamp(Math.min(sx,sy)*1.04,.30,.9); this.root.scale.set(s); this.root.position.set((innerWidth-this.w.mapWidth*s)/2,(innerHeight-this.w.mapHeight*s)/2); this.syncKingdomDetail(); }
-    focusCell(x,y) { const [wx,wy]=this.sim.iso(x,y),s=clamp(innerWidth<600?.82:.92,.5,1.2); this.root.scale.set(s); this.root.position.set(innerWidth*.5-wx*s,innerHeight*.47-wy*s); this.constrainCamera(); }
+    zoomTo(scale,sx,sy) { this.pauseAutoCamera(15); scale=clamp(scale,CAMERA_MIN,CAMERA_MAX); const old=this.root.scale.x,wx=(sx-this.root.x)/old,wy=(sy-this.root.y)/old; this.root.scale.set(scale); this.root.position.set(sx-wx*scale,sy-wy*scale); this.constrainCamera(); }
+    home(manual = true) { if (manual) this.pauseAutoCamera(10); const s=this.overviewScale(); this.root.scale.set(s); this.root.position.set((innerWidth-this.w.mapWidth*s)/2,(innerHeight-this.w.mapHeight*s)/2); this.syncKingdomDetail(); this.syncOverviewHud(); }
+    focusCell(x,y) { this.pauseAutoCamera(10); const [wx,wy]=this.sim.iso(x,y),s=clamp(innerWidth<600?.82:.92,.5,1.2); this.root.scale.set(s); this.root.position.set(innerWidth*.5-wx*s,innerHeight*.47-wy*s); this.constrainCamera(); }
+
+    syncOverviewHud() {
+      if (!UI.ranking || !this.root) return;
+      const overview = this.root.scale.x <= this.overviewScale() * 1.22;
+      UI.ranking.classList.toggle('hidden', !overview);
+    }
 
     kingdomScreenPosition(k) {
       if (!k?.alive || !this.root) return null;
@@ -1563,7 +1689,7 @@
       const renderer = window.PIXI ? new PixiRenderer(world, bm, nm) : new CanvasRenderer(world, bm, nm);
       if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init(); wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
-      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('V6.4 LIVING KINGDOMS loaded');
+      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War loaded');
     } catch (err) { console.error(err); $('#loading').innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err.message)}</span>`; }
   }
 
@@ -1587,11 +1713,12 @@
       else if (act === 'dragon') { await sim.gift(name, 'Dragon', 1); feed(name, '🐉 Dragon'); }
       else if (act === 'universe') { await sim.gift(name, 'Universe', 1); feed(name, '🌠 Universe'); }
       else if (act === 'boost') sim.boost30();
-      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('At least two kingdoms are required'); }
+      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('At least two non-allied kingdoms are required'); }
+      else if (act === 'ally') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.find(k => k.alive && k !== a && !sim.areAllied(a, k)); if (target) sim.ally(a, target); else toast('No kingdom is available for a new alliance'); }
     });
     const chatForm = $('#chatForm');
     if (chatForm) chatForm.onsubmit = async e => { e.preventDefault(); const v = $('#chatInput').value.trim(); if (!v) return; $('#chatInput').value = ''; const name = $('#testName').value.trim() || 'Player'; await processComment(sim, name, v); };
-    window.TikTokGodWorld = { emit: e => handleEvent(sim, e), join: n => sim.join(n), like: (n, c) => sim.like(n, c), follow: n => sim.follow(n), gift: (n, g, c, m) => sim.gift(n, g, c, m), attack: (a, b) => { const ka = sim.kingdomByName.get(String(a).toLowerCase()), kb = sim.kingdomByName.get(String(b).toLowerCase()); return sim.attack(ka, kb); } };
+    window.TikTokGodWorld = { emit: e => handleEvent(sim, e), join: n => sim.join(n), like: (n, c) => sim.like(n, c), follow: n => sim.follow(n), gift: (n, g, c, m) => sim.gift(n, g, c, m), attack: (a, b) => { const ka = sim.kingdomByName.get(String(a).toLowerCase()), kb = sim.kingdomByName.get(String(b).toLowerCase()); return sim.attack(ka, kb); }, ally: (a, b) => { const ka = sim.kingdomByName.get(String(a).toLowerCase()), kb = sim.kingdomByName.get(String(b).toLowerCase()); return sim.ally(ka, kb); } };
     window.addEventListener('tiktok-event', e => handleEvent(sim, e.detail || {}));
   }
 
@@ -1600,6 +1727,8 @@
     if (/^join$/i.test(c)) return sim.join(user);
     const m = c.match(/^attack\s+@?(.+)$/i);
     if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b); }
+    const alliance = c.match(/^ally\s+@?(.+)$/i);
+    if (alliance) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(alliance[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${alliance[1].trim()} not found`); return sim.ally(a, b); }
     if (/^expand$/i.test(c)) { const k = sim.kingdomByName.get(user.toLowerCase()); if (k) { k.resources.food += 10; k.resources.wood += 8; k.lastExpand = 0; } }
   }
   const giftProgress = new Map();
@@ -1644,9 +1773,9 @@
   }
   function connectBridge(sim) {
     const q = new URLSearchParams(location.search), url = q.get('bridge') || localStorage.getItem('godworld_bridge') || '';
-    if (!url) { UI.bridgeText.textContent = 'bridge ready'; UI.bridgeDot.style.background = '#d39d34'; return; }
+    if (!url) { UI.bridgeText.textContent = 'bridge ready'; return; }
     let ws;
-    const go = () => { try { ws = new WebSocket(url); ws.onopen = () => { UI.bridgeText.textContent = 'TikTok bridge online'; UI.bridgeDot.style.background = '#45d66d'; localStorage.setItem('godworld_bridge', url); }; ws.onmessage = m => { try { handleEvent(sim, JSON.parse(m.data)); } catch {} }; ws.onclose = () => { UI.bridgeText.textContent = 'bridge reconnecting'; UI.bridgeDot.style.background = '#b33'; setTimeout(go, 5000); }; ws.onerror = () => ws.close(); } catch { setTimeout(go, 5000); } };
+    const go = () => { try { ws = new WebSocket(url); ws.onopen = () => { UI.bridgeText.textContent = 'TikTok bridge online'; localStorage.setItem('godworld_bridge', url); }; ws.onmessage = m => { try { handleEvent(sim, JSON.parse(m.data)); } catch {} }; ws.onclose = () => { UI.bridgeText.textContent = 'bridge reconnecting'; setTimeout(go, 5000); }; ws.onerror = () => ws.close(); } catch { setTimeout(go, 5000); } };
     go();
   }
   function fpsCounter() { let frames = 0, last = performance.now(); const loop = now => { frames++; if (now - last >= 1000) { UI.fps.textContent = `${Math.round(frames * 1000 / (now - last))} FPS`; frames = 0; last = now; } requestAnimationFrame(loop); }; requestAnimationFrame(loop); }

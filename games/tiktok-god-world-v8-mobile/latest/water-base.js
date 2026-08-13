@@ -125,6 +125,7 @@
     r.root.x = mw <= innerWidth ? (innerWidth - mw) / 2 : clamp(r.root.x, minX, 0);
     r.root.y = mh <= innerHeight ? (innerHeight - mh) / 2 : clamp(r.root.y, minY, 0);
     r.syncKingdomDetail?.();
+    r.syncOverviewHud?.();
   }
 
   function clampCanvasCamera(r) {
@@ -137,6 +138,7 @@
     r.cam.x = mw <= innerWidth ? (innerWidth - mw) / 2 : clamp(r.cam.x, minX, 0);
     r.cam.y = mh <= innerHeight ? (innerHeight - mh) / 2 : clamp(r.cam.y, minY, 0);
     r.syncKingdomDetail?.();
+    r.syncOverviewHud?.();
   }
 
   function installCameraClamp(sim) {

@@ -440,7 +440,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v712-engagement-recovery-2-natural-coast';
+  const VERSION = 'v803-engagement-recovery-3-visible-citizens';
   if (window.__V712_ENGAGEMENT_RECOVERY?.bootstrap) return;
 
   const state = window.__V712_ENGAGEMENT_RECOVERY = {
@@ -456,6 +456,7 @@
     bigHelpCities: 0,
     lastBigHelpRequested: 0,
     lastBigHelpBuilt: 0,
+    lastBigHelpCitizens: 0,
     recoveredWindmills: 0,
     portsBuilt: 0,
     portsWaitingForCoast: 0,
@@ -565,7 +566,13 @@
 
       sim.claimGiftLand?.(k, Math.round(20 + types.length * 1.1));
       const built = await sim.instantGiftBuild(k, types);
-      if (typeof sim.giftPopulation === 'function') await sim.giftPopulation(k, Math.round(16 * scale));
+      // Large building plans also populate the streets they create. The existing
+      // citizen owner remains syncCitizens; this only raises its per-kingdom cap.
+      const realizedPlan = Math.max(Number(built) || 0, Math.min(types.length, 12));
+      const visibleCitizenTarget = clamp(Math.round(10 + realizedPlan * 0.55), 24, 36);
+      const citizenGain = clamp(Math.round(realizedPlan * 0.65), 18, 32);
+      k.__v712VisibleCitizenCap = Math.max(Number(k.__v712VisibleCitizenCap) || 0, visibleCitizenTarget);
+      if (typeof sim.giftPopulation === 'function') await sim.giftPopulation(k, citizenGain);
       k.lastBuild -= 8;
       k.lastExpand -= 5;
       k.lastPop -= 4;
@@ -576,6 +583,7 @@
       state.bigHelpCity = true;
       state.lastBigHelpRequested = types.length;
       state.lastBigHelpBuilt = built || 0;
+      state.lastBigHelpCitizens = k.farmers?.length || 0;
       return built || 0;
       } catch (error) {
         state.errors.push(String(error?.stack || error?.message || error));

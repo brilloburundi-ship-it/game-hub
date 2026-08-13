@@ -1,14 +1,14 @@
 (() => {
   'use strict';
 
-  const VERSION = '6.6.1-battle-stability-targeted-1';
+  const VERSION = '8.0.3-battle-readability-arrows-2';
   const AI_HZ = 30;
   const AI_STEP = 1 / AI_HZ;
   const MAX_STEP = 0.045;
   const MAX_WAR_GUARDS = 9;
   const MAX_PEACE_GUARDS = 6;
-  const MIN_ALLY_SPACING = 8.5;
-  const MIN_ENEMY_SPACING = 5.2;
+  const MIN_ALLY_SPACING = 10.5;
+  const MIN_ENEMY_SPACING = 7.2;
   const BUILDING_RELEVANCE_RADIUS = 105;
   const FRONT_RELEVANCE_RADIUS = 135;
   const SORT_INTERVAL = 0.12;
@@ -45,8 +45,9 @@
     return { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 };
   }
 
-  function setGuardPosition(u, x, y) {
+  function setGuardPosition(u, x, y, r = null) {
     if (!u?.s || u.s.destroyed) return;
+    if (r?.__v66NavigationBlocked?.(x, y)) return;
     u.x = x;
     u.y = y;
     u.s.position.set(x, y);
@@ -61,6 +62,56 @@
     sprite.scale.x = targetX >= u.x ? scale : -scale;
   }
 
+  function ensureArrowPool(r) {
+    if (r.__v803ArrowPool) return r.__v803ArrowPool;
+    r.__v803ArrowPool = [];
+    for (let index = 0; index < 28; index++) {
+      const arrow = new r.P.Container();
+      const shaft = new r.P.Graphics();
+      shaft.moveTo(-7, 0).lineTo(5, 0).stroke({ color: 0xf4d58b, width: 1.8, alpha: 1 });
+      shaft.poly([4, -2.5, 9, 0, 4, 2.5]).fill({ color: 0xfff0b0, alpha: 1 });
+      shaft.moveTo(-7, 0).lineTo(-10, -2).moveTo(-7, 0).lineTo(-10, 2).stroke({ color: 0xc98d4b, width: 1.4, alpha: 1 });
+      arrow.addChild(shaft);
+      arrow.visible = false;
+      arrow.__active = false;
+      arrow.zIndex = 999999;
+      r.fx.addChild(arrow);
+      r.__v803ArrowPool.push(arrow);
+    }
+    return r.__v803ArrowPool;
+  }
+
+  function spawnBattleArrow(r, u, targetX, targetY) {
+    const pool = ensureArrowPool(r);
+    const arrow = pool.find(item => !item.__active) || pool[0];
+    const startX = u.x + (targetX >= u.x ? 5 : -5), startY = u.y - 12;
+    arrow.__active = true;
+    arrow.visible = true;
+    arrow.alpha = 1;
+    arrow.__age = 0;
+    arrow.__duration = clamp(Math.hypot(targetX - startX, targetY - startY) / 92, 0.28, 0.52);
+    arrow.__startX = startX; arrow.__startY = startY;
+    arrow.__targetX = targetX; arrow.__targetY = targetY;
+    arrow.position.set(startX, startY);
+    arrow.rotation = Math.atan2(targetY - startY, targetX - startX);
+    return arrow;
+  }
+
+  function updateBattleArrows(r, dt) {
+    for (const arrow of r.__v803ArrowPool || []) {
+      if (!arrow.__active) continue;
+      arrow.__age += dt;
+      const t = clamp(arrow.__age / arrow.__duration, 0, 1);
+      const x = arrow.__startX + (arrow.__targetX - arrow.__startX) * t;
+      const y = arrow.__startY + (arrow.__targetY - arrow.__startY) * t - Math.sin(Math.PI * t) * 8;
+      arrow.position.set(x, y);
+      const tangentY = (arrow.__targetY - arrow.__startY) - Math.cos(Math.PI * t) * Math.PI * 8;
+      arrow.rotation = Math.atan2(tangentY, arrow.__targetX - arrow.__startX);
+      arrow.alpha = t > 0.86 ? (1 - t) / 0.14 : 1;
+      if (t >= 1) { arrow.__active = false; arrow.visible = false; }
+    }
+  }
+
   function killGuard(sim, r, u, killerSide = null) {
     if (!u || u.dead || !u.s || u.s.destroyed) return false;
     u.dead = true;
@@ -73,7 +124,7 @@
     r.swapAnim?.(u.s, 'death');
     if (u.s._sprite) {
       u.s._sprite.loop = false;
-      u.s._sprite.animationSpeed = 0.13;
+      u.s._sprite.animationSpeed = 0.09;
       u.s._sprite.gotoAndPlay?.(0);
     }
     const kingdom = sim.kingdoms?.[u.side];
@@ -174,14 +225,14 @@
       if (!target || target.dead) continue;
 
       const d = distance(u, target);
-      const range = u.role === 'archer' ? 16 : 9.6;
+      const range = u.role === 'archer' ? 29 : 9.6;
       if (d > range) continue;
       faceGuard(u, target.x);
       faceGuard(target, u.x);
 
       if (!u.__v661NextHit) u.__v661NextHit = now + rand(120, 500);
       if (now < u.__v661NextHit) continue;
-      u.__v661NextHit = now + rand(720, 980);
+      u.__v661NextHit = now + rand(1050, 1400);
 
       const damage = u.role === 'archer' ? rand(4.5, 7.5) : (u.role === 'spear' ? rand(8.5, 12.5) : rand(7.5, 11.5));
       target.__v661Hp = guardHp(target) - damage;
@@ -216,8 +267,8 @@
         const push = Math.min(1.15, (minD - d) * 0.28);
         const nx = dx / d;
         const ny = dy / d;
-        setGuardPosition(u, u.x - nx * push, u.y - ny * push);
-        setGuardPosition(q, q.x + nx * push, q.y + ny * push);
+        setGuardPosition(u, u.x - nx * push, u.y - ny * push, r);
+        setGuardPosition(q, q.x + nx * push, q.y + ny * push, r);
       }
     }
   }
@@ -363,9 +414,7 @@
     }
     sim.__v661BattleStabilityInstalled = true;
     window.__BUILD_VERSION = VERSION;
-    document.documentElement.dataset.battleSystem = 'living-v661-stable-targeted';
-    const tag = document.querySelector('.build-tag');
-    if (tag) tag.textContent = 'V6.6.1 STABLE BATTLES';
+    document.documentElement.dataset.battleSystem = 'living-v803-readable-arrows';
 
     const v66UpdateWars = r.updateWars.bind(r);
     const v66RemoveFarmer = typeof r.removeFarmer === 'function' ? r.removeFarmer.bind(r) : null;
@@ -377,9 +426,9 @@
         const result = v66SwapAnim(holder, key);
         const sprite = holder?._sprite, role = holder?._role;
         if (!sprite || sprite.destroyed || !role) return result;
-        if (key === 'attack') sprite.animationSpeed = role === 'archer' ? 0.078 : 0.098;
-        else if (key === 'hurt') sprite.animationSpeed = role === 'archer' ? 0.082 : 0.102;
-        else if (key !== 'death') sprite.animationSpeed = role === 'archer' ? 0.12 : 0.16;
+        if (key === 'attack') sprite.animationSpeed = role === 'archer' ? 0.055 : 0.07;
+        else if (key === 'hurt') sprite.animationSpeed = role === 'archer' ? 0.065 : 0.08;
+        else if (key !== 'death') sprite.animationSpeed = role === 'archer' ? 0.10 : 0.13;
         return result;
       };
     }
@@ -421,8 +470,13 @@
       };
     }
 
+    r.spawnBattleArrow = function(u, targetX, targetY) {
+      return spawnBattleArrow(this, u, targetX, targetY);
+    };
+
     r.updateWars = function (battleSim, rawDt) {
       const dt = clamp(Number(rawDt) || 0.016, 0.001, MAX_STEP);
+      updateBattleArrows(this, dt);
       this.__v661Accumulator = (this.__v661Accumulator || 0) + dt;
       if (this.__v661Accumulator < AI_STEP) return;
       const step = Math.min(this.__v661Accumulator, MAX_STEP);

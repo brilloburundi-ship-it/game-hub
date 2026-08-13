@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v706-sparse-user-pixel-flora-1';
+  const VERSION = 'v803-sparse-pixel-flora-navigation-2';
   const ATLAS_PARTS = [
     'assets/vegetation/flora-atlas.part0',
     'assets/vegetation/flora-atlas.part1',
@@ -243,14 +243,15 @@
 
       if (worker) {
         worker.buildPrepUntil = buildSim.age + 8;
-        const path = buildSim.findPath(kingdom, worker.cell, [x, y]);
+        const workCell = buildSim.approachVegetationCell?.(kingdom, [x, y], worker.cell) || [x, y];
+        const path = buildSim.findPath(kingdom, worker.cell, workCell);
         if (path.length) {
           worker.path = path;
-          worker.taskCell = [x, y];
+          worker.taskCell = workCell;
           worker.action = 'walk';
           renderer.setFarmerAction(worker, 'walk');
           const deadline = performance.now() + 2600;
-          while (performance.now() < deadline && (worker.path.length || worker.cell[0] !== x || worker.cell[1] !== y)) await sleep(80);
+          while (performance.now() < deadline && (worker.path.length || worker.cell[0] !== workCell[0] || worker.cell[1] !== workCell[1])) await sleep(80);
         }
         worker.path = [];
         worker.action = action;
@@ -300,6 +301,7 @@
       variantsAvailable: VARIANTS.length,
       variantsUsed: used.size,
       excludesSnowPine: true,
+      navigationBlocks: ['tree', 'bush'],
       atlasParts: ATLAS_PARTS.slice()
     };
     window.__TREE_DEPTH_READY = window.__TREE_DEPTH_V706;
