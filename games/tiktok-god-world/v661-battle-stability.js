@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '6.6.1-battle-stability';
+  const VERSION = '6.6.1-battle-stability-targeted-1';
   const AI_HZ = 30;
   const AI_STEP = 1 / AI_HZ;
   const MAX_STEP = 0.045;
@@ -12,6 +12,8 @@
   const BUILDING_RELEVANCE_RADIUS = 105;
   const FRONT_RELEVANCE_RADIUS = 135;
   const SORT_INTERVAL = 0.12;
+  const FIRE_MIN_MS = 3200;
+  const FIRE_MAX_MS = 3800;
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -19,6 +21,13 @@
 
   function activeWarFor(sim, kingdomId) {
     return (sim.wars || []).find(w => !w.done && (w.a === kingdomId || w.b === kingdomId)) || null;
+  }
+
+  function activeWarBetween(sim, winner, loser) {
+    return (sim.wars || []).find(w =>
+      !w.done && w.__v66?.phase === 'combat' && Array.isArray(w.front) &&
+      ((w.a === winner.id && w.b === loser.id) || (w.a === loser.id && w.b === winner.id))
+    ) || null;
   }
 
   function guardsFor(r, kingdomId) {
@@ -268,6 +277,30 @@
     }
   }
 
+  function expireBuildingFires(sim, r) {
+    const fires = r.__v66Fires;
+    if (!(fires instanceof Map) || !fires.size) return;
+    const now = performance.now();
+    for (const [building, fx] of [...fires]) {
+      if (!building || building.__v66Destroyed || !fx) continue;
+      if (!Number.isFinite(fx.__v661DestroyAt)) fx.__v661DestroyAt = now + rand(FIRE_MIN_MS, FIRE_MAX_MS);
+      if (Number.isFinite(fx.life)) fx.life = Math.min(fx.life, 4);
+      if (now < fx.__v661DestroyAt) continue;
+
+      const kingdom = sim.kingdoms?.[building.owner] ||
+        (sim.kingdoms || []).find(k => (k.buildings || []).includes(building));
+      building.hp = 0;
+      building.__v66Destroyed = true;
+      if (kingdom) {
+        kingdom.buildings = (kingdom.buildings || []).filter(entry => entry !== building);
+        sim.releaseFarmWorker?.(kingdom, building.id);
+      }
+      r.destroyBuilding?.(building);
+      r.redrawSettlementGround?.(sim);
+      sim.updateSelected?.();
+    }
+  }
+
   function controlReinforcements(sim, r) {
     if (!r.__v66NextSpawn) return;
     r.__v661Reinforce ||= new Map();
@@ -330,12 +363,43 @@
     }
     sim.__v661BattleStabilityInstalled = true;
     window.__BUILD_VERSION = VERSION;
-    document.documentElement.dataset.battleSystem = 'living-v661-stable';
+    document.documentElement.dataset.battleSystem = 'living-v661-stable-targeted';
     const tag = document.querySelector('.build-tag');
     if (tag) tag.textContent = 'V6.6.1 STABLE BATTLES';
 
     const v66UpdateWars = r.updateWars.bind(r);
     const v66RemoveFarmer = typeof r.removeFarmer === 'function' ? r.removeFarmer.bind(r) : null;
+    const v66SwapAnim = typeof r.swapAnim === 'function' ? r.swapAnim.bind(r) : null;
+    const originalCapture = typeof sim.capture === 'function' ? sim.capture.bind(sim) : null;
+
+    if (v66SwapAnim) {
+      r.swapAnim = function(holder, key) {
+        const result = v66SwapAnim(holder, key);
+        const sprite = holder?._sprite, role = holder?._role;
+        if (!sprite || sprite.destroyed || !role) return result;
+        if (key === 'attack') sprite.animationSpeed = role === 'archer' ? 0.078 : 0.098;
+        else if (key === 'hurt') sprite.animationSpeed = role === 'archer' ? 0.082 : 0.102;
+        else if (key !== 'death') sprite.animationSpeed = role === 'archer' ? 0.12 : 0.16;
+        return result;
+      };
+    }
+
+    if (originalCapture) {
+      sim.capture = function(winner, loser, x, y) {
+        const war = activeWarBetween(this, winner, loser);
+        if (war?.front) {
+          const enemyFront = winner.id === war.a ? war.front[1] : war.front[0];
+          const fx = Number(enemyFront?.[0]), fy = Number(enemyFront?.[1]);
+          const valid = Number.isFinite(fx) && Number.isFinite(fy) &&
+            this.getOwner?.(fx, fy) === loser.id &&
+            (this.neigh?.(fx, fy) || []).some(([nx, ny]) => this.getOwner?.(nx, ny) === winner.id);
+          if (valid) { x = fx; y = fy; }
+        }
+        const result = originalCapture(winner, loser, x, y);
+        this.r?.redrawTerritories?.(this);
+        return result;
+      };
+    }
 
     // Old territory resolution used to pick a random guard anywhere in the army.
     // Translate the abstract casualty into damage only when a soldier is actually
@@ -351,8 +415,6 @@
     if (v66RemoveFarmer) {
       r.removeFarmer = function (f) {
         if (f?.__v66WarDeath && f._sprite && !civilianHasNearbyEnemy(sim, this, f)) {
-          // Keep simulation/population accounting, but do not show a civilian
-          // dying far away from the soldiers who supposedly killed them.
           f.__v66WarDeath = false;
         }
         return v66RemoveFarmer(f);
@@ -368,8 +430,8 @@
 
       controlReinforcements(battleSim, this);
       for (const w of battleSim.wars || []) if (!w.done) rebalanceTargets(this, w);
-
       withRelevantBuildings(battleSim, this, () => v66UpdateWars(battleSim, step));
+      expireBuildingFires(battleSim, this);
 
       for (const w of battleSim.wars || []) {
         if (w.done) continue;
@@ -378,8 +440,6 @@
       }
       trimExcessGuards(this);
 
-      // Sorting every frame becomes increasingly expensive as villages grow.
-      // Ten depth refreshes per second are visually enough for these tiny sprites.
       this.__v661SortClock = (this.__v661SortClock || 0) + step;
       if (this.entities) {
         if (this.__v661SortClock >= SORT_INTERVAL) {
@@ -391,7 +451,6 @@
       }
     };
 
-    // Existing guards receive stable HP and staggered hit timers immediately.
     for (const [, arr] of r.__v66Guards) {
       for (const u of arr) {
         guardHp(u);
