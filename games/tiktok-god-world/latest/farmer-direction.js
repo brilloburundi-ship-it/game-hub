@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v710-farmer-direction-stability-1';
+  const VERSION = 'v710-farmer-direction-stability-2';
   if (window.__V710_FARMER_DIRECTION?.bootstrap) return;
 
   const state = window.__V710_FARMER_DIRECTION = {
@@ -11,13 +11,17 @@
     lookaheadCells: 4,
     oppositeFlipHoldMs: 240,
     directionChanges: 0,
+    smoothMotion: false,
+    antiTrain: false,
     errors: []
   };
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const LOOKAHEAD = 4;
   const TURN_HOLD_MS = 125;
   const OPPOSITE_HOLD_MS = 240;
+  const WALK_ANIMATION_SPEED = 0.11;
 
   function clearDirection(farmer) {
     if (!farmer) return;
@@ -39,8 +43,6 @@
       if (!Array.isArray(cell) || cell.length < 2) continue;
       const point = sim.iso(cell[0], cell[1]);
       const tx = point[0], ty = point[1] + 6;
-      // Farther nodes receive a little more weight so a staircase route is read
-      // as its true travel direction instead of left/right micro-steps.
       const weight = 1 + i * 0.55;
       sumX += (tx - farmer.x) * weight;
       sumY += (ty - farmer.y) * weight;
@@ -58,10 +60,6 @@
   function classifyDirection(vx, vy, fallback = 'down') {
     const ax = Math.abs(vx), ay = Math.abs(vy);
     if (ax < 0.08 && ay < 0.08) return fallback || 'down';
-
-    // Isometric grid steps naturally have roughly a 2:1 horizontal-to-vertical
-    // screen vector. Keep those as left/right. Routes whose staircase averages
-    // toward the vertical axis use the real up/down walk sheet instead.
     if (ax > ay * 1.18) return vx < 0 ? 'left' : 'right';
     return vy < 0 ? 'up' : 'down';
   }
@@ -114,10 +112,101 @@
     return stableDirection(farmer, candidate, performance.now(), immediate);
   }
 
+  function laneForFarmer(farmer) {
+    if (Number.isFinite(farmer?.__v710Lane)) return farmer.__v710Lane;
+    const text = String(farmer?.id || Math.random());
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) hash = ((hash * 31) + text.charCodeAt(i)) | 0;
+    const lane = ((Math.abs(hash) % 7) - 3) * 0.72;
+    farmer.__v710Lane = lane;
+    return lane;
+  }
+
+  function spreadTaskTarget(sim, k, farmer, target) {
+    if (!Array.isArray(target) || farmer?.fixedBuilding) return target;
+    const reserved = [];
+    for (const other of k?.farmers || []) {
+      if (!other || other === farmer || other.fixedBuilding) continue;
+      const cell = other.taskCell || other.path?.[other.path.length - 1];
+      if (Array.isArray(cell)) reserved.push(cell);
+    }
+    if (!reserved.length) return target;
+    if (!reserved.some(cell => Math.hypot(cell[0] - target[0], cell[1] - target[1]) < 1.25)) return target;
+
+    const candidates = (sim.ownWalkableCells?.(k) || []).filter(cell => {
+      const d = Math.hypot(cell[0] - target[0], cell[1] - target[1]);
+      if (d < 0.7 || d > 3.2) return false;
+      return reserved.every(other => Math.hypot(cell[0] - other[0], cell[1] - other[1]) >= 1.15);
+    });
+    if (!candidates.length) return target;
+    candidates.sort((a, b) => {
+      const da = Math.hypot(a[0] - target[0], a[1] - target[1]) + Math.random() * 0.28;
+      const db = Math.hypot(b[0] - target[0], b[1] - target[1]) + Math.random() * 0.28;
+      return da - db;
+    });
+    return candidates[0];
+  }
+
+  function installAntiTrainTargets(sim) {
+    if (sim.__v710AntiTrainTargets || typeof sim.chooseTaskCell !== 'function') return;
+    sim.__v710AntiTrainTargets = true;
+    const originalChoose = sim.chooseTaskCell.bind(sim);
+    sim.chooseTaskCell = function(k, farmer) {
+      return spreadTaskTarget(this, k, farmer, originalChoose(k, farmer));
+    };
+    state.antiTrain = true;
+  }
+
+  function smoothFarmerSprite(sim, renderer, farmer, dx, dy) {
+    const sprite = farmer?._sprite;
+    if (!sprite || sprite.destroyed) return;
+
+    if (farmer.action !== 'walk' || !farmer.path?.length) {
+      sprite.roundPixels = true;
+      farmer.__v710DisplayX = sprite.x;
+      farmer.__v710DisplayY = sprite.y;
+      farmer.__v710DisplayAt = performance.now();
+      return;
+    }
+
+    // Same principle used by the soldiers: update every render frame with fractional
+    // coordinates. The simulation path and farmer speed are intentionally untouched.
+    sprite.roundPixels = false;
+    if (String(sprite._action || '').startsWith('walk')) sprite.animationSpeed = WALK_ANIMATION_SPEED;
+
+    let vx = Number(dx) || 0, vy = Number(dy) || 0;
+    if (Math.hypot(vx, vy) < 0.05 && farmer.path.length) {
+      const p = sim.iso(farmer.path[0][0], farmer.path[0][1]);
+      vx = p[0] - farmer.x;
+      vy = p[1] + 6 - farmer.y;
+    }
+    const len = Math.max(0.001, Math.hypot(vx, vy));
+    const lane = laneForFarmer(farmer);
+    const tx = farmer.x + (-vy / len) * lane;
+    const ty = farmer.y + (vx / len) * lane * 0.55;
+    const now = performance.now();
+    const last = Number(farmer.__v710DisplayAt || now - 16);
+    const dt = clamp((now - last) / 1000, 0.001, 0.05);
+    farmer.__v710DisplayAt = now;
+
+    if (!Number.isFinite(farmer.__v710DisplayX) || !Number.isFinite(farmer.__v710DisplayY)) {
+      farmer.__v710DisplayX = sprite.x;
+      farmer.__v710DisplayY = sprite.y;
+    }
+    const alpha = 1 - Math.exp(-30 * dt);
+    farmer.__v710DisplayX += (tx - farmer.__v710DisplayX) * alpha;
+    farmer.__v710DisplayY += (ty - farmer.__v710DisplayY) * alpha;
+    sprite.position.set(farmer.__v710DisplayX, farmer.__v710DisplayY);
+    sprite.zIndex = Math.round(farmer.__v710DisplayY * 100) + 10;
+    if (renderer.entities?.sortableChildren) renderer.entities.sortDirty = true;
+  }
+
   function installDirectionStability(sim) {
     const renderer = sim?.r;
     if (!renderer || renderer.__v710FarmerDirectionStability || typeof renderer.updateFarmer !== 'function') return false;
     renderer.__v710FarmerDirectionStability = true;
+
+    installAntiTrainTargets(sim);
 
     const originalSet = typeof renderer.setFarmerAction === 'function' ? renderer.setFarmerAction.bind(renderer) : null;
     if (originalSet) {
@@ -133,18 +222,21 @@
 
     const originalUpdate = renderer.updateFarmer.bind(renderer);
     renderer.updateFarmer = function(farmer, dx, dy) {
+      let result;
       if (farmer?.action !== 'walk' || !farmer?.path?.length) {
         if (farmer?.action !== 'walk') clearDirection(farmer);
-        return originalUpdate(farmer, dx, dy);
+        result = originalUpdate(farmer, dx, dy);
+      } else {
+        const direction = resolveDirection(sim, farmer, dx, dy, !farmer.__v710WalkDir);
+        const [stableDx, stableDy] = syntheticVector(direction);
+        // Only the facing vector is stabilized; movement still uses the real simulation vector.
+        result = originalUpdate(farmer, stableDx, stableDy);
       }
-
-      const direction = resolveDirection(sim, farmer, dx, dy, !farmer.__v710WalkDir);
-      const [stableDx, stableDy] = syntheticVector(direction);
-      // Only the animation-facing vector is stabilized. Farmer position, pathfinding,
-      // collision, speed and simulation movement remain untouched.
-      return originalUpdate(farmer, stableDx, stableDy);
+      smoothFarmerSprite(sim, this, farmer, dx, dy);
+      return result;
     };
 
+    state.smoothMotion = true;
     state.installed = true;
     document.documentElement.dataset.farmerDirection = VERSION;
     return true;
