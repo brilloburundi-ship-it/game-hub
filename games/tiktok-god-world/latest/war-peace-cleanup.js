@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v70-war-peace-cleanup-4-civic-priority';
+  const VERSION = 'v70-war-peace-cleanup-5-live-gift';
   const CIVIC_MAX_CHECKS = 64;
   const CIVIC_RETRY_BASE = 22;
   const CIVIC_COSTS = {
@@ -101,7 +101,6 @@
     const houses = aliveBuildings(kingdom, b => /^house_[abc]$/.test(b.type)).length;
     const churches = aliveCount(kingdom, 'church');
 
-    // No hard cap: civic buildings scale naturally with the settlement.
     const windmillReady = farms >= 1 + windmills * 2 && affordable(kingdom, CIVIC_COSTS.windmill);
     const churchReady = houses >= 2 + churches * 4 && Number(kingdom.pop || 0) >= 7 + churches * 6 && affordable(kingdom, CIVIC_COSTS.church);
     if (!windmillReady && !churchReady) return null;
@@ -225,9 +224,6 @@
         kingdom.__v70NextCivicAt = this.age + 8 + ((kingdom.id || 0) % 5) * 2;
       }
 
-      // Give church/windmill a bounded, infrequent priority slot BEFORE the normal AI.
-      // This prevents normal houses/farms from consuming every build opportunity while
-      // keeping the original V7.0 construction cadence and renderer untouched.
       if (this.age - Number(kingdom.lastBuild || 0) >= 6 && this.age >= kingdom.__v70NextCivicAt) {
         kingdom.__v70NextCivicAt = this.age + CIVIC_RETRY_BASE + ((kingdom.id || 0) % 5) * 2;
         const type = civicTypeReady(kingdom, this.age);
@@ -258,14 +254,14 @@
 
     const originalAddBuilding = sim.addBuilding.bind(sim);
     sim.addBuilding = function (kingdom, type, x, y, forceCastle = false, instant = false, ...rest) {
-      if (!forceCastle && kingdom?.alive && isAtWar(this, kingdom)) return null;
+      if (!forceCastle && kingdom?.alive && isAtWar(this, kingdom) && !kingdom.__v713GiftBuildOverride) return null;
       return originalAddBuilding(kingdom, type, x, y, forceCastle, instant, ...rest);
     };
 
     if (typeof sim.claimGiftLand === 'function') {
       const originalClaimGiftLand = sim.claimGiftLand.bind(sim);
       sim.claimGiftLand = function (kingdom, amount) {
-        if (isAtWar(this, kingdom)) return 0;
+        if (isAtWar(this, kingdom) && !kingdom?.__v713GiftBuildOverride) return 0;
         return originalClaimGiftLand(kingdom, amount);
       };
     }
@@ -303,6 +299,7 @@
       buildPausedDuringWar: true,
       expansionPausedDuringWar: true,
       resumesExpansionAfterWar: true,
+      instantLiveGiftOverride: true,
       destroyedBuildingsPurged: true,
       deadNpcPurged: true,
       eliminatedKingdomGuardsPurged: true,
