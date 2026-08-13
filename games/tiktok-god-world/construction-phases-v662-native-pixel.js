@@ -26,11 +26,8 @@
 
   const TYPES = new Set(Object.keys(BUILDINGS));
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-  // The stable/setta prefab was explicitly requested to stay at the smaller in-game size.
-  // This matches the small construction presentation (72% of the original 28px world-height target)
-  // and prevents the original grow tween from leaving one instance larger than another.
   const STABLE_SMALL_SCALE = (28 * .72) / BUILDINGS.stable.h;
+  const KINGDOM_FRAME_CACHE = new Map();
 
   const aliases = new Map([
     ['house','house_a'],['home','house_a'],['field','farm'],['farm_field','farm'],
@@ -95,8 +92,6 @@
   }
 
   function inferKingdomColor(args,result,sprite) {
-    // sim.addBuilding(k, type, x, y, ...) always passes the owning kingdom first.
-    // Prefer that exact palette so construction phases can never fall back to another kingdom colour.
     const directKingdom = args.find(v => v && typeof v === 'object' && colorNumber(v.color) !== null);
     if (directKingdom) return colorNumber(directKingdom.color);
 
@@ -110,14 +105,6 @@
       for (const key of ['color','primaryColor','kingdomColor','accent','tint']) {
         const n = colorNumber(object[key]);
         if (n !== null) return n;
-      }
-      for (const paletteKey of ['palette','colors']) {
-        const palette = object[paletteKey];
-        if (!palette || typeof palette !== 'object') continue;
-        for (const key of ['primary','main','roof','accent','color']) {
-          const n = colorNumber(palette[key]);
-          if (n !== null) return n;
-        }
       }
     }
     const tint = colorNumber(sprite?.tint);
@@ -219,6 +206,62 @@
     return {base,mask};
   }
 
+  function recolorTeamCanvas(canvas,color) {
+    const ctx=canvas.getContext('2d',{willReadFrequently:true});
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data;
+    const r0=(color>>16)&255,g0=(color>>8)&255,b0=color&255;
+    const clamp8=v=>Math.max(0,Math.min(255,Math.round(v)));
+    const pal={
+      dark:[clamp8(r0*.55),clamp8(g0*.55),clamp8(b0*.55)],
+      mid:[clamp8(r0*.82),clamp8(g0*.82),clamp8(b0*.82)],
+      light:[clamp8(255-(255-r0)*.28),clamp8(255-(255-g0)*.28),clamp8(255-(255-b0)*.28)]
+    };
+    for(let i=0;i<d.length;i+=4){
+      if(d[i+3]<8)continue;
+      const r=d[i],g=d[i+1],b=d[i+2],max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max-min;
+      if(!(b>g+12&&b>r+16&&sat>28))continue;
+      const lum=(r+g+b)/3,rep=lum<78?pal.dark:lum<150?pal.mid:pal.light;
+      d[i]=rep[0];d[i+1]=rep[1];d[i+2]=rep[2];
+    }
+    ctx.putImageData(img,0,0);
+    return canvas;
+  }
+
+  function textureCanvas(renderer,sprite,color) {
+    let canvas=null;
+    try { canvas=renderer?.textureToCanvas?.(sprite?.texture)||null; } catch (_) {}
+    if (!canvas && sprite?.texture) {
+      const tex=sprite.texture;
+      const src=tex?.source?.resource?.source||tex?.source?.source||tex?.source?.resource||tex?.baseTexture?.resource?.source;
+      if(src){
+        canvas=document.createElement('canvas');
+        canvas.width=tex.width||src.width;canvas.height=tex.height||src.height;
+        const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.imageSmoothingEnabled=false;
+        if(tex.frame)ctx.drawImage(src,tex.frame.x,tex.frame.y,tex.frame.width,tex.frame.height,0,0,tex.frame.width,tex.frame.height);
+        else ctx.drawImage(src,0,0);
+      }
+    }
+    if(!canvas)return null;
+    // The completed sprite is normally already kingdom-coloured. This pass only
+    // replaces any remaining original blue team pixels and leaves wood/stone/foliage untouched.
+    return recolorTeamCanvas(canvas,color);
+  }
+
+  function kingdomFrames(sprite,type,color,renderer) {
+    const cacheKey=`${type}:${color.toString(16).padStart(6,'0')}`;
+    if(KINGDOM_FRAME_CACHE.has(cacheKey))return KINGDOM_FRAME_CACHE.get(cacheKey);
+    const source=textureCanvas(renderer,sprite,color);
+    if(!source)return null;
+    const ctx=source.getContext('2d',{willReadFrequently:true});
+    const bounds=getOpaqueBounds(ctx,source.width,source.height);
+    const frames=[1,2,3].map(stage=>{
+      const pair=buildStage(source,stage,bounds);
+      return {base:window.PIXI.Texture.from(pair.base),mask:window.PIXI.Texture.from(pair.mask)};
+    });
+    KINGDOM_FRAME_CACHE.set(cacheKey,frames);
+    return frames;
+  }
+
   async function preloadConstructionTextures() {
     while (!window.PIXI?.Texture) await sleep(16);
     const result=Object.create(null);
@@ -235,8 +278,8 @@
     }));
     window.__CONSTRUCTION_PIXEL_TEXTURES=result;
     window.__CONSTRUCTION_PIXEL_META={
-      version:'v662-native-pixel-2',stages:3,nativeSizes:true,tintMasks:true,
-      kingdomColorLocked:true,stableSmallScale:true,farmFoundationHidden:true
+      version:'v662-native-pixel-3',stages:3,nativeSizes:true,tintMasks:true,
+      kingdomColorLocked:true,kingdomStageTextureSource:true,stableSmallScale:true,farmFoundationHidden:true
     };
     document.documentElement.dataset.constructionAssets='ready';
     return result;
@@ -292,8 +335,8 @@
     sprite.__constructionKingdomColor=color;
     if (type==='stable') forceStableSmallScale(sprite);
 
-    const textures=await window.__CONSTRUCTION_TEXTURES_READY;
-    const frames=textures?.[type];
+    const fallback=await window.__CONSTRUCTION_TEXTURES_READY;
+    const frames=kingdomFrames(sprite,type,color,renderer)||fallback?.[type];
     if (!frames?.length || !sprite?.parent || sprite.destroyed) return;
     const parent=sprite.parent,wasVisible=sprite.visible,wasRenderable=sprite.renderable;
     sprite.visible=false;sprite.renderable=false;
@@ -307,6 +350,7 @@
         copyTransform(sprite,base);copyTransform(sprite,mask);
         mask.tint=color;
         base.label=`construction-${type}-stage-${i+1}`;
+        base.__kingdomColor=color;
         mask.label=`construction-${type}-faction-${i+1}`;
         mask.__kingdomColor=color;
         parent.addChild(base);parent.addChild(mask);active=[base,mask];
@@ -337,9 +381,7 @@
     sim.addBuilding=function(...args) {
       const before=new Set(parent.children||[]);
       const finalize=result => {
-        // This only removes the generic diamond foundation for farm fields; no other building is changed.
         hideFarmFoundation(result);
-
         queueMicrotask(() => {
           const candidates=(parent.children||[]).filter(child=>!before.has(child) && child?.texture);
           const type=inferType(args,result,candidates);
