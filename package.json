@@ -10,7 +10,7 @@
     "check:backend": "node --check backend/src/crypto.js && node --check backend/src/plans.js && node --check backend/src/worker.js",
     "check:world-earth": "node scripts/check-world-v11.mjs",
     "check:god-world": "node scripts/check-god-world.mjs",
-    "check:god-world-v8-mobile": "node scripts/check-god-world-v8-mobile.mjs",
+    "check:god-world-v8-mobile": "node scripts/check-god-world-v8-mobile.mjs && node scripts/test-god-world-v801-logic.mjs",
     "check:pages": "npm test && npm run check:backend && npm run check:god-world-v8-mobile && npm run build",
     "check": "npm test && npm run check:backend && npm run check:world-earth && npm run check:god-world && npm run check:god-world-v8-mobile && npm run build"
   },

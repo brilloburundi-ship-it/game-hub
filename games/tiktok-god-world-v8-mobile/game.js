@@ -75,6 +75,7 @@
       this.r = renderer;
       this.kingdoms = [];
       this.kingdomByName = new Map();
+      this.foundingByName = new Map();
       this.owner = new Int16Array(world.gridW * world.gridH).fill(-1);
       this.wars = [];
       this.age = 0;
@@ -179,7 +180,7 @@
         if (this.getOwner(x, y) !== -1 || !this.isBuildableCell(x, y, 'castle') || this.biome(x, y) !== 'grass') continue;
         if (this.spawnRoom(x, y) < 7) continue;
         let d = 99;
-        for (const k of this.kingdoms) if (k.alive) d = Math.min(d, Math.hypot(k.capital[0] - x, k.capital[1] - y));
+        for (const k of this.kingdoms) if (k.alive || k.founding) d = Math.min(d, Math.hypot(k.capital[0] - x, k.capital[1] - y));
         for (const v of this.neutral) d = Math.min(d, Math.hypot(v.x - x, v.y - y));
         if (d <= 7) continue;
         const score = d + Math.min(this.coastDistance(x, y), 8) * .24 + this.spawnRoom(x, y) * .2 + Math.random() * 1.5;
@@ -207,11 +208,23 @@
     async join(name) {
       name = String(name || 'Player').trim().slice(0, 18);
       if (!name) return;
-      const existing = this.kingdomByName.get(name.toLowerCase());
+      const nameKey = name.toLowerCase();
+      const pending = this.foundingByName.get(nameKey);
+      if (pending) return pending;
+      const existing = this.kingdomByName.get(nameKey);
       if (existing && existing.alive) {
         this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} is already in the world`); return existing;
       }
 
+      // One promise owns founding for this viewer. Duplicate/back-to-back JOINs
+      // wait for the same castle postcondition instead of observing a partial city.
+      const founding = Promise.resolve().then(() => this.foundKingdom(name, nameKey));
+      this.foundingByName.set(nameKey, founding);
+      try { return await founding; }
+      finally { if (this.foundingByName.get(nameKey) === founding) this.foundingByName.delete(nameKey); }
+    }
+
+    async foundKingdom(name, nameKey) {
       const pos = this.freeSpawn();
       if (!pos) { toast('The map is full: JOIN queued for the next world'); return null; }
 
@@ -219,25 +232,116 @@
       const k = {
         id, name, color, css, capital: pos, territory: new Set(),
         resources: { food: 150, wood: 135, stone: 80, gold: 42 },
-        pop: 4, popCap: 4, military: 8, buildings: [], farmers: [], alive: true, score: 0,
+        pop: 4, popCap: 4, military: 8, buildings: [], farmers: [], alive: false, founding: true, pendingInteractions: [], score: 0,
         followed: false, boostUntil: 0, lastExpand: this.age, lastBuild: this.age, lastPop: this.age, aggressive: null
       };
       this.kingdoms.push(k);
-      this.kingdomByName.set(name.toLowerCase(), k);
+      this.kingdomByName.set(nameKey, k);
 
       const [x, y] = pos;
       this.claimInitialArea(k, x, y);
-      await this.r.addKingdom(k, this);
-      // V4: JOIN founds ONLY the capital. Every other building must be produced by the economy.
-      await this.addBuilding(k, 'castle', x, y, true);
-      for (let i = 0; i < Math.min(k.pop, MAX_VISIBLE_FARMERS); i++) await this.spawnFarmer(k);
+      let castle = null, foundingError = null;
+      try {
+        await this.r.addKingdom(k, this);
+        // JOIN remains a single-capital operation. A controlled retry repairs only
+        // an incomplete capital render; it never creates a second castle/system.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            castle = await this.addBuilding(k, 'castle', x, y, true);
+            if (this.hasBuildingVisual(castle)) break;
+            foundingError = new Error('Castle was not fully rendered');
+          } catch (error) {
+            foundingError = error;
+          }
+          for (const partial of k.buildings.filter(b => b.type === 'castle')) this.discardBuilding(k, partial);
+          castle = null;
+        }
+      } catch (error) {
+        foundingError = error;
+      }
+
+      if (!this.hasBuildingVisual(castle)) {
+        this.rollbackFounding(k);
+        console.error('[join-founding]', foundingError || new Error('Castle founding failed'));
+        toast(`${name}: JOIN could not found the capital — retry`);
+        return null;
+      }
+
+      for (let i = 0; i < Math.min(k.pop, MAX_VISIBLE_FARMERS); i++) {
+        try { await this.spawnFarmer(k); } catch (error) { console.warn('[join-citizen]', error); }
+      }
+      k.founding = false;
+      k.alive = true;
+      this.__v800Performance?.rebuildBuildingIndex?.();
       this.r.redrawTerritories(this);
       this.select(k);
       this.r.focusCell(x, y);
       toast(`👑 ${name}: capital founded`);
       feed(name, 'JOIN — castle founded');
       this.updateUI();
+      this.flushFoundingInteractions(k);
       return k;
+    }
+
+    async waitForKingdomReady(name) {
+      const nameKey = String(name || '').trim().toLowerCase();
+      const pending = this.foundingByName.get(nameKey);
+      if (pending) return pending;
+      const kingdom = this.kingdomByName.get(nameKey);
+      return kingdom?.alive && !kingdom.founding ? kingdom : null;
+    }
+
+    queueFoundingInteraction(k, type, args) {
+      if (!k?.founding) return false;
+      k.pendingInteractions ||= [];
+      k.pendingInteractions.push({ type, args });
+      return true;
+    }
+
+    flushFoundingInteractions(k) {
+      if (!k?.alive || k.founding) return;
+      const pending = Array.isArray(k.pendingInteractions) ? k.pendingInteractions.splice(0) : [];
+      for (const interaction of pending) {
+        if (interaction?.type === 'like') this.like(...interaction.args);
+        else if (interaction?.type === 'follow') this.follow(...interaction.args);
+      }
+    }
+
+    hasBuildingVisual(building) {
+      if (!building || building.type !== 'castle' || building.__v66Destroyed) return false;
+      if (building._sprite) return !building._sprite.destroyed;
+      return Array.isArray(this.r?.entities) && this.r.entities.some(entity => entity?.b === building);
+    }
+
+    discardBuilding(k, building) {
+      if (!building) return;
+      const index = k?.buildings?.indexOf(building) ?? -1;
+      if (index >= 0) k.buildings.splice(index, 1);
+      for (const property of ['_sprite', '_flag', '_shadow', '_foundation']) {
+        const display = building[property];
+        if (display && !display.destroyed) display.destroy?.();
+        building[property] = null;
+      }
+      if (Array.isArray(this.r?.entities)) this.r.entities = this.r.entities.filter(entity => entity?.b !== building);
+    }
+
+    rollbackFounding(k) {
+      for (const building of [...(k?.buildings || [])]) this.discardBuilding(k, building);
+      for (const token of k?.territory || []) {
+        const [x, y] = token.split(',').map(Number);
+        if (this.getOwner(x, y) === k.id) this.setOwner(x, y, -1);
+      }
+      k.territory.clear();
+      if (k._label && !k._label.destroyed) k._label.destroy?.();
+      if (Array.isArray(this.r?.labels)) this.r.labels = this.r.labels.filter(label => label?.k !== k);
+      k._label = null;
+      if (Array.isArray(k.pendingInteractions)) k.pendingInteractions.length = 0;
+      k.founding = false;
+      k.alive = false;
+      if (this.kingdomByName.get(k.name.toLowerCase()) === k) this.kingdomByName.delete(k.name.toLowerCase());
+      this.__v800Performance?.rebuildBuildingIndex?.();
+      this.r.redrawTerritories?.(this, true);
+      this.r.redrawSettlementGround?.(this);
     }
 
     async addBuilding(k, type, x, y, forceCastle = false, instant = false) {
@@ -253,7 +357,12 @@
       for (const f of k.farmers) {
         if (f.path?.some(c => this.buildingBlocksCell(b, c[0], c[1]))) { f.path = []; f.action = 'idle'; f.actionUntil = 0; this.r.setFarmerAction(f, 'idle'); }
       }
-      await this.r.addBuilding(k, b);
+      try {
+        await this.r.addBuilding(k, b);
+      } catch (error) {
+        this.discardBuilding(k, b);
+        throw error;
+      }
       if (type === 'farm') await this.spawnFarmWorker(k, b);
       return b;
     }
@@ -337,7 +446,7 @@
     async tick() {
       this.age++; this.tickN++;
       for (const k of this.kingdoms) {
-        if (!k.alive) continue;
+        if (!k.alive || k.founding) continue;
         this.economy(k);
         await this.population(k);
         await this.buildAI(k);
@@ -425,6 +534,33 @@
       this.r.puff(...this.iso(x, y));
     }
 
+    expansionNoise(k, x, y, salt = 0) {
+      let hash = Math.imul(x + 37, 374761393) ^ Math.imul(y + 73, 668265263);
+      hash ^= Math.imul((k?.id || 0) + 11, 1274126177) ^ Math.imul(salt + 19, 2246822519);
+      hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
+      return ((hash ^ (hash >>> 16)) >>> 0) / 4294967295;
+    }
+
+    pickExpansionCell(k, candidates, salt = 0, target = null) {
+      let best = null, bestScore = -Infinity;
+      const hasPort = k.buildings.some(b => b.type === 'port' && !b.__v66Destroyed && (!Number.isFinite(b.hp) || b.hp > 0));
+      const coastSeeking = !hasPort && k.territory.size >= 18;
+      for (const [x, y] of candidates) {
+        if (this.getOwner(x, y) !== -1 || !this.land(x, y)) continue;
+        const ownNeighbours = this.neigh(x, y).filter(([nx, ny]) => this.getOwner(nx, ny) === k.id).length;
+        const dx = x - k.capital[0], dy = y - k.capital[1], distance = Math.hypot(dx, dy);
+        const angle = Math.atan2(dy, dx), phase = (k.id + 1) * 1.731;
+        const compactness = ownNeighbours === 2 ? 1.15 : ownNeighbours === 1 ? 0.45 : ownNeighbours >= 3 ? 0.2 : -2;
+        const lobes = Math.sin(angle * 3 + phase) * 0.55 + Math.sin(angle * 5 - phase * 0.7) * 0.28;
+        const noise = (this.expansionNoise(k, x, y, salt) - 0.5) * 1.8;
+        const coastBias = coastSeeking ? -Math.min(24, this.coastDistance(x, y)) * 0.045 : 0;
+        const targetBias = target?.alive ? -Math.hypot(x - target.capital[0], y - target.capital[1]) * 0.34 : 0;
+        const score = (this.isWalkableCell(x, y) ? 2.2 : -0.8) + compactness - distance * 0.018 + lobes + noise + coastBias + targetBias;
+        if (score > bestScore) { best = [x, y]; bestScore = score; }
+      }
+      return best;
+    }
+
     expandAI(k) {
       if (this.age - k.lastExpand < 3 || k.resources.food < 12 || k.resources.wood < 10) return;
       let candidates = [];
@@ -435,13 +571,10 @@
       if (!candidates.length) return;
       // Prefer cells that are useful terrain, but conquest/territory may still include mountains/coasts.
       candidates = [...new Map(candidates.map(c => [key(...c), c])).values()];
-      if (k.aggressive) {
-        const t = this.kingdoms[k.aggressive];
-        if (t?.alive) candidates.sort((a, b) => Math.hypot(a[0] - t.capital[0], a[1] - t.capital[1]) - Math.hypot(b[0] - t.capital[0], b[1] - t.capital[1]));
-      } else {
-        candidates.sort((a, b) => (this.isWalkableCell(b[0], b[1]) ? 1 : 0) - (this.isWalkableCell(a[0], a[1]) ? 1 : 0));
-      }
-      const [x, y] = candidates[0];
+      const target = k.aggressive != null ? this.kingdoms[k.aggressive] : null;
+      const cell = this.pickExpansionCell(k, candidates, k.territory.size, target);
+      if (!cell) return;
+      const [x, y] = cell;
       this.setOwner(x, y, k.id); k.territory.add(key(x, y));
       k.resources.food -= 6; k.resources.wood -= 4; k.lastExpand = this.age;
     }
@@ -701,39 +834,54 @@
     }
 
     like(name, count = 1) {
-      const k = this.kingdomByName.get(String(name).toLowerCase()); if (!k?.alive) return;
+      const k = this.kingdomByName.get(String(name).toLowerCase());
+      if (this.queueFoundingInteraction(k, 'like', [name, count])) return;
+      if (!k?.alive) return;
       const n = Math.max(1, Number(count) || 1);
       k.resources.food += n * .65; k.resources.wood += n * .25; k.resources.gold += n * .08;
       k.boostUntil = Math.max(k.boostUntil, this.age + Math.min(18, n * .15)); this.r.supportFx(k, '❤️', Math.min(6, n)); this.updateSelected();
     }
     follow(name) {
-      const k = this.kingdomByName.get(String(name).toLowerCase()); if (!k?.alive || k.followed) return;
+      const k = this.kingdomByName.get(String(name).toLowerCase());
+      if (this.queueFoundingInteraction(k, 'follow', [name])) return;
+      if (!k?.alive || k.followed) return;
       k.followed = true; k.resources.wood += 85; k.resources.stone += 35; k.resources.gold += 20; k.boostUntil = this.age + 30;
       toast(`🔨 ${name}: boom edilizio`); this.r.supportFx(k, '🔨', 4);
     }
 
     claimGiftLand(k, amount) {
-      let remaining = Math.max(0, amount | 0), guard = 0;
-      while (remaining > 0 && guard++ < 8) {
-        const frontier = [];
-        for (const s of k.territory) {
-          const [x, y] = s.split(',').map(Number);
-          for (const [nx, ny] of this.neigh(x, y)) if (this.getOwner(nx, ny) === -1 && this.land(nx, ny)) frontier.push([nx, ny]);
-        }
-        const unique = [...new Map(frontier.map(c => [key(...c), c])).values()]
-          .sort((a, b) => (this.isWalkableCell(b[0], b[1]) ? 1 : 0) - (this.isWalkableCell(a[0], a[1]) ? 1 : 0));
-        if (!unique.length) break;
-        for (const [x, y] of unique.slice(0, remaining)) { this.setOwner(x, y, k.id); k.territory.add(key(x, y)); remaining--; }
+      const wanted = Math.max(0, amount | 0), frontier = new Map();
+      const addFrontier = (x, y) => {
+        if (this.getOwner(x, y) === -1 && this.land(x, y)) frontier.set(key(x, y), [x, y]);
+      };
+      for (const token of k.territory) {
+        const [x, y] = token.split(',').map(Number);
+        for (const [nx, ny] of this.neigh(x, y)) addFrontier(nx, ny);
       }
-      this.r.redrawTerritories(this);
+      let claimed = 0;
+      while (claimed < wanted && frontier.size) {
+        const cell = this.pickExpansionCell(k, [...frontier.values()], k.territory.size + claimed);
+        if (!cell) break;
+        const [x, y] = cell;
+        frontier.delete(key(x, y));
+        this.setOwner(x, y, k.id);
+        k.territory.add(key(x, y));
+        claimed++;
+        for (const [nx, ny] of this.neigh(x, y)) addFrontier(nx, ny);
+      }
+      this.r.redrawTerritories(this, true);
+      return claimed;
     }
 
     async instantGiftBuild(k, types) {
       let built = 0;
       for (const requested of types) {
         const type = requested === 'house' ? pick(['house_a', 'house_b', 'house_c']) : requested;
-        let cell = this.findBuildCell(k, type, false);
-        if (!cell) { this.claimGiftLand(k, 5); cell = this.findBuildCell(k, type, false); }
+        let cell = null;
+        for (let attempt = 0; attempt < 3 && !cell; attempt++) {
+          cell = this.findBuildCell(k, type, false);
+          if (!cell && attempt < 2) this.claimGiftLand(k, 6 + attempt * 4);
+        }
         if (!cell) continue;
         const building = await this.addBuilding(k, type, cell[0], cell[1], false, true);
         if (!building) continue;
@@ -750,7 +898,7 @@
     }
 
     async gift(name, gift, repeat = 1, meta = {}) {
-      const k = this.kingdomByName.get(String(name).toLowerCase()); if (!k?.alive) return;
+      const k = await this.waitForKingdomReady(name); if (!k) return;
       const g = String(gift || '').toLowerCase(), n = Math.max(1, Number(repeat) || 1);
       const diamonds = Number(meta.diamonds || meta.diamondCount || 0);
       if (g.includes('rose')) {
@@ -769,26 +917,29 @@
         k.resources.gold += 260 * n; k.resources.wood += 180 * n; k.resources.stone += 120 * n; k.boostUntil = this.age + 55; this.r.supportFx(k, '🎆', 7);
       } else if (g.includes('money gun') || g.includes('train') || g.includes('motorcycle')) {
         k.resources.gold += 520 * n; k.resources.wood += 360 * n; k.resources.stone += 240 * n; k.military += 25 * n; k.boostUntil = this.age + 75;
-        await this.instantGiftBuild(k, ['house']); await this.giftPopulation(k, 3 * n); this.r.supportFx(k, '💰', 8);
+        if (!meta.__v712HighGiftPlan) await this.instantGiftBuild(k, ['house']);
+        await this.giftPopulation(k, 3 * n); this.r.supportFx(k, '💰', 8);
       } else if (g.includes('sports car') || g.includes('yacht') || g.includes('private jet') || g.includes('whale diving')) {
         k.resources.gold += 650 * n; k.resources.wood += 420 * n; k.resources.stone += 300 * n; k.military += 35 * n; k.boostUntil = this.age + 90;
-        await this.instantGiftBuild(k, ['house', 'barracks']); await this.giftPopulation(k, 4 * n); this.r.supportFx(k, '⚡', 9);
+        if (!meta.__v712HighGiftPlan) await this.instantGiftBuild(k, ['house', 'barracks']);
+        await this.giftPopulation(k, 4 * n); this.r.supportFx(k, '⚡', 9);
       } else if (g.includes('tiktok')) {
         k.resources.gold += 180 * n; k.resources.wood += 120 * n; k.boostUntil = this.age + 45; this.r.supportFx(k, '🎵', 7);
       } else if (g.includes('galaxy')) {
         k.resources.gold += 1800 * n; k.resources.food += 1500 * n; k.resources.wood += 1200 * n; k.resources.stone += 900 * n; k.military += 90 * n; k.boostUntil = this.age + 180;
         k.popCap += 10 * n;
-        this.claimGiftLand(k, 8 * n); await this.instantGiftBuild(k, ['house', 'farm', 'barracks']); await this.giftPopulation(k, 7 * n);
+        this.claimGiftLand(k, 8 * n); await this.giftPopulation(k, 7 * n);
         toast(`${name}: GALAXY — instant city boost`); this.r.supportFx(k, '🌌', 14);
       } else if (g.includes('lion')) {
         k.resources.gold += 4200 * n; k.resources.food += 2600 * n; k.resources.wood += 2800 * n; k.resources.stone += 2200 * n; k.military += 220 * n; k.boostUntil = this.age + 300;
         k.popCap += 20 * n;
-        this.claimGiftLand(k, 15 * n); await this.instantGiftBuild(k, ['house', 'house', 'farm', 'barracks', 'forge', 'watchtower']); await this.giftPopulation(k, 14 * n);
+        this.claimGiftLand(k, 15 * n); await this.giftPopulation(k, 14 * n);
         toast(`${name}: LION — major civilization leap`); this.r.supportFx(k, '🦁', 18);
       } else if (g.includes('universe') || g.includes('dragon') || g.includes('castle fantasy') || g.includes('interstellar') || g.includes('phoenix') || diamonds * n >= 1000) {
         k.resources.gold += 8000 * n; k.resources.food += 6000 * n; k.resources.wood += 5500 * n; k.resources.stone += 5000 * n; k.military += 420 * n; k.boostUntil = this.age + 480;
         k.popCap += 40 * n;
-        this.claimGiftLand(k, 24 * n); await this.instantGiftBuild(k, ['house', 'house', 'house', 'farm', 'farm', 'barracks', 'forge', 'market', 'stone_tower']); await this.giftPopulation(k, 24 * n);
+        // V8 buildPowerCity is the single high-gift building-plan owner.
+        this.claimGiftLand(k, 24 * n); await this.giftPopulation(k, 24 * n);
         toast(`${name}: LEGENDARY BIG HELP — kingdom transformed`); this.r.supportFx(k, '👑', 24);
       } else {
         const value = Math.max(1, diamonds || 1);
@@ -1451,14 +1602,45 @@
     if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b); }
     if (/^expand$/i.test(c)) { const k = sim.kingdomByName.get(user.toLowerCase()); if (k) { k.resources.food += 10; k.resources.wood += 8; k.lastExpand = 0; } }
   }
+  const giftProgress = new Map();
   async function handleEvent(sim, raw) {
-    const e = raw?.data && typeof raw.data === 'object' ? { ...raw, ...raw.data } : raw;
+    const envelope = raw && typeof raw === 'object' ? raw : {};
+    const payload = [envelope.data, envelope.eventData, envelope.payload]
+      .find(value => value && typeof value === 'object' && !Array.isArray(value)) || {};
+    const e = { ...envelope, ...payload };
     const type = String(e.type || e.event || e.eventType || e.event_name || '').toLowerCase();
     const user = String(e.username || e.uniqueId || e.user?.uniqueId || e.user?.nickname || e.nickname || 'Viewer');
     if (type.includes('comment') || e.comment || e.message) return processComment(sim, user, String(e.comment || e.message || e.text || ''));
     if (type.includes('like')) return sim.like(user, e.count || e.likeCount || e.repeatCount || 1);
     if (type.includes('follow')) return sim.follow(user);
-    if (type.includes('gift')) return sim.gift(user, e.giftName || e.gift?.name || e.name || 'gift', e.repeatCount || e.count || 1, { diamonds: e.diamondCount || e.diamond_count || e.gift?.diamondCount || e.gift?.diamond_count || 0 });
+    if (type.includes('gift')) {
+      const gift = e.gift && typeof e.gift === 'object' ? e.gift : {};
+      const details = e.giftDetails && typeof e.giftDetails === 'object' ? e.giftDetails : {};
+      const giftData = e.giftData && typeof e.giftData === 'object' ? e.giftData : {};
+      const extended = e.extendedGiftInfo && typeof e.extendedGiftInfo === 'object' ? e.extendedGiftInfo : {};
+      const transaction = String(e.transactionId ?? e.transaction_id ?? e.groupId ?? e.group_id ?? details.transactionId ?? details.groupId ?? '');
+      const total = Math.max(1, Number(e.repeatCount ?? e.repeat_count ?? details.repeatCount ?? details.repeat_count ?? e.count ?? 1) || 1);
+      let repeat = total;
+      if (transaction) {
+        const progressKey = `${user}|${transaction}`, previous = giftProgress.get(progressKey) || 0;
+        if (total <= previous) return;
+        repeat = total - previous;
+        giftProgress.set(progressKey, total);
+        if (giftProgress.size > 500) giftProgress.delete(giftProgress.keys().next().value);
+      } else {
+        const giftType = Number(e.giftType ?? e.gift_type ?? details.giftType ?? details.gift_type);
+        const repeatEndValue = e.repeatEnd ?? e.repeat_end ?? details.repeatEnd ?? details.repeat_end;
+        const repeatEnded = repeatEndValue === true || repeatEndValue === 1 || String(repeatEndValue).toLowerCase() === 'true';
+        if (giftType === 1 && !repeatEnded) return;
+      }
+      return sim.gift(user, e.giftName ?? e.gift_name ?? details.giftName ?? details.gift_name ?? details.name ?? gift.name ?? extended.giftName ?? extended.name ?? e.name ?? 'gift', repeat, {
+        diamonds: e.diamondCount ?? e.diamond_count ?? details.diamondCount ?? details.diamond_count ?? gift.diamondCount ?? gift.diamond_count ?? extended.diamondCount ?? extended.diamond_count ?? 0,
+        giftValue: e.giftValue ?? e.gift_value ?? details.giftValue ?? details.gift_value ?? gift.giftValue ?? gift.gift_value,
+        coinValue: e.coinValue ?? e.coin_value ?? e.coins ?? details.coinValue ?? details.coin_value ?? details.coins ?? gift.coinValue ?? gift.coin_value ?? gift.coins,
+        value: e.value ?? giftData.value ?? details.value ?? gift.value ?? extended.value,
+        price: e.price ?? giftData.price ?? details.price ?? gift.price ?? extended.price
+      });
+    }
   }
   function connectBridge(sim) {
     const q = new URLSearchParams(location.search), url = q.get('bridge') || localStorage.getItem('godworld_bridge') || '';

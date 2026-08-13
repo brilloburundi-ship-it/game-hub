@@ -4,7 +4,7 @@
   // V8 owns only the hot-path bookkeeping. Gameplay systems continue to call the
   // same public Simulation/Renderer methods, but those methods now share one set
   // of indexes instead of repeatedly scanning every territory and building.
-  const VERSION = 'v800-mobile-performance-kernel-1';
+  const VERSION = 'v801-mobile-performance-kernel-2-targeted-growth';
   if (window.__V800_PERFORMANCE_KERNEL?.bootstrap) return;
 
   const state = window.__V800_PERFORMANCE_KERNEL = {
@@ -309,17 +309,14 @@
     };
 
     sim.expandAI = function(kingdom) {
-      if (!kingdom?.alive || atWar(this, kingdom)) return false;
+      if (!kingdom?.alive || kingdom.founding || atWar(this, kingdom)) return false;
       if (this.age - kingdom.lastExpand < 3 || kingdom.resources.food < 12 || kingdom.resources.wood < 10) return false;
       const candidates = frontierFor(kingdom).slice();
       if (!candidates.length) return false;
       const target = kingdom.aggressive != null ? this.kingdoms[kingdom.aggressive] : null;
-      if (target?.alive) {
-        candidates.sort((a, b) => Math.hypot(a[0] - target.capital[0], a[1] - target.capital[1]) - Math.hypot(b[0] - target.capital[0], b[1] - target.capital[1]));
-      } else {
-        candidates.sort((a, b) => (this.isWalkableCell(b[0], b[1]) ? 1 : 0) - (this.isWalkableCell(a[0], a[1]) ? 1 : 0));
-      }
-      const [x, y] = candidates[0];
+      const cell = this.pickExpansionCell?.(kingdom, candidates, kingdom.territory.size, target);
+      if (!cell) return false;
+      const [x, y] = cell;
       this.setOwner(x, y, kingdom.id);
       kingdom.territory.add(token(x, y));
       invalidateKingdom(kingdom.id);
@@ -589,7 +586,7 @@
         this.tickN++;
         let sliceStarted = performance.now();
         for (const kingdom of this.kingdoms || []) {
-          if (!kingdom?.alive) continue;
+          if (!kingdom?.alive || kingdom.founding) continue;
           this.economy(kingdom);
           await this.population(kingdom);
           await this.buildAI(kingdom);
@@ -613,7 +610,7 @@
         if (portClock >= 3) {
           portClock = 0;
           for (const kingdom of this.kingdoms || []) {
-            if (kingdom?.alive && !hasPort(kingdom)) await this.__v712MaybeBuildPort?.(kingdom);
+            if (kingdom?.alive && !kingdom.founding && !hasPort(kingdom)) await this.__v712MaybeBuildPort?.(kingdom);
           }
         }
         if (settlementDirty && originalSettlementDraw) {
@@ -657,7 +654,7 @@
     };
     state.installed = true;
     document.documentElement.dataset.performanceKernel = VERSION;
-    document.documentElement.dataset.completeRelease = '8.0.0-mobile';
+    document.documentElement.dataset.completeRelease = '8.0.1-mobile';
     document.title = 'TikTok God World — V8 Mobile';
     const buildTag = document.querySelector('.build-tag');
     if (buildTag) buildTag.textContent = 'V8 MOBILE';

@@ -16,7 +16,7 @@ const rejectText = (source, value, message) => {
 const [
   index, sw, versionText, worldShape, visuals, gameplay, waterBase,
   farmerDirection, buildingScale, livePower, performanceKernel,
-  construction, fishingBoats, warCleanup, groundContact, gameCore, packageJson,
+  construction, fishingBoats, warCleanup, groundContact, livingKingdoms, gameCore, packageJson,
   projectsText
 ] = await Promise.all([
   read('index.html'), read('sw.js'), read('version.json'),
@@ -25,16 +25,17 @@ const [
   read('latest/live-power.js'), read('latest/performance-kernel.js'),
   read('construction-phases-v662-native-pixel.js'), read('v68-fishing-boats.js'),
   read('latest/war-peace-cleanup.js'), read('v651-ground-contact.js'),
+  read('living-kingdoms-v65.js'),
   read('game.js'),
   readFile(resolve(root, 'package.json'), 'utf8'), readFile(resolve(root, 'data/projects.json'), 'utf8')
 ]);
 
 const version = JSON.parse(versionText);
-if (version.version !== '8.0.0-mobile') throw new Error(`Expected mobile V8 release, found ${version.version}`);
-if (version.marker !== 'god-world-v800-mobile-performance-kernel') throw new Error('V8 Mobile performance marker missing');
+if (version.version !== '8.0.1-mobile') throw new Error(`Expected mobile V8.0.1 release, found ${version.version}`);
+if (version.marker !== 'god-world-v801-natural-growth-and-founding') throw new Error('V8.0.1 targeted gameplay marker missing');
 requireText(index, 'V8 MOBILE', 'V8 MOBILE UI marker missing');
-requireText(index, "window.__GOD_WORLD_RELEASE='8.0.0-mobile'", 'Atomic V8 Mobile release marker missing');
-requireText(sw, "const CACHE = 'god-world-v8-0-0-mobile-1'", 'V8 Mobile service-worker cache marker missing');
+requireText(index, "window.__GOD_WORLD_RELEASE='8.0.1-mobile'", 'Atomic V8.0.1 Mobile release marker missing');
+requireText(sw, "const CACHE = 'god-world-v8-0-1-mobile-1'", 'V8.0.1 Mobile service-worker cache marker missing');
 rejectText(index, 'V7.1.2 LATEST', 'Stale V7 UI label remains active');
 requireText(projectsText, '"rootPath": "games/tiktok-god-world-v8-mobile"', 'Separate Game Hub project path missing');
 requireText(projectsText, 'https://brilloburundi-ship-it.github.io/game-hub/games/tiktok-god-world-v8-mobile/', 'Separate live URL missing');
@@ -63,7 +64,7 @@ for (const file of releaseScripts) {
   requireText(sw, `'${file}'`, `${file} missing from V8 cache shell`);
 }
 
-const token = '20260813-2000-v800';
+const token = '20260813-1903-v801';
 const localScriptSrcs = [...index.matchAll(/<script src="(?!https?:\/\/)([^"]+)"/g)].map(match => match[1]);
 for (const src of localScriptSrcs) {
   if (!src.includes(`v=${token}`)) throw new Error(`Local script is not pinned to V8: ${src}`);
@@ -86,7 +87,7 @@ requireText(worldShape, 'function extendRiverToSea', 'River mouths must reach th
 requireText(visuals, "const VERSION='v712-latest-visuals-1'", 'Accepted water visual layer missing');
 
 // Construction pipeline and original pixel palette remain authoritative.
-requireText(construction, "version:'v662-native-pixel-3'", 'Construction phase pipeline missing');
+requireText(construction, "version:'v662-native-pixel-4-single-scale-owner'", 'Construction phase pipeline missing');
 requireText(construction, 'function kingdomFrames', 'Kingdom-coloured construction frames missing');
 requireText(construction, 'renderer?.textureToCanvas?.(sprite?.texture)', 'Construction stages must derive from completed prefab');
 requireText(construction, 'return recolorTeamCanvas(canvas,color)', 'Construction palette fallback missing');
@@ -100,18 +101,27 @@ requireText(farmerDirection, 'Math.exp(-30 * dt)', 'Civilian interpolation missi
 
 // Building scale is event-driven; no perpetual rescanning is allowed.
 requireText(buildingScale, 'const STABLE_LOCKED_WORLD_HEIGHT = 17.5', 'Reduced stable height missing');
-requireText(buildingScale, 'const FORGE_LOCKED_WORLD_HEIGHT = 29', 'Reduced forge height missing');
+requireText(buildingScale, 'const FORGE_LOCKED_WORLD_HEIGHT = 24', 'Reduced forge height missing');
 requireText(buildingScale, 'const MARKET_LOCKED_WORLD_HEIGHT = 24', 'Reduced market height missing');
 rejectText(buildingScale, 'requestAnimationFrame(sweep)', 'Building scale still rescans on every animation frame');
 rejectText(buildingScale, 'loadLivePower', 'LIVE power must be loaded explicitly by the atomic release');
+rejectText(buildingScale, 'installPortGuard', 'Building scale must not duplicate the final V8 port owner');
 rejectText(groundContact, 'setInterval(() => enforceKingdoms', 'Ground contact still rescans every kingdom forever');
+rejectText(construction, 'STABLE_SMALL_SCALE', 'Construction phases still own stable scale');
+rejectText(construction, 'forceStableSmallScale', 'Construction phases still override stable scale');
+rejectText(await read('v66-living-battles.js'), 'stable: 0.88', 'Battle visuals still override stable scale');
 
 // Port recovery and cleanup run on the simulation clock, not Pixi's render clock.
 requireText(gameplay, 'sim.__v712MaybeBuildPort = k => buildIndependentPort(sim, k)', 'Port milestone hook missing');
-requireText(gameplay, 'function acquireCoastalBerth(sim, k)', 'Continuous coastal corridor recovery missing');
-requireText(gameplay, 'route.length > 42', 'Coastal corridor must have a strict expansion budget');
-requireText(gameplay, 'fallbackPortCell(sim, k) || acquireCoastalBerth(sim, k)', 'Port recovery does not reach a valid coast');
-requireText(gameplay, 'rawPortDirection(sim, cell[0], cell[1])', 'Native coastal port orientation missing');
+rejectText(gameplay, 'acquireCoastalBerth', 'Port recovery must not claim a corridor to the sea');
+requireText(gameplay, 'portsWaitingForCoast', 'Inland kingdoms must wait for natural coastal expansion');
+requireText(gameplay, "sim.findBuildCell(k, 'port', false)", 'Port milestone must use already-owned coastal territory');
+rejectText(gameplay, "sim.addBuilding(k, 'port', cell[0], cell[1], true", 'Port milestone must not force-build on unowned land');
+rejectText(gameplay, "'stone_tower', 'port'", 'High gifts must leave port construction to the natural coastal milestone');
+const pixelBuildings = await read('v67-pixel-buildings.js');
+rejectText(pixelBuildings, 'const originalBuildAI = sim.buildAI.bind(sim)', 'Legacy V67 port buildAI owner remains active');
+rejectText(pixelBuildings, 'function portBasicCell', 'Legacy V67 port placement owner remains active');
+rejectText(pixelBuildings, "if (type === 'port') return portCell", 'Legacy V67 port cell selector remains active');
 requireText(warCleanup, 'sim.__v70Housekeeping = housekeeping', 'Simulation-owned housekeeping missing');
 rejectText(warCleanup, 'renderer.app?.ticker) renderer.app.ticker.add(housekeeping)', 'Housekeeping still runs on the render ticker');
 requireText(fishingBoats, 'fishingLoop:true', 'Primary fishing work loop missing');
@@ -121,13 +131,18 @@ requireText(waterBase, 'const BOATS_PER_PORT = 2', 'Two fishing boats per port r
 // LIVE power is explicit and ROSE produces an exact +100 total power delta.
 requireText(livePower, 'POWER_PER_DIAMOND=100', '100 power per diamond rule missing');
 requireText(livePower, "if(g.includes('rose'))return 1", 'Rose diamond fallback missing');
+requireText(livePower, 'meta?.giftValue', 'TikFinity gift-value metadata support missing');
+requireText(livePower, 'Number.isFinite(v)&&v>0', 'Gift metadata selector must ignore empty zero fields');
+requireText(livePower, "await this.waitForKingdomReady(name)", 'LIVE gifts must wait for the JOIN castle transaction');
 requireText(livePower, 'before=k?.alive?this.power(k):0', 'Gift power baseline missing');
 requireText(livePower, 'target=v*POWER_PER_DIAMOND,current=Math.max(0,this.power(live)-before)', 'Exact gift power compensation missing');
+requireText(livePower, '__v713GiftBuildOverrideCount', 'Concurrent high-gift war override reference count missing');
+requireText(livePower, '__v713GiftBuildOverride=k.__v713GiftBuildOverrideCount>0', 'High-gift war override can be cleared while queued gifts remain');
 requireText(livePower, 'dataset.lastGiftPowerDelta', 'Runtime gift delta diagnostic missing');
 
 // V8 hot paths use shared indexes and revision-based rendering.
-requireText(performanceKernel, "const VERSION = 'v800-mobile-performance-kernel-1'", 'V8 Mobile kernel marker missing');
-requireText(performanceKernel, "dataset.completeRelease = '8.0.0-mobile'", 'V8 Mobile runtime release diagnostic missing');
+requireText(performanceKernel, "const VERSION = 'v801-mobile-performance-kernel-2-targeted-growth'", 'V8.0.1 Mobile kernel marker missing');
+requireText(performanceKernel, "dataset.completeRelease = '8.0.1-mobile'", 'V8.0.1 Mobile runtime release diagnostic missing');
 requireText(performanceKernel, 'mapGeometryChanged: false', 'V8 map-preservation diagnostic missing');
 requireText(performanceKernel, 'function rebuildBuildingIndex()', 'Building spatial index missing');
 requireText(performanceKernel, 'function cachedTerritory(kingdom)', 'Territory parse cache missing');
@@ -135,6 +150,33 @@ requireText(performanceKernel, 'function frontierFor(kingdom)', 'Expansion front
 requireText(performanceKernel, 'sim.buildingBlockingCell = function', 'Indexed collision owner missing');
 requireText(performanceKernel, 'sim.economy = function', 'Single cached economy owner missing');
 requireText(performanceKernel, 'sim.expandAI = function', 'Cached expansion owner missing');
+requireText(performanceKernel, 'this.pickExpansionCell?.(kingdom, candidates', 'Irregular expansion selector missing from final owner');
+requireText(gameCore, 'pickExpansionCell(k, candidates', 'Shared irregular frontier selector missing');
+requireText(gameCore, 'founding: true', 'Transactional kingdom founding state missing');
+requireText(gameCore, 'rollbackFounding(k)', 'Failed JOIN rollback missing');
+requireText(gameCore, 'if (!this.hasBuildingVisual(castle))', 'JOIN castle postcondition missing');
+requireText(gameCore, 'this.foundingByName = new Map()', 'Per-viewer JOIN transaction owner missing');
+requireText(gameCore, 'if (pending) return pending', 'Duplicate JOINs do not await the active founding transaction');
+requireText(gameCore, 'alive: false, founding: true', 'Partial kingdoms must remain inactive until the castle exists');
+requireText(gameCore, 'waitForKingdomReady(name)', 'Gift readiness gate missing');
+requireText(gameCore, 'flushFoundingInteractions(k)', 'JOIN-time interaction replay missing');
+requireText(gameCore, 'giftValue: e.giftValue ?? e.gift_value', 'TikFinity gift-value gateway mapping missing');
+requireText(gameCore, 'coinValue: e.coinValue ?? e.coin_value', 'TikFinity coin-value gateway mapping missing');
+requireText(gameCore, 'envelope.eventData, envelope.payload', 'Nested TikFinity payload normalization missing');
+requireText(gameCore, 'const giftProgress = new Map()', 'Gift streak progress normalization missing');
+requireText(gameCore, 'repeat = total - previous', 'Gift streak updates are not converted to deltas');
+requireText(gameCore, 'giftData.value', 'TikFinity giftData value mapping missing');
+requireText(gameCore, 'e.giftName ?? e.gift_name ?? details.giftName', 'TikFinity gift-details name mapping missing');
+requireText(livingKingdoms, "queueFoundingInteraction?.(k, 'follow'", 'FOLLOW must not be lost during founding');
+requireText(gameplay, 'function bigCityBuildingCount', 'High-gift building scaling missing');
+requireText(gameplay, 'lastBigHelpBuilt', 'High-gift build diagnostic missing');
+requireText(gameplay, 'k.__v712BigHelpQueue', 'High gifts must be serialized per kingdom');
+rejectText(gameplay, 'k.__v712BigHelpBusy ||', 'Concurrent high gifts still discard a building plan');
+requireText(gameplay, '__v712HighGiftPlan: true', 'High-gift building owner route missing');
+requireText(gameCore, 'V8 buildPowerCity is the single high-gift building-plan owner', 'High-gift building ownership is not consolidated');
+requireText(gameCore, "if (!meta.__v712HighGiftPlan) await this.instantGiftBuild", 'Legacy named gifts do not delegate high-value building plans');
+requireText(livingKingdoms, 'tier && !meta.__v712HighGiftPlan', 'V6.5 help tiers still duplicate high-gift building plans');
+rejectText(gameCore, "this.claimGiftLand(k, 24 * n); await this.instantGiftBuild", 'Legacy legendary gift building plan is still active');
 requireText(performanceKernel, 'function portDirection(kingdom, x, y)', 'Coast-only port validator missing');
 requireText(performanceKernel, 'lastTerritoryDrawRevision === ownerRevision', 'Territory revision gate missing');
 requireText(performanceKernel, 'dataset.averageTickMs', 'Long-run performance diagnostic missing');
@@ -186,4 +228,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(match => match
   await access(resolve(gameRoot, entry));
 }
 
-console.log(`TikTok God World V8 Mobile: fixed map + phased construction + coastal corridors + exact ROSE power + indexed long-run runtime OK (${buildingFiles.length} lossless prefabs, ${prefabBytes} bytes)`);
+console.log(`TikTok God World V8 Mobile: fixed map + transactional JOIN + natural coastal expansion + irregular frontier + scaled high gifts + exact ROSE power + indexed long-run runtime OK (${buildingFiles.length} lossless prefabs, ${prefabBytes} bytes)`);

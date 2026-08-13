@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v711-building-scale-lock-3-targeted';
+  const VERSION = 'v711-building-scale-lock-4-smaller-forge';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
   const STABLE_LOCKED_WORLD_HEIGHT = 17.5;
-  const FORGE_LOCKED_WORLD_HEIGHT = 29;
+  const FORGE_LOCKED_WORLD_HEIGHT = 24;
   const MARKET_LOCKED_WORLD_HEIGHT = 24;
 
   const state = window.__V711_BUILDING_SCALE_LOCK = {
@@ -20,9 +20,6 @@
     stableLocks: 0,
     forgeLocks: 0,
     marketLocks: 0,
-    portGuard: false,
-    inlandPortsRejected: 0,
-    duplicatePortsRejected: 0,
     errors: []
   };
 
@@ -71,38 +68,6 @@
     return count;
   }
 
-  function isSea(sim, x, y) {
-    return !!sim.inBounds?.(x, y) && !sim.land(x, y);
-  }
-
-  function validPortCell(sim, kingdom, x, y) {
-    if (!kingdom?.alive || !sim.inBounds?.(x, y) || !sim.land(x, y)) return false;
-    if (sim.isRiver?.(x, y) || sim.getOwner?.(x, y) !== kingdom.id) return false;
-    if (['mountain', 'ice_coast'].includes(sim.biome?.(x, y))) return false;
-    if ((sim.coastDistance?.(x, y) ?? 99) > 1) return false;
-    return isSea(sim, x, y + 1) || isSea(sim, x + 1, y);
-  }
-
-  function hasAlivePort(kingdom) {
-    return (kingdom?.buildings || []).some(building =>
-      building?.type === 'port' && !building.__v66Destroyed && (!Number.isFinite(building.hp) || building.hp > 0));
-  }
-
-  function installPortGuard(sim) {
-    if (!sim || sim.__v711FinalPortGuard || typeof sim.addBuilding !== 'function') return false;
-    sim.__v711FinalPortGuard = true;
-    const originalAddBuilding = sim.addBuilding.bind(sim);
-    sim.addBuilding = function(kingdom, type, x, y, ...rest) {
-      if (type === 'port') {
-        if (hasAlivePort(kingdom)) { state.duplicatePortsRejected++; return null; }
-        if (!validPortCell(this, kingdom, x, y)) { state.inlandPortsRejected++; return null; }
-      }
-      return originalAddBuilding(kingdom, type, x, y, ...rest);
-    };
-    state.portGuard = true;
-    return true;
-  }
-
   function installScaleLock(sim) {
     const renderer = sim?.r;
     if (!renderer || renderer.__v711ScaleLock || typeof renderer.buildingScale !== 'function') return false;
@@ -135,7 +100,6 @@
     }
 
     normalizeAll(sim);
-    installPortGuard(sim);
     state.installed = true;
     document.documentElement.dataset.buildingScaleLock = VERSION;
     return true;

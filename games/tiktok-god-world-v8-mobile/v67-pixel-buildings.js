@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v67-pixel-buildings-1';
+  const VERSION = 'v67-pixel-buildings-2-single-port-owner';
   if (window.__V67_PIXEL_BUILDINGS?.installed) return;
 
   const ASSET_DATA = window.__V67_ASSET_DATA || {};
@@ -137,31 +137,6 @@
     return best;
   }
 
-  function portBasicCell(sim, x, y) {
-    if (!sim.land(x, y) || sim.isRiver(x, y)) return false;
-    if (['mountain', 'ice_coast'].includes(sim.biome(x, y))) return false;
-    if (sim.coastDistance(x, y) > 1) return false;
-    // The port sprite opens toward the lower-left of the isometric screen.
-    // +Y is exactly that direction, so the pier is only allowed where +Y is sea.
-    if (sim.land(x, y + 1)) return false;
-    return true;
-  }
-
-  function portCell(sim, k) {
-    let best = null, bestScore = -Infinity;
-    for (const token of k.territory) {
-      const [x, y] = token.split(',').map(Number);
-      if (sim.getOwner(x, y) !== k.id || !portBasicCell(sim, x, y)) continue;
-      if (sim.buildingBlockingCell(x, y) || !sim.buildingSpacingOK(k, 'port', x, y)) continue;
-      if (k.farmers.some(f => f.cell?.[0] === x && f.cell?.[1] === y)) continue;
-      const beach = sim.biome(x, y) === 'beach' ? 4 : 0;
-      const d = Math.hypot(k.capital[0] - x, k.capital[1] - y);
-      const score = beach - d * 0.035 + Math.random() * 0.35;
-      if (score > bestScore) { bestScore = score; best = [x, y]; }
-    }
-    return best;
-  }
-
   async function playPortConstruction(renderer, sprite, color, frames) {
     if (!sprite?.parent || sprite.destroyed || sprite.__v67PortConstruction) return;
     sprite.__v67PortConstruction = true;
@@ -265,16 +240,10 @@
     const portConstruction = port.slice(0, 3).map(tex => splitFactionTexture(renderer, tex));
 
     const originalIsBuildable = sim.isBuildableCell.bind(sim);
-    sim.isBuildableCell = function(x, y, type = 'house_a') {
-      if (type === 'port') return portBasicCell(this, x, y);
-      return originalIsBuildable(x, y, type);
-    };
-
     const originalFindBuildCell = sim.findBuildCell.bind(sim);
     sim.findBuildCell = function(k, type, initial = false) {
       if (type === 'church') return churchCell(this, originalIsBuildable, k);
       if (type === 'windmill') return windmillCell(this, originalIsBuildable, k);
-      if (type === 'port') return portCell(this, k);
       return originalFindBuildCell(k, type, initial);
     };
 
@@ -328,25 +297,6 @@
       };
       const result = originalAddBuilding(...args);
       return result && typeof result.then === 'function' ? result.then(finish) : finish(result);
-    };
-
-    const originalBuildAI = sim.buildAI.bind(sim);
-    sim.buildAI = async function(k) {
-      const hasPort = k.buildings.some(b => b.type === 'port');
-      if (!hasPort && this.age - k.lastBuild >= 6 && k.pop >= 10 && k.territory.size >= 16 &&
-          k.resources.wood >= 105 && k.resources.stone >= 30 && k.resources.gold >= 15) {
-        const cell = this.findBuildCell(k, 'port', false);
-        if (cell) {
-          const b = await this.addBuilding(k, 'port', cell[0], cell[1], false);
-          if (b) {
-            k.resources.wood -= 105; k.resources.stone -= 30; k.resources.gold -= 15;
-            k.lastBuild = this.age;
-            this.r.puff?.(...this.iso(cell[0], cell[1]));
-            return;
-          }
-        }
-      }
-      return originalBuildAI(k);
     };
 
     installCastlePatrolCollision(sim, renderer);

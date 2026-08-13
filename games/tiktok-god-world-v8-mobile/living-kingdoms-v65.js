@@ -289,6 +289,7 @@
 
     sim.follow = function (name) {
       const k = this.kingdomByName.get(String(name).toLowerCase());
+      if (this.queueFoundingInteraction?.(k, 'follow', [name])) return;
       if (!k?.alive || k.followed) return;
       k.followed = true;
       k.resources.wood += 85;
@@ -309,7 +310,7 @@
       const diamonds = Math.max(0, Number(meta.diamonds || meta.diamondCount || 0));
       const total = diamonds * Math.max(1, Number(repeat) || 1);
       const tier = tierForGift(giftName, total);
-      if (tier) await applyInstantHelp(this, k, tier, repeat, name);
+      if (tier && !meta.__v712HighGiftPlan) await applyInstantHelp(this, k, tier, repeat, name);
       k.popCap = housingCapacity(k);
       k.pop = Math.min(k.pop, k.popCap);
       await this.syncCitizens(k);

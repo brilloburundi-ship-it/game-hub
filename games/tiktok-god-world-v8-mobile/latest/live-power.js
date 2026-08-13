@@ -1,15 +1,15 @@
 (() => {
   'use strict';
-  const VERSION='v713-live-power-1';
+  const VERSION='v713-live-power-2-value-scaled';
   if(window.__V713_LIVE_POWER?.installed)return;
   const LIKE_POWER=10, POWER_PER_DIAMOND=100, FOLLOW_BOOST=120, BIG_THRESHOLD=1000;
   const BIG=['meteor','galaxy','lion','universe','dragon','castle fantasy','interstellar','phoenix'];
-  const state=window.__V713_LIVE_POWER={installed:false,version:VERSION,likePower:10,rosePower:100,powerPerDiamond:100,bigGiftThreshold:1000,followBoostSeconds:120,events:0,lastGiftPowerDelta:0,lastGiftInteractionAdded:0,combatScaling:false,conquestScaling:false,errors:[]};
+  const state=window.__V713_LIVE_POWER={installed:false,version:VERSION,likePower:10,rosePower:100,powerPerDiamond:100,bigGiftThreshold:1000,followBoostSeconds:120,events:0,lastGiftUnits:0,lastGiftPowerDelta:0,lastGiftInteractionAdded:0,combatScaling:false,conquestScaling:false,errors:[]};
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const getK=(sim,name)=>sim?.kingdomByName?.get?.(String(name||'').toLowerCase())||null;
   function fallback(name){const g=String(name||'').toLowerCase();if(g.includes('rose'))return 1;if(g.includes('ice cream')||g.includes('finger heart'))return 5;if(g.includes('coffee')||g.includes('doughnut')||g.includes('donut'))return 15;if(g.includes('perfume')||g.includes('firework')||g.includes('tiktok'))return 50;if(g.includes('money gun')||g.includes('train')||g.includes('motorcycle'))return 180;if(g.includes('sports car')||g.includes('yacht')||g.includes('private jet')||g.includes('whale diving'))return 600;if(BIG.some(x=>g.includes(x)))return 1500;return 1;}
-  function value(gift,repeat,meta){const n=Math.max(1,Number(repeat)||1),d=Math.max(0,Number(meta?.diamonds||meta?.diamondCount||0));return Math.max(1,d||fallback(gift))*n;}
+  function value(gift,repeat,meta){const n=Math.max(1,Number(repeat)||1),fields=[meta?.diamonds,meta?.diamondCount,meta?.giftValue,meta?.coinValue,meta?.value,meta?.price],explicit=fields.map(Number).find(v=>Number.isFinite(v)&&v>0),unit=Math.max(0,explicit||0)||fallback(gift);return Math.max(1,unit)*n;}
   function addPower(k,n){if(k?.alive&&Number.isFinite(n)&&n>0)k.__v713InteractionPower=Math.max(0,Number(k.__v713InteractionPower||0))+n;}
   function combatMult(sim,k){const p=Math.max(0,Number(sim.power?.(k)||0));return clamp(1+Math.log10(1+p/100)*.35,1,3);}
   function baseHp(u){return u?.role==='archer'?38:(u?.role==='spear'?54:48);}
@@ -19,7 +19,40 @@
     const oldPower=sim.power.bind(sim);sim.power=function(k){return oldPower(k)+Math.max(0,Number(k?.__v713InteractionPower||0));};
     const oldLike=sim.like.bind(sim);sim.like=function(name,count=1){const out=oldLike(name,count),k=getK(this,name);if(k?.alive){addPower(k,Math.max(1,Number(count)||1)*LIKE_POWER);this.updateSelected?.();this.updateUI?.();}return out;};
     const oldFollow=sim.follow.bind(sim);sim.follow=function(name,...rest){const before=getK(this,name)?.followed,out=oldFollow(name,...rest),k=getK(this,name);if(k?.alive&&!before&&k.followed){k.boostUntil=Math.max(Number(k.boostUntil||0),this.age+FOLLOW_BOOST);k.lastBuild-=12;k.lastExpand-=5;k.lastPop-=4;k.resources.food+=120;k.resources.wood+=160;k.resources.stone+=80;k.resources.gold+=45;this.updateSelected?.();this.updateUI?.();}return out;};
-    const oldGift=sim.gift.bind(sim);sim.gift=async function(name,gift,repeat=1,meta={}){const k=getK(this,name),v=value(gift,repeat,meta),big=v>=BIG_THRESHOLD||BIG.some(x=>String(gift||'').toLowerCase().includes(x)),before=k?.alive?this.power(k):0;if(k?.alive&&big){k.__v713GiftBuildOverride=true;this.claimGiftLand?.(k,clamp(Math.round(42+Math.sqrt(v)*.7),42,95));}let out;try{out=await oldGift(name,gift,repeat,meta);}finally{if(k&&big)k.__v713GiftBuildOverride=false;}const live=getK(this,name);if(live?.alive){live.resources.food+=v*10;live.resources.wood+=v*8;live.resources.stone+=v*6;live.resources.gold+=v*5;const target=v*POWER_PER_DIAMOND,current=Math.max(0,this.power(live)-before),interaction=Math.max(0,target-current);addPower(live,interaction);const log=Math.log2(v+1);live.lastBuild-=clamp(.8+log*1.2,1,16);live.lastExpand-=clamp(.5+log*.7,.7,9);live.lastPop-=clamp(.35+log*.45,.5,6);live.boostUntil=Math.max(Number(live.boostUntil||0),this.age+clamp(25+Math.sqrt(v)*10,30,480));if(big){live.__v713Superpower=true;live.__v713MetropolisGiftAt=this.age;}state.events++;state.lastGiftInteractionAdded=interaction;state.lastGiftPowerDelta=this.power(live)-before;document.documentElement.dataset.lastGiftPowerDelta=state.lastGiftPowerDelta.toFixed(3);this.updateSelected?.();this.updateUI?.();}return out;};
+    const oldGift=sim.gift.bind(sim);
+    sim.gift=async function(name,gift,repeat=1,meta={}){
+      if(typeof this.waitForKingdomReady==='function')await this.waitForKingdomReady(name);
+      const k=getK(this,name),v=value(gift,repeat,meta),big=v>=BIG_THRESHOLD||BIG.some(x=>String(gift||'').toLowerCase().includes(x)),before=k?.alive?this.power(k):0;
+      if(k?.alive&&big){
+        k.__v713GiftBuildOverrideCount=Math.max(0,Number(k.__v713GiftBuildOverrideCount||0))+1;
+        k.__v713GiftBuildOverride=true;
+      }
+      let out;
+      try{
+        if(k?.alive&&big)this.claimGiftLand?.(k,clamp(Math.round(42+Math.sqrt(v)*.7),42,95));
+        out=await oldGift(name,gift,repeat,meta);
+      }
+      finally{
+        if(k&&big){
+          k.__v713GiftBuildOverrideCount=Math.max(0,Number(k.__v713GiftBuildOverrideCount||0)-1);
+          k.__v713GiftBuildOverride=k.__v713GiftBuildOverrideCount>0;
+        }
+      }
+      const live=getK(this,name);
+      if(live?.alive){
+        live.resources.food+=v*10;live.resources.wood+=v*8;live.resources.stone+=v*6;live.resources.gold+=v*5;
+        const target=v*POWER_PER_DIAMOND,current=Math.max(0,this.power(live)-before),interaction=Math.max(0,target-current);
+        addPower(live,interaction);
+        const log=Math.log2(v+1);
+        live.lastBuild-=clamp(.8+log*1.2,1,16);live.lastExpand-=clamp(.5+log*.7,.7,9);live.lastPop-=clamp(.35+log*.45,.5,6);
+        live.boostUntil=Math.max(Number(live.boostUntil||0),this.age+clamp(25+Math.sqrt(v)*10,30,480));
+        if(big){live.__v713Superpower=true;live.__v713MetropolisGiftAt=this.age;}
+        state.events++;state.lastGiftUnits=v;state.lastGiftInteractionAdded=interaction;state.lastGiftPowerDelta=this.power(live)-before;
+        document.documentElement.dataset.lastGiftUnits=String(v);document.documentElement.dataset.lastGiftPowerDelta=String(Math.round(state.lastGiftPowerDelta*1000)/1000);
+        this.updateSelected?.();this.updateUI?.();
+      }
+      return out;
+    };
     const oldWars=sim.r.updateWars.bind(sim.r);sim.r.updateWars=function(s,dt){strengthenGuards(s||sim,this);const out=oldWars(s,dt);speedHits(s||sim,this);return out;};state.combatScaling=true;
     const oldResolve=sim.resolveWars.bind(sim);sim.resolveWars=function(){for(const w of this.wars||[]){if(w.done)continue;const a=this.kingdoms?.[w.a],b=this.kingdoms?.[w.b];if(!a?.alive||!b?.alive)continue;const pa=Math.max(1,this.power(a)),pb=Math.max(1,this.power(b)),ratio=Math.max(pa,pb)/Math.max(1,Math.min(pa,pb));if(ratio>1.25)w.lastCapture-=clamp((ratio-1)*.55,0,1.65);}return oldResolve();};state.conquestScaling=true;
     state.installed=true;document.documentElement.dataset.livePower=VERSION;

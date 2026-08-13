@@ -26,7 +26,6 @@
 
   const TYPES = new Set(Object.keys(BUILDINGS));
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-  const STABLE_SMALL_SCALE = (28 * .72) / BUILDINGS.stable.h;
   const KINGDOM_FRAME_CACHE = new Map();
 
   const aliases = new Map([
@@ -278,8 +277,8 @@
     }));
     window.__CONSTRUCTION_PIXEL_TEXTURES=result;
     window.__CONSTRUCTION_PIXEL_META={
-      version:'v662-native-pixel-3',stages:3,nativeSizes:true,tintMasks:true,
-      kingdomColorLocked:true,kingdomStageTextureSource:true,stableSmallScale:true,farmFoundationHidden:true
+      version:'v662-native-pixel-4-single-scale-owner',stages:3,nativeSizes:true,tintMasks:true,
+      kingdomColorLocked:true,kingdomStageTextureSource:true,stableScaleDelegated:true,farmFoundationHidden:true
     };
     document.documentElement.dataset.constructionAssets='ready';
     return result;
@@ -300,13 +299,6 @@
 
   function area(sprite) {
     try { return Math.abs((sprite.width||0)*(sprite.height||0)); } catch (_) { return 0; }
-  }
-
-  function forceStableSmallScale(sprite) {
-    if (!sprite?.scale) return;
-    const sx=sprite.scale.x<0?-1:1, sy=sprite.scale.y<0?-1:1;
-    sprite.scale.set(STABLE_SMALL_SCALE*sx,STABLE_SMALL_SCALE*sy);
-    sprite.__stableSmallScaleLocked=true;
   }
 
   function hideFarmFoundation(result) {
@@ -333,8 +325,6 @@
     if (!sprite?.parent || sprite.destroyed || sprite.__constructionStagesPlayed) return;
     sprite.__constructionStagesPlayed=true;
     sprite.__constructionKingdomColor=color;
-    if (type==='stable') forceStableSmallScale(sprite);
-
     const fallback=await window.__CONSTRUCTION_TEXTURES_READY;
     const frames=kingdomFrames(sprite,type,color,renderer)||fallback?.[type];
     if (!frames?.length || !sprite?.parent || sprite.destroyed) return;
@@ -345,7 +335,6 @@
       const durations=['castle','keep','gate'].includes(type)?[720,760,820]:[520,570,620];
       for (let i=0;i<3;i++) {
         for (const item of active) if (!item.destroyed) item.destroy();
-        if (type==='stable') forceStableSmallScale(sprite);
         const base=new window.PIXI.Sprite(frames[i].base),mask=new window.PIXI.Sprite(frames[i].mask);
         copyTransform(sprite,base);copyTransform(sprite,mask);
         mask.tint=color;
@@ -362,7 +351,6 @@
       for (const item of active) if (item && !item.destroyed) item.destroy();
       if (sprite && !sprite.destroyed) {
         sprite.visible=wasVisible;sprite.renderable=wasRenderable;
-        if (type==='stable') forceStableSmallScale(sprite);
       }
       if (renderer?.entities?.sortableChildren) renderer.entities.sortDirty=true;
     }
@@ -394,15 +382,12 @@
 
           sprite.__buildingType=type;
           sprite.__owner=Number.isInteger(result?.owner)?result.owner:sprite.__owner;
-          if (type==='stable') forceStableSmallScale(sprite);
-
           const color=inferKingdomColor(args,result,sprite);
           sprite.__constructionKingdomColor=color;
           play(sprite,type,color,renderer).catch(error=>{
             console.error('[construction-phases-v662]',error);
             if (sprite && !sprite.destroyed) {
               sprite.visible=true;sprite.renderable=true;
-              if (type==='stable') forceStableSmallScale(sprite);
             }
           });
         });

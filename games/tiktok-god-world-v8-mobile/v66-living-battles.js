@@ -1,12 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '6.6-living-battles';
+  const VERSION = '6.6-living-battles-2-single-scale-owner';
   const PEACE_GUARD_MAX = 8;
   const WAR_GUARD_MAX = 14;
   const MAX_FRAME_DT = 0.05;
   const CIVILIAN_VISIBLE_CAP = 24;
-  const LARGE_PREFAB_SCALE = { warehouse: 0.72, stable: 0.88 };
+  const LARGE_PREFAB_SCALE = { warehouse: 0.72 };
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const rand = (a, b) => a + Math.random() * (b - a);

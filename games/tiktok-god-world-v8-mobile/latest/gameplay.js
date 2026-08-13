@@ -440,7 +440,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v712-engagement-recovery-1';
+  const VERSION = 'v712-engagement-recovery-2-natural-coast';
   if (window.__V712_ENGAGEMENT_RECOVERY?.bootstrap) return;
 
   const state = window.__V712_ENGAGEMENT_RECOVERY = {
@@ -454,9 +454,11 @@
     likePowerEvents: 0,
     giftPowerEvents: 0,
     bigHelpCities: 0,
+    lastBigHelpRequested: 0,
+    lastBigHelpBuilt: 0,
     recoveredWindmills: 0,
     portsBuilt: 0,
-    coastalCorridors: 0,
+    portsWaitingForCoast: 0,
     errors: []
   };
 
@@ -472,12 +474,12 @@
     'interstellar', 'phoenix'
   ];
 
-  const BIG_CITY_TYPES = [
-    'house', 'house', 'house', 'house', 'house',
-    'farm', 'farm', 'farm',
+  const BIG_CITY_PATTERN = [
+    'house', 'house', 'house', 'house', 'house', 'house', 'house', 'house',
+    'farm', 'farm', 'farm', 'farm',
     'warehouse', 'warehouse', 'market',
     'barracks', 'barracks', 'forge', 'stable', 'silo',
-    'church', 'windmill', 'watchtower', 'stone_tower', 'port'
+    'church', 'windmill', 'watchtower', 'stone_tower'
   ];
 
   function kingdomByName(sim, name) {
@@ -502,8 +504,9 @@
 
   function giftValue(gift, repeat, meta) {
     const n = Math.max(1, Number(repeat) || 1);
-    const diamonds = Math.max(0, Number(meta?.diamonds || meta?.diamondCount || 0));
-    return Math.max(1, diamonds || giftFallbackValue(gift)) * n;
+    const fields = [meta?.diamonds, meta?.diamondCount, meta?.giftValue, meta?.coinValue, meta?.value, meta?.price];
+    const explicit = fields.map(Number).find(value => Number.isFinite(value) && value > 0);
+    return Math.max(1, Math.max(0, explicit || 0) || giftFallbackValue(gift)) * n;
   }
 
   function giftPower(value) {
@@ -526,11 +529,33 @@
     return BIG_CITY_GIFTS.some(token => g.includes(token)) || giftValue(gift, repeat, meta) >= 1000;
   }
 
-  async function buildPowerCity(sim, k, repeat = 1) {
-    if (!k?.alive || k.__v712BigHelpBusy || typeof sim.instantGiftBuild !== 'function') return 0;
-    k.__v712BigHelpBusy = true;
-    try {
+  function bigCityBuildingCount(gift, value, repeat) {
+    const name = String(gift || '').toLowerCase();
+    let count = name.includes('galaxy') ? 28 : name.includes('lion') ? 34 : 40;
+    if (value >= 2500) count += 3;
+    if (value >= 5000) count += 3;
+    count += (clamp(Math.max(1, Number(repeat) || 1), 1, 3) - 1) * 8;
+    return clamp(Math.round(count), 28, 56);
+  }
+
+  function bigCityPlan(count) {
+    const plan = [];
+    for (let index = 0; plan.length < count && index < count * 3; index++) {
+      const type = BIG_CITY_PATTERN[index % BIG_CITY_PATTERN.length];
+      plan.push(type);
+    }
+    return plan;
+  }
+
+  async function buildPowerCity(sim, k, gift, repeat = 1, meta = {}) {
+    if (!k?.alive || typeof sim.instantGiftBuild !== 'function') return 0;
+    const run = async () => {
+      if (!k?.alive || k.founding) return 0;
+      k.__v712BigHelpBusy = true;
+      try {
       const scale = clamp(Math.max(1, Number(repeat) || 1), 1, 3);
+      const value = giftValue(gift, repeat, meta);
+      const types = bigCityPlan(bigCityBuildingCount(gift, value, repeat));
       k.resources.food += 1800 * scale;
       k.resources.wood += 1500 * scale;
       k.resources.stone += 1050 * scale;
@@ -538,8 +563,7 @@
       k.military += 120 * scale;
       k.popCap += 22 * scale;
 
-      sim.claimGiftLand?.(k, Math.round(26 + scale * 8));
-      const types = hasPort(k) ? BIG_CITY_TYPES.filter(type => type !== 'port') : BIG_CITY_TYPES;
+      sim.claimGiftLand?.(k, Math.round(20 + types.length * 1.1));
       const built = await sim.instantGiftBuild(k, types);
       if (typeof sim.giftPopulation === 'function') await sim.giftPopulation(k, Math.round(16 * scale));
       k.lastBuild -= 8;
@@ -550,13 +574,24 @@
       sim.updateSelected?.();
       state.bigHelpCities++;
       state.bigHelpCity = true;
+      state.lastBigHelpRequested = types.length;
+      state.lastBigHelpBuilt = built || 0;
       return built || 0;
-    } catch (error) {
-      state.errors.push(String(error?.stack || error?.message || error));
-      return 0;
-    } finally {
-      k.__v712BigHelpBusy = false;
-    }
+      } catch (error) {
+        state.errors.push(String(error?.stack || error?.message || error));
+        return 0;
+      } finally {
+        k.__v712BigHelpBusy = false;
+      }
+    };
+
+    // Preserve every LIVE event, but serialize this existing owner per kingdom so
+    // two Universe/Lion gifts cannot race or make the second plan disappear.
+    const previous = k.__v712BigHelpQueue || Promise.resolve();
+    const queued = Promise.resolve(previous).catch(() => 0).then(run);
+    k.__v712BigHelpQueue = queued;
+    try { return await queued; }
+    finally { if (k.__v712BigHelpQueue === queued) k.__v712BigHelpQueue = null; }
   }
 
   function installInteractionPower(sim) {
@@ -598,22 +633,27 @@
     if (typeof sim.gift === 'function') {
       const originalGift = sim.gift.bind(sim);
       sim.gift = async function(name, gift, repeat = 1, meta = {}) {
-        const out = await originalGift(name, gift, repeat, meta);
-        const k = kingdomByName(this, name);
-        if (!k?.alive) return out;
+        const ready = typeof this.waitForKingdomReady === 'function' ? await this.waitForKingdomReady(name) : kingdomByName(this, name);
+        const isHighGift = !!ready?.alive && isBigHelpGift(gift, repeat, meta);
+        const routedMeta = isHighGift ? { ...meta, __v712HighGiftPlan: true } : meta;
+        {
+          const out = await originalGift(name, gift, repeat, routedMeta);
+          const k = kingdomByName(this, name);
+          if (!k?.alive) return out;
 
-        const value = giftValue(gift, repeat, meta);
-        const power = giftPower(value);
-        k.military += power;
-        strengthenViewerMeter(this, k, clamp(power * 0.42, 0.6, 10), clamp(30 + power * 4, 35, 120));
-        k.lastBuild -= clamp(power * 0.16, 0.2, 4.5);
-        k.lastExpand -= clamp(power * 0.10, 0.15, 3.0);
-        k.lastPop -= clamp(power * 0.07, 0.1, 2.0);
-        state.giftPowerEvents++;
+          const value = giftValue(gift, repeat, meta);
+          const power = giftPower(value);
+          k.military += power;
+          strengthenViewerMeter(this, k, clamp(power * 0.42, 0.6, 10), clamp(30 + power * 4, 35, 120));
+          k.lastBuild -= clamp(power * 0.16, 0.2, 4.5);
+          k.lastExpand -= clamp(power * 0.10, 0.15, 3.0);
+          k.lastPop -= clamp(power * 0.07, 0.1, 2.0);
+          state.giftPowerEvents++;
 
-        if (isBigHelpGift(gift, repeat, meta)) await buildPowerCity(this, k, repeat);
-        this.updateSelected?.();
-        return out;
+          if (isHighGift) await buildPowerCity(this, k, gift, repeat, meta);
+          this.updateSelected?.();
+          return out;
+        }
       };
     }
 
@@ -711,113 +751,6 @@
     return true;
   }
 
-  function isSea(sim, x, y) {
-    return sim.inBounds?.(x, y) && !sim.land(x, y);
-  }
-
-  function fallbackPortCell(sim, k) {
-    let best = null, bestScore = -Infinity;
-    for (const token of k.territory || []) {
-      const [x, y] = String(token).split(',').map(Number);
-      if (!sim.inBounds?.(x, y) || !sim.land(x, y) || sim.isRiver?.(x, y) || sim.getOwner?.(x, y) !== k.id) continue;
-      if (['mountain', 'ice_coast'].includes(sim.biome?.(x, y))) continue;
-      if ((sim.coastDistance?.(x, y) ?? 99) > 1) continue;
-      if (sim.buildingBlockingCell?.(x, y) || !sim.buildingSpacingOK?.(k, 'port', x, y)) continue;
-      if ((k.farmers || []).some(f => f.cell?.[0] === x && f.cell?.[1] === y)) continue;
-
-      let direction = null;
-      if (isSea(sim, x, y + 1)) direction = [0, 1];
-      else if (isSea(sim, x + 1, y)) direction = [1, 0];
-      if (!direction) continue;
-      const beach = sim.biome?.(x, y) === 'beach' ? 5 : 0;
-      const distance = Math.hypot(x - k.capital[0], y - k.capital[1]);
-      const score = beach - distance * 0.04 + Math.random() * 0.35;
-      if (score > bestScore) {
-        bestScore = score;
-        best = { cell: [x, y], direction };
-      }
-    }
-    return best;
-  }
-
-  function rawPortDirection(sim, x, y) {
-    if (!sim.inBounds?.(x, y) || !sim.land(x, y) || sim.isRiver?.(x, y)) return null;
-    if (['mountain', 'ice_coast'].includes(sim.biome?.(x, y))) return null;
-    if ((sim.coastDistance?.(x, y) ?? 99) > 1) return null;
-    if (isSea(sim, x, y + 1)) return [0, 1];
-    if (isSea(sim, x + 1, y)) return [1, 0];
-    return null;
-  }
-
-  // A kingdom may begin inland. When its port milestone is ready, find the
-  // nearest neutral coast and connect it with a real, continuous strip of owned
-  // land. The building itself is still created only on the sea-facing coast.
-  function acquireCoastalBerth(sim, k) {
-    const width = sim.w.gridW, height = sim.w.gridH;
-    const key = (x, y) => `${x},${y}`;
-    const candidates = new Map();
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        const owner = sim.getOwner(x, y);
-        if (owner !== -1 && owner !== k.id) continue;
-        const direction = rawPortDirection(sim, x, y);
-        if (!direction || sim.buildingBlockingCell?.(x, y) || !sim.buildingSpacingOK?.(k, 'port', x, y)) continue;
-        candidates.set(key(x, y), { cell: [x, y], direction });
-      }
-    }
-    if (!candidates.size) return null;
-
-    const queue = [];
-    const previous = new Map();
-    for (const value of k.territory || []) {
-      const [x, y] = String(value).split(',').map(Number);
-      if (!sim.inBounds(x, y)) continue;
-      const id = key(x, y);
-      if (previous.has(id)) continue;
-      previous.set(id, null);
-      queue.push([x, y]);
-    }
-
-    let head = 0, found = null;
-    while (head < queue.length && head < 3200) {
-      const [x, y] = queue[head++];
-      const id = key(x, y);
-      if (candidates.has(id)) { found = candidates.get(id); break; }
-      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-        const next = key(nx, ny);
-        if (previous.has(next) || !sim.inBounds(nx, ny) || !sim.land(nx, ny) || sim.isRiver?.(nx, ny)) continue;
-        if (['mountain', 'ice_coast'].includes(sim.biome?.(nx, ny))) continue;
-        const owner = sim.getOwner(nx, ny);
-        if (owner !== -1 && owner !== k.id) continue;
-        previous.set(next, id);
-        queue.push([nx, ny]);
-      }
-    }
-    if (!found) return null;
-
-    const route = [];
-    let current = key(found.cell[0], found.cell[1]);
-    while (current && previous.has(current)) {
-      const [x, y] = current.split(',').map(Number);
-      route.push([x, y]);
-      current = previous.get(current);
-    }
-    route.reverse();
-    if (route.length > 42) return null;
-
-    let claimed = 0;
-    for (const [x, y] of route) {
-      if (sim.getOwner(x, y) !== -1) continue;
-      sim.setOwner(x, y, k.id);
-      k.territory.add(key(x, y));
-      claimed++;
-    }
-    if (!claimed) return null;
-    sim.r?.redrawTerritories?.(sim, true);
-    state.coastalCorridors++;
-    return found;
-  }
-
   async function buildIndependentPort(sim, k) {
     if (!k?.alive || hasPort(k) || k.__v712PortBusy) return false;
     if (sim.age < PORT_MIN_AGE || k.pop < 6 || k.territory.size < 10) return false;
@@ -825,22 +758,14 @@
 
     k.__v712PortBusy = true;
     try {
-      let cell = typeof sim.findBuildCell === 'function' ? sim.findBuildCell(k, 'port', false) : null;
-      let direction = cell ? rawPortDirection(sim, cell[0], cell[1]) : null;
-      let force = false;
-      if (!cell) {
-        const fallback = fallbackPortCell(sim, k) || acquireCoastalBerth(sim, k);
-        if (!fallback) return false;
-        cell = fallback.cell;
-        direction = fallback.direction;
-        force = true;
-      }
+      // The final V8 placement owner searches only territory already held by the
+      // kingdom. Inland kingdoms wait until normal expansion reaches the coast.
+      const cell = typeof sim.findBuildCell === 'function' ? sim.findBuildCell(k, 'port', false) : null;
+      if (!cell) { state.portsWaitingForCoast++; return false; }
 
-      const b = await sim.addBuilding(k, 'port', cell[0], cell[1], force, false);
+      const b = await sim.addBuilding(k, 'port', cell[0], cell[1], false, false);
       if (!b) return false;
       for (const [resource, cost] of Object.entries(PORT_COST)) k.resources[resource] -= cost;
-      b.__v712PortDirection = direction;
-      if (direction?.[0] === 1 && b._sprite?.scale) b._sprite.scale.x = -Math.abs(b._sprite.scale.x);
       // The port is an independent milestone: do not consume the normal construction timer.
       sim.r?.puff?.(...sim.iso(cell[0], cell[1]));
       state.portsBuilt++;
