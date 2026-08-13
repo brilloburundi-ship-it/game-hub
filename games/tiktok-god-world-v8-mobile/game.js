@@ -451,7 +451,7 @@
     updateSelected() {
       const k = this.selected;
       if (!k || !k.alive) { UI.card.classList.add('hidden'); return; }
-      UI.card.classList.toggle('hidden', !this.r.isKingdomDetailVisible?.(k));
+      if (!this.r.detailPresentationOwned) UI.card.classList.toggle('hidden', !this.r.isKingdomDetailVisible?.(k));
       UI.kColor.style.background = k.css; UI.kName.textContent = k.name;
       UI.food.textContent = fmt(k.resources.food); UI.wood.textContent = fmt(k.resources.wood); UI.stone.textContent = fmt(k.resources.stone); UI.gold.textContent = fmt(k.resources.gold);
       UI.pop.textContent = k.pop; UI.terr.textContent = k.territory.size; UI.power.textContent = Math.floor(this.power(k)); UI.build.textContent = k.buildings.length;
@@ -865,25 +865,39 @@
       }
     }
     eliminate(loser, winner) {
+      if (!loser?.alive) return false;
+      const castle = loser.buildings.find(building => building.type === 'castle' && !building.__v66Destroyed);
+      this.r.notifyCameraCastleDestruction?.(castle, loser, winner, 10);
       loser.alive = false;
-      for (const s of [...loser.territory]) {
-        const [x, y] = s.split(',').map(Number); this.setOwner(x, y, winner.id); winner.territory.add(s);
+      loser.aggressive = null;
+      const fallenCells = new Set([...loser.territory, key(loser.capital[0], loser.capital[1])]);
+      for (const s of fallenCells) {
+        const [x, y] = s.split(',').map(Number);
+        this.setOwner(x, y, -1);
+        for (const kingdom of this.kingdoms) kingdom.territory.delete(s);
       }
-      loser.territory.clear(); winner.resources.gold += loser.resources.gold * .5; winner.resources.food += loser.resources.food * .35;
+      loser.territory.clear();
+      if (winner?.alive) { winner.resources.gold += loser.resources.gold * .5; winner.resources.food += loser.resources.food * .35; }
       for (const building of [...loser.buildings]) {
-        if (building.type === 'castle' || Math.random() < .55) this.r.destroyBuilding(building, true);
-        else {
-          building.owner = winner.id;
-          winner.buildings.push(building);
-          if (building.type === 'farm') this.spawnFarmWorker(winner, building);
-          this.r.recolorBuilding?.(building, winner);
-        }
+        this.releaseFarmWorker(loser, building.id);
+        this.r.destroyBuilding(building, true);
       }
       loser.buildings.length = 0;
       for (const farmer of loser.farmers) this.r.removeFarmer?.(farmer);
       loser.farmers.length = 0;
-      this.r.eliminate(loser, winner); toast(`🏰 ${winner.name} conquers ${loser.name}`); feed('WORLD', `${loser.name} has fallen`);
-      if (this.selected === loser) this.select(winner);
+      for (const kingdom of this.kingdoms) kingdom.allies?.delete?.(loser.id);
+      for (const war of this.wars) {
+        if (war.done || (war.a !== loser.id && war.b !== loser.id)) continue;
+        war.done = true;
+        this.r.endWar?.(war);
+      }
+      this.r.redrawTerritories?.(this, true);
+      this.r.redrawSettlementGround?.(this);
+      this.r.eliminate(loser, winner);
+      toast(winner?.alive ? `🏰 ${winner.name} destroys ${loser.name}` : `🏰 ${loser.name} has fallen`);
+      feed('WORLD', `${loser.name} has fallen — its territory is now neutral`);
+      if (this.selected === loser) this.select(winner?.alive ? winner : null);
+      return true;
     }
 
     like(name, count = 1) {
@@ -1215,54 +1229,160 @@
     }
     installAutoCamera() {
       this.autoCamera = {
-        tourStartedAt: performance.now(), manualUntil: 0, gift: null,
-        mode: 'overview', kingdomIndex: -1, transitionSeconds: 1.8
+        tourStartedAt: performance.now(), manualUntil: 0, critical: null, criticalQueue: [], gift: null,
+        warShot: null, lastWarId: null, hadActiveWars: false,
+        mode: 'overview', kingdomIndex: -1, focusKingdom: null, shotKey: 'overview-0', transitionSeconds: 2.6
       };
-      document.documentElement.dataset.autoCamera = 'overview-10s-kingdoms-10s';
+      this.detailPresentationOwned = true;
+      this.detailShot = { key: '', shownAt: 0 };
+      document.documentElement.dataset.autoCamera = 'director-10s-slots-pan-v804';
     }
     notifyCameraGift(k, seconds = 10) {
       if (!this.autoCamera || !k?.alive) return;
-      this.autoCamera.gift = { kingdom: k, until: performance.now() + Math.max(1, seconds) * 1000 };
+      const now = performance.now();
+      this.autoCamera.gift = { kingdom: k, requestedAt: now, startedAt: 0, until: 0, durationMs: Math.max(10, seconds) * 1000 };
       this.autoCamera.manualUntil = 0;
     }
     notifyCameraWar() {
       if (this.autoCamera) this.autoCamera.manualUntil = 0;
     }
+    notifyCameraCastleDestruction(building, kingdom, winner, seconds = 10) {
+      if (!this.autoCamera || !kingdom) return;
+      const now = performance.now();
+      const point = building && Number.isFinite(building.sx) && Number.isFinite(building.sy)
+        ? [building.sx, building.sy]
+        : this.sim.iso(...kingdom.capital);
+      const event = {
+        x: point[0], y: point[1], kingdom, winner,
+        startedAt: now, until: now + Math.max(10, seconds) * 1000
+      };
+      if (this.autoCamera.critical && now < this.autoCamera.critical.until) this.autoCamera.criticalQueue.push(event);
+      else this.autoCamera.critical = event;
+      this.autoCamera.gift = null;
+      this.autoCamera.warShot = null;
+      this.autoCamera.manualUntil = 0;
+    }
+    kingdomWorldBounds(kingdom) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const token of kingdom?.territory || []) {
+        const [cellX, cellY] = token.split(',').map(Number);
+        if (!Number.isFinite(cellX) || !Number.isFinite(cellY)) continue;
+        const [x, y] = this.sim.iso(cellX, cellY);
+        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+      }
+      if (!Number.isFinite(minX)) {
+        const [x, y] = this.sim.iso(...kingdom.capital);
+        minX = maxX = x; minY = maxY = y;
+      }
+      return { minX: minX - 38, minY: minY - 64, maxX: maxX + 38, maxY: maxY + 42 };
+    }
+    kingdomCameraTarget(kingdom, now, shotStartedAt) {
+      const scale = innerWidth < 600 ? .82 : .92;
+      const bounds = this.kingdomWorldBounds(kingdom);
+      const viewW = innerWidth / scale, viewH = innerHeight / scale;
+      const width = bounds.maxX - bounds.minX, height = bounds.maxY - bounds.minY;
+      const panX = width > viewW * .78, panY = height > viewH * .70;
+      const progress = clamp((now - shotStartedAt) / 10000, 0, 1);
+      const eased = progress * progress * (3 - 2 * progress);
+      const halfW = viewW * .36, halfH = viewH * .32;
+      const startX = panX ? bounds.minX + halfW : (bounds.minX + bounds.maxX) * .5;
+      const endX = panX ? bounds.maxX - halfW : startX;
+      const startY = panY ? bounds.minY + halfH : (bounds.minY + bounds.maxY) * .5;
+      const endY = panY ? bounds.maxY - halfH : startY;
+      const x = startX + (endX - startX) * eased;
+      const y = startY + (endY - startY) * eased;
+      document.documentElement.dataset.autoCameraPan = panX || panY ? 'kingdom-slow-pan' : 'kingdom-centered';
+      return { scale, x: innerWidth * .5 - x * scale, y: innerHeight * .50 - y * scale };
+    }
+    warCameraTarget(director, now) {
+      const existing = director.warShot;
+      if (existing && now < existing.until) {
+        const current = (this.sim.wars || []).find(war => war.id === existing.warId && !war.done && Array.isArray(war.front));
+        if (current) {
+          const a = this.sim.iso(...current.front[0]), b = this.sim.iso(...current.front[1]);
+          existing.x = (a[0] + b[0]) * .5; existing.y = (a[1] + b[1]) * .5;
+        }
+        director.mode = 'war'; director.focusKingdom = null; director.shotKey = `war-${existing.warId}-${existing.startedAt}`;
+        const scale = innerWidth < 600 ? .92 : 1.02;
+        return { scale, x: innerWidth * .5 - existing.x * scale, y: innerHeight * .5 - existing.y * scale };
+      }
+
+      const wars = (this.sim.wars || []).filter(war => !war.done && Array.isArray(war.front));
+      if (!wars.length) {
+        director.warShot = null;
+        if (director.hadActiveWars) director.tourStartedAt = now - 10000;
+        director.hadActiveWars = false;
+        return null;
+      }
+      director.hadActiveWars = true;
+      let index = wars.findIndex(war => war.id === director.lastWarId);
+      index = (index + 1 + wars.length) % wars.length;
+      const war = wars[index], a = this.sim.iso(...war.front[0]), b = this.sim.iso(...war.front[1]);
+      director.lastWarId = war.id;
+      director.warShot = {
+        warId: war.id, startedAt: now, until: now + 10000,
+        x: (a[0] + b[0]) * .5, y: (a[1] + b[1]) * .5
+      };
+      return this.warCameraTarget(director, now);
+    }
     autoCameraTarget(now) {
       const director = this.autoCamera;
       if (!director) return null;
-      if (director.gift && now < director.gift.until && director.gift.kingdom?.alive) {
+      if (director.critical && now < director.critical.until) {
+        const critical = director.critical;
+        director.mode = 'castle-destruction'; director.focusKingdom = null;
+        director.shotKey = `castle-destruction-${critical.startedAt}`;
+        const scale = innerWidth < 600 ? .96 : 1.08;
+        return { scale, x: innerWidth * .5 - critical.x * scale, y: innerHeight * .52 - critical.y * scale };
+      }
+      director.critical = null;
+      if (director.criticalQueue.length) {
+        director.critical = director.criticalQueue.shift();
+        director.critical.startedAt = now; director.critical.until = now + 10000;
+        return this.autoCameraTarget(now);
+      }
+      if (director.warShot && now < director.warShot.until) return this.warCameraTarget(director, now);
+      director.warShot = null;
+      if (director.gift?.kingdom?.alive) {
+        if (!director.gift.startedAt) {
+          director.gift.startedAt = now;
+          director.gift.until = now + director.gift.durationMs;
+        }
+        if (now >= director.gift.until) director.gift = null;
+      }
+      if (director.gift?.kingdom?.alive) {
         director.mode = 'gift';
+        director.focusKingdom = director.gift.kingdom;
+        director.shotKey = `gift-${director.gift.startedAt}`;
         const [x, y] = this.sim.iso(...director.gift.kingdom.capital), scale = innerWidth < 600 ? .82 : .92;
         return { scale, x: innerWidth * .5 - x * scale, y: innerHeight * .47 - y * scale };
       }
       director.gift = null;
 
-      const wars = (this.sim.wars || []).filter(war => !war.done && Array.isArray(war.front));
-      if (wars.length) {
-        director.mode = 'war';
-        const war = wars[Math.floor(now / 10000) % wars.length];
-        const a = this.sim.iso(...war.front[0]), b = this.sim.iso(...war.front[1]);
-        const x = (a[0] + b[0]) * .5, y = (a[1] + b[1]) * .5, scale = innerWidth < 600 ? .92 : 1.02;
-        return { scale, x: innerWidth * .5 - x * scale, y: innerHeight * .5 - y * scale };
-      }
+      const warTarget = this.warCameraTarget(director, now);
+      if (warTarget) return warTarget;
 
       const elapsed = Math.max(0, now - director.tourStartedAt);
       const kingdoms = (this.sim.kingdoms || []).filter(k => k.alive && !k.founding);
       if (elapsed < 10000 || !kingdoms.length) {
-        director.mode = 'overview'; director.kingdomIndex = -1;
+        director.mode = 'overview'; director.kingdomIndex = -1; director.focusKingdom = null; director.shotKey = 'overview-0';
         const scale = this.overviewScale();
         return { scale, x: (innerWidth - this.w.mapWidth * scale) * .5, y: (innerHeight - this.w.mapHeight * scale) * .5 };
       }
-      director.kingdomIndex = Math.floor((elapsed - 10000) / 10000) % kingdoms.length;
+      const peaceSlot = Math.floor((elapsed - 10000) / 10000);
+      director.kingdomIndex = peaceSlot % kingdoms.length;
       director.mode = 'kingdom';
-      const kingdom = kingdoms[director.kingdomIndex], point = this.sim.iso(...kingdom.capital), scale = innerWidth < 600 ? .82 : .92;
-      return { scale, x: innerWidth * .5 - point[0] * scale, y: innerHeight * .47 - point[1] * scale };
+      const kingdom = kingdoms[director.kingdomIndex];
+      director.focusKingdom = kingdom;
+      director.shotKey = `peace-${peaceSlot}-${kingdom.id}`;
+      return this.kingdomCameraTarget(kingdom, now, director.tourStartedAt + 10000 + peaceSlot * 10000);
     }
     updateAutoCamera(dt, now = performance.now()) {
       if (!this.autoCamera || !this.root || this.drag || now < this.autoCamera.manualUntil) return;
       const target = this.autoCameraTarget(now); if (!target) return;
       document.documentElement.dataset.autoCameraMode = this.autoCamera.mode;
+      document.documentElement.dataset.autoCameraShotMs = '10000';
       const alpha = 1 - Math.exp(-Math.max(.35, 3 / this.autoCamera.transitionSeconds) * Math.max(.001, dt));
       const scale = this.root.scale.x + (target.scale - this.root.scale.x) * alpha;
       this.root.scale.set(scale);
@@ -1299,15 +1419,29 @@
     }
     syncKingdomDetail() {
       if (!this.sim || !this.root) return;
-      if (this.root.scale.x < .68) { UI.card.classList.add('hidden'); return; }
+      const now = performance.now(), director = this.autoCamera;
+      const automatic = director && now >= director.manualUntil;
+      if (this.root.scale.x < .68 || (automatic && !['kingdom', 'gift'].includes(director.mode))) {
+        UI.card.classList.add('hidden'); UI.card.classList.remove('fading'); this.detailShot.key = ''; return;
+      }
       let nearest = null, distance = Infinity;
-      for (const k of this.sim.kingdoms) {
+      const directed = automatic && director.focusKingdom?.alive ? director.focusKingdom : null;
+      for (const k of directed ? [directed] : this.sim.kingdoms) {
         const p = this.kingdomScreenPosition(k); if (!p) continue;
         const d = Math.hypot(p[0] - innerWidth * .5, p[1] - innerHeight * .48);
         if (d < distance) { distance = d; nearest = k; }
       }
-      if (!nearest || distance > Math.min(310, innerWidth * .54)) { UI.card.classList.add('hidden'); return; }
+      if (!nearest || (!directed && distance > Math.min(310, innerWidth * .54))) {
+        UI.card.classList.add('hidden'); UI.card.classList.remove('fading'); this.detailShot.key = ''; return;
+      }
       if (this.sim.selected !== nearest) { this.sim.selected = nearest; this.selectKingdom(nearest); }
+      const shotKey = `${automatic ? director.shotKey : 'manual'}-${nearest.id}`;
+      if (this.detailShot.key !== shotKey) {
+        this.detailShot.key = shotKey; this.detailShot.shownAt = now;
+        UI.card.classList.remove('hidden', 'fading');
+      } else if (now - this.detailShot.shownAt >= 2600) UI.card.classList.add('hidden');
+      else if (now - this.detailShot.shownAt >= 2000) UI.card.classList.add('fading');
+      else UI.card.classList.remove('hidden', 'fading');
       this.sim.updateSelected();
     }
 
@@ -1770,13 +1904,6 @@
         price: e.price ?? giftData.price ?? details.price ?? gift.price ?? extended.price
       });
     }
-  }
-  function connectBridge(sim) {
-    const q = new URLSearchParams(location.search), url = q.get('bridge') || localStorage.getItem('godworld_bridge') || '';
-    if (!url) { UI.bridgeText.textContent = 'bridge ready'; return; }
-    let ws;
-    const go = () => { try { ws = new WebSocket(url); ws.onopen = () => { UI.bridgeText.textContent = 'TikTok bridge online'; localStorage.setItem('godworld_bridge', url); }; ws.onmessage = m => { try { handleEvent(sim, JSON.parse(m.data)); } catch {} }; ws.onclose = () => { UI.bridgeText.textContent = 'bridge reconnecting'; setTimeout(go, 5000); }; ws.onerror = () => ws.close(); } catch { setTimeout(go, 5000); } };
-    go();
   }
   function fpsCounter() { let frames = 0, last = performance.now(); const loop = now => { frames++; if (now - last >= 1000) { UI.fps.textContent = `${Math.round(frames * 1000 / (now - last))} FPS`; frames = 0; last = now; } requestAnimationFrame(loop); }; requestAnimationFrame(loop); }
 

@@ -1,4 +1,4 @@
-# TikTok God World V6.4 Living Kingdoms
+# Kingdom War V8 Mobile
 
 Safari + TikFinity edition on the permanent port `8793`.
 
@@ -20,8 +20,9 @@ The compressed and amplified full track is bundled in `assets/audio`.
 - `SPORTS CAR`, `YACHT`, `WHALE DIVING`, `MONEY GUN` and similar gifts provide instant buildings and reinforcements.
 - `GALAXY`, `LION`, `DRAGON`, `UNIVERSE`, `PHOENIX`, `INTERSTELLAR` and `CASTLE FANTASY` provide true instant big help.
 - `ATTACK name`: declares war on another kingdom.
+- `ALLY name`: forms a reciprocal alliance with another kingdom.
 
-## V6.4 highlights
+## Kingdom War highlights
 
 - Buildings are sunk into visible foundations with stronger contact shadows.
 - Kingdoms begin with four citizens; houses create capacity and a new citizen immediately.

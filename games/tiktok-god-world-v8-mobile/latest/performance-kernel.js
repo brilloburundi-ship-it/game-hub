@@ -4,7 +4,7 @@
   // V8 owns only the hot-path bookkeeping. Gameplay systems continue to call the
   // same public Simulation/Renderer methods, but those methods now share one set
   // of indexes instead of repeatedly scanning every territory and building.
-  const VERSION = 'v803-mobile-performance-kernel-4-kingdom-war';
+  const VERSION = 'v804-mobile-performance-kernel-5-director-castle';
   if (window.__V800_PERFORMANCE_KERNEL?.bootstrap) return;
 
   const state = window.__V800_PERFORMANCE_KERNEL = {
@@ -654,7 +654,7 @@
     };
     state.installed = true;
     document.documentElement.dataset.performanceKernel = VERSION;
-    document.documentElement.dataset.completeRelease = '8.0.3-mobile';
+    document.documentElement.dataset.completeRelease = '8.0.4-mobile';
     document.title = 'Kingdom War';
   }
 

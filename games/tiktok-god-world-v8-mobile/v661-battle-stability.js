@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '8.0.3-battle-readability-arrows-2';
+  const VERSION = '8.0.4-battle-readability-arrows-3';
   const AI_HZ = 30;
   const AI_STEP = 1 / AI_HZ;
   const MAX_STEP = 0.045;
@@ -68,9 +68,9 @@
     for (let index = 0; index < 28; index++) {
       const arrow = new r.P.Container();
       const shaft = new r.P.Graphics();
-      shaft.moveTo(-7, 0).lineTo(5, 0).stroke({ color: 0xf4d58b, width: 1.8, alpha: 1 });
-      shaft.poly([4, -2.5, 9, 0, 4, 2.5]).fill({ color: 0xfff0b0, alpha: 1 });
-      shaft.moveTo(-7, 0).lineTo(-10, -2).moveTo(-7, 0).lineTo(-10, 2).stroke({ color: 0xc98d4b, width: 1.4, alpha: 1 });
+      shaft.moveTo(-5, 0).lineTo(3.5, 0).stroke({ color: 0xf4d58b, width: 1.15, alpha: 1 });
+      shaft.poly([3, -1.7, 6.5, 0, 3, 1.7]).fill({ color: 0xfff0b0, alpha: 1 });
+      shaft.moveTo(-5, 0).lineTo(-7, -1.4).moveTo(-5, 0).lineTo(-7, 1.4).stroke({ color: 0xc98d4b, width: 1, alpha: 1 });
       arrow.addChild(shaft);
       arrow.visible = false;
       arrow.__active = false;
@@ -124,7 +124,7 @@
     r.swapAnim?.(u.s, 'death');
     if (u.s._sprite) {
       u.s._sprite.loop = false;
-      u.s._sprite.animationSpeed = 0.09;
+      u.s._sprite.animationSpeed = 0.065;
       u.s._sprite.gotoAndPlay?.(0);
     }
     const kingdom = sim.kingdoms?.[u.side];
@@ -232,7 +232,7 @@
 
       if (!u.__v661NextHit) u.__v661NextHit = now + rand(120, 500);
       if (now < u.__v661NextHit) continue;
-      u.__v661NextHit = now + rand(1050, 1400);
+      u.__v661NextHit = now + rand(1450, 1900);
 
       const damage = u.role === 'archer' ? rand(4.5, 7.5) : (u.role === 'spear' ? rand(8.5, 12.5) : rand(7.5, 11.5));
       target.__v661Hp = guardHp(target) - damage;
@@ -340,6 +340,15 @@
 
       const kingdom = sim.kingdoms?.[building.owner] ||
         (sim.kingdoms || []).find(k => (k.buildings || []).includes(building));
+      if (building.type === 'castle' && kingdom?.alive) {
+        const activeWar = activeWarFor(sim, kingdom.id);
+        const attackerSide = Number.isInteger(building.__v66LastAttackerSide)
+          ? building.__v66LastAttackerSide
+          : (activeWar ? (activeWar.a === kingdom.id ? activeWar.b : activeWar.a) : null);
+        const winner = Number.isInteger(attackerSide) ? sim.kingdoms?.[attackerSide] : null;
+        sim.eliminate?.(kingdom, winner?.alive ? winner : null);
+        continue;
+      }
       building.hp = 0;
       building.__v66Destroyed = true;
       if (kingdom) {
@@ -414,7 +423,7 @@
     }
     sim.__v661BattleStabilityInstalled = true;
     window.__BUILD_VERSION = VERSION;
-    document.documentElement.dataset.battleSystem = 'living-v803-readable-arrows';
+    document.documentElement.dataset.battleSystem = 'living-v804-readable-arrows';
 
     const v66UpdateWars = r.updateWars.bind(r);
     const v66RemoveFarmer = typeof r.removeFarmer === 'function' ? r.removeFarmer.bind(r) : null;
@@ -426,8 +435,8 @@
         const result = v66SwapAnim(holder, key);
         const sprite = holder?._sprite, role = holder?._role;
         if (!sprite || sprite.destroyed || !role) return result;
-        if (key === 'attack') sprite.animationSpeed = role === 'archer' ? 0.055 : 0.07;
-        else if (key === 'hurt') sprite.animationSpeed = role === 'archer' ? 0.065 : 0.08;
+        if (key === 'attack') sprite.animationSpeed = role === 'archer' ? 0.038 : 0.05;
+        else if (key === 'hurt') sprite.animationSpeed = role === 'archer' ? 0.045 : 0.055;
         else if (key !== 'death') sprite.animationSpeed = role === 'archer' ? 0.10 : 0.13;
         return result;
       };

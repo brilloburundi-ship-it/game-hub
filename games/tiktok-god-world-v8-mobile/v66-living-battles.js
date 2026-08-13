@@ -439,7 +439,7 @@
     faceTarget(u, target.x);
     setAnim(r, u, 'attack');
     if (u.attackCooldown > 0) return;
-    u.attackCooldown = rand(0.9, 1.25);
+    u.attackCooldown = rand(1.25, 1.65);
     if (u.role === 'archer') r.spawnBattleArrow?.(u, target.x, target.y - 7);
     target.hurt = 0.12;
     if (Math.random() < 0.34) bloodBurst(r, target.x, target.y - 6, 0.45);
@@ -460,10 +460,11 @@
     faceTarget(u, b.sx);
     setAnim(r, u, 'attack');
     if (u.attackCooldown > 0) return;
-    u.attackCooldown = rand(0.95, 1.35);
+    u.attackCooldown = rand(1.3, 1.75);
     if (u.role === 'archer') r.spawnBattleArrow?.(u, b.sx, b.sy - 9);
 
     if (b.type === 'castle') {
+      b.__v66LastAttackerSide = u.side;
       startBuildingFire(r, b);
       return;
     }

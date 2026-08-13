@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title TikTok God World - Safari + TikFinity Bridge - Porta 8793
+title Kingdom War - Safari + TikFinity Bridge - Porta 8793
 set "NODE_EXE="
 where node.exe >nul 2>nul && set "NODE_EXE=node.exe"
 if not defined NODE_EXE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"

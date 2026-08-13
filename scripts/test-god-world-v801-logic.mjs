@@ -31,6 +31,30 @@ vm.runInContext(`
 `, context);
 const Simulation = context.Simulation;
 
+const pixiStart = gameSource.indexOf('class PixiRenderer');
+const pixiEnd = gameSource.indexOf('class CanvasRenderer', pixiStart);
+const pixiClass = pixiStart >= 0 && pixiEnd > pixiStart ? gameSource.slice(pixiStart, pixiEnd).trim() : '';
+if (!pixiClass) throw new Error('Pixi camera owner could not be isolated');
+const cameraContext = { console, Map, Set, Math };
+vm.createContext(cameraContext);
+vm.runInContext(`
+  let clock=0;
+  const performance={now:()=>clock};
+  const innerWidth=390,innerHeight=844,CAMERA_MIN=.30,CAMERA_MAX=2.45,FARMER_WORLD_HEIGHT=18;
+  const BUILD_HEIGHT={},BUILD_ANCHOR_Y={},BUILD_BASE={};
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand=(a,b)=>(a+b)/2,pick=a=>a[0],escapeHtml=v=>String(v),$=()=>null;
+  const classes=new Set(['hidden']);
+  const UI={card:{classList:{add:(...v)=>v.forEach(x=>classes.add(x)),remove:(...v)=>v.forEach(x=>classes.delete(x)),contains:v=>classes.has(v)}},ranking:null};
+  const document={documentElement:{dataset:{}}};
+  const window={};
+  ${pixiClass};
+  globalThis.PixiRenderer=PixiRenderer;
+  globalThis.setClock=value=>{clock=value};
+  globalThis.cardClasses=classes;
+`, cameraContext);
+const PixiRenderer = cameraContext.PixiRenderer;
+
 function makeWorld(size = 31) {
   const land = Array.from({ length: size }, () => Array(size).fill(1));
   const biomes = Array.from({ length: size }, () => Array(size).fill('grass'));
@@ -44,12 +68,18 @@ function makeRenderer() {
     async addBuilding(k, building) { building._sprite = { destroyed: false, destroy() { this.destroyed = true; } }; },
     async addFarmer() {},
     redrawTerritories() {}, redrawSettlementGround() {}, focusCell() {}, supportFx() {}, puff() {}, endWar() {},
+    destroyBuilding(building) { building.__testDestroyed = true; }, removeFarmer() {}, eliminate() {},
+    notifyCameraCastleDestruction() {},
     entities: [], labels: []
   };
 }
 
 function kingdom(id, capital) {
-  return { id, name: `K${id}`, capital, territory: new Set(), buildings: [], farmers: [], alive: true, aggressive: null, allies: new Set() };
+  return {
+    id, name: `K${id}`, capital, territory: new Set(), buildings: [], farmers: [], alive: true,
+    aggressive: null, allies: new Set(), resources: { food: 100, wood: 100, stone: 100, gold: 100 },
+    pop: 4, popCap: 8, military: 5
+  };
 }
 
 function seed(sim, k, radius = 1) {
@@ -119,6 +149,72 @@ assert(allies.adjacentEnemies(allyA).includes(allyB.id), 'Adjacent non-allied ki
 assert(allies.ally(allyA, allyB) && allies.areAllied(allyA, allyB), 'ALLY did not create a reciprocal alliance');
 assert(!allies.adjacentEnemies(allyA).includes(allyB.id), 'Allied kingdom remained an automatic war target');
 assert(allies.attack(allyA, allyB) === false, 'An allied kingdom could still be attacked');
+
+const collapseRenderer = makeRenderer();
+let castleCameraEvents = 0;
+collapseRenderer.notifyCameraCastleDestruction = () => { castleCameraEvents++; };
+const collapse = new Simulation(makeWorld(), collapseRenderer);
+const fallen = kingdom(0, [12, 12]), victor = kingdom(1, [18, 18]);
+collapse.kingdoms.push(fallen, victor);
+seed(collapse, fallen, 1); seed(collapse, victor, 1);
+const fallenCells = [...fallen.territory];
+fallen.buildings.push(
+  { id: 'fallen-castle', type: 'castle', x: 12, y: 12, sx: 0, sy: 0, owner: fallen.id, hp: 1, maxHp: 420 },
+  { id: 'fallen-house', type: 'house_a', x: 12, y: 13, sx: 0, sy: 10, owner: fallen.id, hp: 100, maxHp: 150 }
+);
+collapse.wars.push({ id: 'collapse-war', a: fallen.id, b: victor.id, done: false });
+assert(collapse.eliminate(fallen, victor), 'Castle destruction did not eliminate the kingdom');
+assert(!fallen.alive && fallen.territory.size === 0 && fallen.buildings.length === 0, 'Eliminated kingdom retained active AI state');
+assert(fallenCells.every(token => {
+  const [x, y] = token.split(',').map(Number);
+  return collapse.getOwner(x, y) === -1 && !victor.territory.has(token);
+}), 'Destroyed-castle territory did not disappear into neutral land');
+assert(collapse.wars[0].done && castleCameraEvents === 1, 'Castle collapse did not end war AI or notify the absolute-priority camera');
+
+const directorWorld = { mapWidth: 1200, mapHeight: 900, tileW: 40, tileH: 20 };
+const director = new PixiRenderer(directorWorld, {}, {});
+const cameraA = kingdom(0, [8, 8]), cameraB = kingdom(1, [24, 20]);
+for (let x = 2; x <= 22; x++) cameraA.territory.add(`${x},8`);
+seed({ setOwner() {} }, cameraB, 1);
+const iso = (x, y) => [(x - y) * 20 + 600, (x + y) * 10 + 100];
+director.sim = { kingdoms: [cameraA, cameraB], wars: [], iso, selected: cameraA, updateSelected() {} };
+director.installAutoCamera();
+director.autoCamera.tourStartedAt = 0;
+cameraContext.setClock(0);
+assert(director.autoCameraTarget(0) && director.autoCamera.mode === 'overview', 'Automatic director did not begin with a ten-second overview');
+const panStart = director.autoCameraTarget(10000);
+const panEnd = director.autoCameraTarget(19999);
+assert(director.autoCamera.focusKingdom === cameraA && (panStart.x !== panEnd.x || panStart.y !== panEnd.y), 'Large peace-time kingdom did not receive a slow ten-second pan');
+director.sim.wars = [
+  { id: 'war-one', a: 0, b: 1, done: false, front: [[8, 8], [9, 8]] },
+  { id: 'war-two', a: 0, b: 1, done: false, front: [[20, 20], [21, 20]] }
+];
+director.autoCamera.warShot = null;
+director.autoCameraTarget(30000);
+const firstWar = director.autoCamera.warShot.warId;
+director.autoCameraTarget(39999);
+assert(director.autoCamera.warShot.warId === firstWar, 'War camera changed before its full ten-second slot');
+director.autoCameraTarget(40000);
+assert(director.autoCamera.warShot.warId !== firstWar && director.autoCamera.warShot.until === 50000, 'War camera did not hand off to the next full ten-second slot');
+cameraContext.setClock(41000);
+director.notifyCameraCastleDestruction({ sx: 11, sy: 22 }, cameraA, cameraB, 10);
+director.notifyCameraCastleDestruction({ sx: 33, sy: 44 }, cameraB, cameraA, 10);
+director.autoCameraTarget(41000);
+assert(director.autoCamera.mode === 'castle-destruction' && director.autoCamera.criticalQueue.length === 1, 'Castle destruction did not preempt the director absolutely');
+director.autoCameraTarget(51000);
+assert(director.autoCamera.mode === 'castle-destruction' && director.autoCamera.critical.until === 61000, 'Queued castle destruction lost its full ten-second priority');
+
+director.sim.wars = [];
+director.autoCamera.critical = null; director.autoCamera.criticalQueue.length = 0;
+director.autoCamera.mode = 'kingdom'; director.autoCamera.focusKingdom = cameraA; director.autoCamera.shotKey = 'focus-test'; director.autoCamera.manualUntil = 0;
+const center = iso(...cameraA.capital);
+director.root = { scale: { x: .9 }, x: 195 - center[0] * .9, y: 422 - center[1] * .9 };
+cameraContext.setClock(0); director.syncKingdomDetail();
+assert(!cameraContext.cardClasses.has('hidden') && !cameraContext.cardClasses.has('fading'), 'Kingdom Focus did not appear at the beginning of a shot');
+cameraContext.setClock(2001); director.syncKingdomDetail();
+assert(cameraContext.cardClasses.has('fading'), 'Kingdom Focus did not begin dissolving after two seconds');
+cameraContext.setClock(2601); director.syncKingdomDetail();
+assert(cameraContext.cardClasses.has('hidden'), 'Kingdom Focus did not disappear after its dissolve');
 
 const rollbackRenderer = makeRenderer();
 const d = new Simulation(makeWorld(), rollbackRenderer);
@@ -244,7 +340,7 @@ await visibleGiftSimulation.syncCitizens(visibleGiftKingdom);
 assert(visibleGiftKingdom.farmers.length === 32, `High-gift visible citizens were not actually spawned (${visibleGiftKingdom.farmers.length})`);
 
 const gatewayStart = gameSource.indexOf('const giftProgress = new Map();');
-const gatewayEnd = gameSource.indexOf('function connectBridge', gatewayStart);
+const gatewayEnd = gameSource.indexOf('function fpsCounter', gatewayStart);
 const gatewayChunk = gatewayStart >= 0 && gatewayEnd > gatewayStart ? gameSource.slice(gatewayStart, gatewayEnd) : '';
 assert(gatewayChunk, 'TikFinity gift gateway could not be isolated');
 const gatewayContext = { console, Map, String, Number, Math, Array };
@@ -325,4 +421,4 @@ assert(completedCastle.visible && completedCastle.renderable, 'Completed castle 
 assert(completedCastle.__constructionStagesComplete && !completedCastle.__constructionStagesPlaying, 'Construction completion state is inconsistent');
 assert(constructionCullCalls === 1, 'Completed castle did not re-evaluate the current mobile viewport');
 
-console.log(`V8.0.3 deterministic logic OK (castlePersistent=true, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);
+console.log(`V8.0.4 deterministic logic OK (castlePersistent=true, castleCollapse=neutral+AIoff, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);
