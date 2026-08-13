@@ -1,16 +1,24 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v711-building-scale-lock-1';
+  const VERSION = 'v711-building-scale-lock-2';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
+
+  // This is the exact small stable/setta presentation already defined by the
+  // construction layer: 72% of the original 28px world-height target.
+  // The green-circled instance is therefore the canonical size.
+  const STABLE_LOCKED_WORLD_HEIGHT = 28 * 0.72;
+  const SWEEP_MS = 1200;
 
   const state = window.__V711_BUILDING_SCALE_LOCK = {
     bootstrap: true,
     installed: false,
     version: VERSION,
+    stableWorldHeight: STABLE_LOCKED_WORLD_HEIGHT,
     normalizedExisting: 0,
     normalizedAdds: 0,
     normalizedRecolors: 0,
+    stableLocks: 0,
     errors: []
   };
 
@@ -24,23 +32,41 @@
     const tex = canonicalTexture(renderer, type, fallbackTexture);
     if (!tex) return null;
     const h = Math.max(1, Number(tex.height) || Number(fallbackTexture?.height) || 1);
-    const targetHeight = Number(window.BUILD_HEIGHT?.[type]) || null;
-    if (targetHeight) return (targetHeight / h) * multiplier;
 
-    // Fallback to the renderer's original scale formula, but feed it the
-    // canonical base texture so recolored/cropped variants cannot change size.
+    // Stable must ALWAYS remain at the small version visible in the user's green
+    // circle. This also changes the core grow tween target, so it cannot grow back
+    // to the large red-circle size after construction finishes.
+    if (type === 'stable') return (STABLE_LOCKED_WORLD_HEIGHT / h) * multiplier;
+
+    // Every other building uses the original scale formula but always with its
+    // canonical base texture. Recolored/cropped variants therefore cannot alter
+    // the final footprint or visual size of the same building type.
     const original = renderer.__v711OriginalBuildingScale;
     if (typeof original === 'function') return original(type, tex, multiplier);
     return null;
   }
 
   function normalizeBuilding(renderer, building) {
-    if (!renderer || !building?._sprite || building._sprite.destroyed) return false;
-    const base = canonicalTexture(renderer, building.type, building._sprite.texture);
-    const scale = canonicalScale(renderer, building.type, base, 1);
+    const sprite = building?._sprite;
+    if (!renderer || !sprite || sprite.destroyed) return false;
+    // Do not disturb temporary construction-stage sprites while the completed
+    // prefab is intentionally hidden. It will be normalized as soon as visible.
+    if (sprite.visible === false || sprite.renderable === false) return false;
+
+    const scale = canonicalScale(renderer, building.type, sprite.texture, 1);
     if (!Number.isFinite(scale) || scale <= 0) return false;
-    building._sprite.scale.set(scale);
+
+    const signX = sprite.scale.x < 0 ? -1 : 1;
+    const signY = sprite.scale.y < 0 ? -1 : 1;
+    const drift = Math.max(Math.abs(Math.abs(sprite.scale.x) - scale), Math.abs(Math.abs(sprite.scale.y) - scale));
+    if (drift < 0.0005) return false;
+
+    sprite.scale.set(scale * signX, scale * signY);
     building.__v711CanonicalScale = scale;
+    if (building.type === 'stable') {
+      sprite.__stableSmallScaleLocked = true;
+      state.stableLocks++;
+    }
     return true;
   }
 
@@ -57,30 +83,28 @@
 
   function installScaleLock(sim) {
     const renderer = sim?.r;
-    if (!renderer || renderer.__v711ScaleLock) return false;
+    if (!renderer || renderer.__v711ScaleLock || typeof renderer.buildingScale !== 'function') return false;
     renderer.__v711ScaleLock = true;
 
-    if (typeof renderer.buildingScale === 'function') {
-      const originalScale = renderer.buildingScale.bind(renderer);
-      renderer.__v711OriginalBuildingScale = originalScale;
-      renderer.buildingScale = function(type, tex, multiplier = 1) {
-        const base = canonicalTexture(this, type, tex);
-        return originalScale(type, base, multiplier);
-      };
-    }
+    const originalScale = renderer.buildingScale.bind(renderer);
+    renderer.__v711OriginalBuildingScale = originalScale;
+    renderer.buildingScale = function(type, tex, multiplier = 1) {
+      const scale = canonicalScale(this, type, tex, multiplier);
+      return Number.isFinite(scale) && scale > 0 ? scale : originalScale(type, tex, multiplier);
+    };
 
     if (typeof renderer.addBuilding === 'function') {
       const originalAdd = renderer.addBuilding.bind(renderer);
       renderer.addBuilding = async function(kingdom, building, ...rest) {
         const out = await originalAdd(kingdom, building, ...rest);
-        // Some construction layers animate scale during placement. Normalize on
-        // the next frames too, so the final sprite always lands on canonical size.
         const enforce = () => {
           if (normalizeBuilding(this, building)) state.normalizedAdds++;
         };
+        // First correction catches normal builds; later corrections catch the end
+        // of the native-pixel construction phase without touching the animation.
         requestAnimationFrame(enforce);
-        setTimeout(enforce, 1600);
-        setTimeout(enforce, 2400);
+        setTimeout(enforce, 1650);
+        setTimeout(enforce, 2450);
         return out;
       };
     }
@@ -92,19 +116,19 @@
         const enforce = () => {
           if (normalizeBuilding(this, building)) state.normalizedRecolors++;
         };
-        requestAnimationFrame(enforce);
-        setTimeout(enforce, 100);
+        if (out && typeof out.then === 'function') out.finally(enforce);
+        else requestAnimationFrame(enforce);
+        setTimeout(enforce, 120);
         return out;
       };
     }
 
-    // v67 pixel-building layer can replace textures after the core renderer has
-    // already calculated its size. A light watchdog only corrects buildings that
-    // drift from their canonical scale; it does not touch positions or gameplay.
+    // Safety net for already-created buildings and any later texture swap. It only
+    // acts when scale has actually drifted, so normal frames incur almost no work.
     let lastSweep = 0;
     const sweep = now => {
       if (!window.__SIM || window.__SIM !== sim) return;
-      if (now - lastSweep >= 1200) {
+      if (now - lastSweep >= SWEEP_MS) {
         lastSweep = now;
         normalizeAll(sim);
       }
@@ -132,6 +156,4 @@
     state.errors.push(String(error?.stack || error?.message || error));
     console.error('[v711-building-scale-lock]', error);
   });
-
-  window.__V711_BUILDING_SCALE_LOCK = state;
 })();
