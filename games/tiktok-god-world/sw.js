@@ -1,4 +1,4 @@
-const CACHE = 'god-world-v7-1-2-market-scale-reduction';
+const CACHE = 'god-world-v7-1-1-building-scale-lock';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'v69-runtime-stability.js', 'asset-recovery.js', 'v705-world-npc-expansion.js', 'game.js', 'v706-world-polish.js', 'tree-depth.js',
