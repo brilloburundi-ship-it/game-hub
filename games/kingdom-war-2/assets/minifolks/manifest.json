@@ -1,0 +1,68 @@
+{
+  "name": "MiniFolks Kingdom War 2 character pack",
+  "version": "1.0.0",
+  "variant": "Outline",
+  "author": "LYASeeK",
+  "sourcePages": [
+    "https://lyaseek.itch.io/minifvillagers",
+    "https://lyaseek.itch.io/minifhumans",
+    "https://lyaseek.itch.io/miniffanimals"
+  ],
+  "animationFrameMs": 100,
+  "teamPaletteMask": {
+    "light": "#6098E8",
+    "dark": "#4058C0",
+    "preserveMetal": ["#8CADC6", "#B5D6DE", "#5A7B94"]
+  },
+  "groups": {
+    "villagers": {
+      "cell": 32,
+      "path": "assets/minifolks/villagers/",
+      "characters": {
+        "NobleMan": { "file": "MiniNobleMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 4] } },
+        "NobleWoman": { "file": "MiniNobleWoman.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 4] } },
+        "OldMan": { "file": "MiniOldMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 3] } },
+        "OldWoman": { "file": "MiniOldWoman.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 4] } },
+        "Peasant": { "file": "MiniPeasant.png", "teamColored": true, "actions": { "idle": [0, 4], "walk": [1, 6], "work": [3, 6], "attack": [3, 6], "hurt": [4, 3], "death": [5, 4] } },
+        "Princess": { "file": "MiniPrincess.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 5] } },
+        "Queen": { "file": "MiniQueen.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 5] } },
+        "VillagerMan": { "file": "MiniVillagerMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 4] } },
+        "VillagerWoman": { "file": "MiniVillagerWoman.png", "actions": { "idle": [0, 4], "walk": [1, 6], "hurt": [3, 3], "death": [4, 4] } },
+        "Worker": { "file": "MiniWorker.png", "teamColored": true, "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 4], "work": [4, 5], "hurt": [5, 3], "death": [6, 4] } }
+      }
+    },
+    "humans": {
+      "cell": 32,
+      "path": "assets/minifolks/humans/",
+      "teamColored": true,
+      "characters": {
+        "SwordMan": { "file": "MiniSwordMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 6], "hurt": [4, 3], "death": [5, 4] } },
+        "SpearMan": { "file": "MiniSpearMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 7], "hurt": [4, 3], "death": [5, 5] } },
+        "ShieldMan": { "file": "MiniShieldMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 6], "hurt": [5, 3], "death": [6, 4] } },
+        "HalberdMan": { "file": "MiniHalberdMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 6], "hurt": [4, 3], "death": [5, 5] } },
+        "ArcherMan": { "file": "MiniArcherMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 11], "hurt": [5, 3], "death": [6, 4] } },
+        "CrossBowMan": { "file": "MiniCrossBowMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 10], "hurt": [5, 3], "death": [6, 4] } },
+        "HorseMan": { "file": "MiniHorseMan.png", "actions": { "idle": [0, 8], "walk": [1, 6], "attack": [4, 7], "hurt": [5, 2], "death": [6, 6] } },
+        "CavalierMan": { "file": "MiniCavalierMan.png", "actions": { "idle": [0, 8], "walk": [1, 6], "attack": [4, 7], "hurt": [5, 2], "death": [6, 6] } },
+        "Mage": { "file": "MiniMage.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 11], "hurt": [6, 2], "death": [7, 9] } },
+        "ArchMage": { "file": "MiniArchMage.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 11], "hurt": [7, 2], "death": [8, 9] } },
+        "KingMan": { "file": "MiniKingMan.png", "actions": { "idle": [0, 4], "walk": [2, 6], "attack": [4, 10], "hurt": [5, 3], "death": [6, 6] } },
+        "PrinceMan": { "file": "MiniPrinceMan.png", "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 6], "hurt": [4, 3], "death": [5, 6] } }
+      }
+    },
+    "animals": {
+      "cell": 32,
+      "path": "assets/minifolks/animals/",
+      "characters": {
+        "Bear": { "file": "MiniBear.png", "height": 23, "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 6], "hurt": [6, 2], "death": [7, 4] } },
+        "Bird": { "file": "MiniBird.png", "cell": 16, "height": 10, "actions": { "idle": [0, 4], "walk": [1, 4], "death": [2, 3] } },
+        "Boar": { "file": "MiniBoar.png", "height": 18, "actions": { "idle": [0, 4], "walk": [1, 4], "attack": [3, 5], "hurt": [4, 2], "death": [5, 4] } },
+        "Bunny": { "file": "MiniBunny.png", "height": 12, "actions": { "idle": [0, 4], "walk": [1, 4], "hurt": [2, 2], "death": [3, 3] } },
+        "Deer1": { "file": "MiniDeer1.png", "height": 19, "actions": { "idle": [0, 4], "walk": [1, 4], "attack": [3, 5], "hurt": [4, 2], "death": [5, 4] } },
+        "Deer2": { "file": "MiniDeer2.png", "height": 20, "actions": { "idle": [0, 4], "walk": [1, 4], "attack": [3, 5], "hurt": [5, 2], "death": [6, 4] } },
+        "Fox": { "file": "MiniFox.png", "height": 16, "actions": { "idle": [0, 4], "walk": [1, 4], "attack": [3, 6], "hurt": [4, 2], "death": [5, 4] } },
+        "Wolf": { "file": "MiniWolf.png", "height": 19, "actions": { "idle": [0, 4], "walk": [1, 6], "attack": [3, 5], "hurt": [6, 2], "death": [7, 4] } }
+      }
+    }
+  }
+}
