@@ -63,9 +63,17 @@ if (!worldShape.includes('sim.riverSet.clear()')) throw new Error('River collisi
 if (!visuals.includes("const VERSION='v712-latest-visuals-1'")) throw new Error('Latest visual layer marker missing');
 if (!visuals.includes('quadraticCurveTo')) throw new Error('Smooth wide-river overlay missing');
 if (!visuals.includes('0x2f7898') || !visuals.includes('0x4e9fba') || !visuals.includes('0x8bc5d2')) throw new Error('Unified sea/river palette missing');
+if (!visuals.includes('function splitRiver')) throw new Error('River land/sea visual split missing');
+if (!visuals.includes('seaCleaner.stroke({color:0x2f7898,width:24,alpha:1})')) throw new Error('Open-sea river-line cleanup missing');
+if (!visuals.includes('state.seaRiverSuppressed=true')) throw new Error('Sea river suppression diagnostic missing');
 
 if (!gameplay.includes('WORK_FRAME_MS')) throw new Error('Worker animation smoothing missing');
 if (!gameplay.includes("{ type: 'windmill', after: 2 }") || !gameplay.includes("{ type: 'church', after: 5 }")) throw new Error('Free founding civics missing');
+if (!gameplay.includes('const LIKE_SUPPORT_PER = 0.22')) throw new Error('Like development support strength missing');
+if (!gameplay.includes('const ROSE_SUPPORT_PER = 3.5')) throw new Error('Rose development support strength missing');
+if (!gameplay.includes('function installViewerDevelopmentSupport')) throw new Error('Viewer development support integration missing');
+if (!gameplay.includes('function applySupportEconomy')) throw new Error('Persistent viewer economy acceleration missing');
+if (!gameplay.includes('k.lastBuild -= 0.55 * strength')) throw new Error('Viewer support must accelerate normal construction cadence');
 if (gameplay.includes('sim.buildAI =') || gameplay.includes('originalBuildAI')) throw new Error('Latest gameplay must not wrap buildAI');
 if (!farmerDirection.includes('const LOOKAHEAD = 4') || !farmerDirection.includes('const OPPOSITE_HOLD_MS = 240')) throw new Error('Farmer direction stability missing');
 if (!buildingScale.includes('const MARKET_LOCKED_WORLD_HEIGHT = 24')) throw new Error('Reduced market scale lock missing');
@@ -89,4 +97,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1])) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World: V7.1.2 latest-only + organic island coasts + sea-connected rivers OK');
+console.log('TikTok God World: V7.1.2 latest-only + organic island + clean river mouths + viewer development support OK');
