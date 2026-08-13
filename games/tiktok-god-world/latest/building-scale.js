@@ -1,14 +1,11 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v711-building-scale-lock-2';
+  const VERSION = 'v711-building-scale-lock-3-targeted';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
 
-  // Stable/setta keeps the exact small presentation already used by the
-  // construction layer: 72% of the original 28px world-height target.
-  const STABLE_LOCKED_WORLD_HEIGHT = 28 * 0.72;
-  // Market is intentionally smaller than its previous default presentation so
-  // it stays proportional to houses, farms and other village structures.
+  const STABLE_LOCKED_WORLD_HEIGHT = 17.5;
+  const FORGE_LOCKED_WORLD_HEIGHT = 29;
   const MARKET_LOCKED_WORLD_HEIGHT = 24;
   const SWEEP_MS = 1200;
 
@@ -17,12 +14,17 @@
     installed: false,
     version: VERSION,
     stableWorldHeight: STABLE_LOCKED_WORLD_HEIGHT,
+    forgeWorldHeight: FORGE_LOCKED_WORLD_HEIGHT,
     marketWorldHeight: MARKET_LOCKED_WORLD_HEIGHT,
     normalizedExisting: 0,
     normalizedAdds: 0,
     normalizedRecolors: 0,
     stableLocks: 0,
+    forgeLocks: 0,
     marketLocks: 0,
+    portGuard: false,
+    inlandPortsRejected: 0,
+    duplicatePortsRejected: 0,
     errors: []
   };
 
@@ -36,16 +38,9 @@
     const tex = canonicalTexture(renderer, type, fallbackTexture);
     if (!tex) return null;
     const h = Math.max(1, Number(tex.height) || Number(fallbackTexture?.height) || 1);
-
-    // These two structures use explicit final world heights. Because buildingScale
-    // is wrapped below, the core construction grow tween also targets these exact
-    // sizes and cannot enlarge them again when construction finishes.
     if (type === 'stable') return (STABLE_LOCKED_WORLD_HEIGHT / h) * multiplier;
+    if (type === 'forge') return (FORGE_LOCKED_WORLD_HEIGHT / h) * multiplier;
     if (type === 'market') return (MARKET_LOCKED_WORLD_HEIGHT / h) * multiplier;
-
-    // Every other building uses the original scale formula but always with its
-    // canonical base texture. Recolored/cropped variants therefore cannot alter
-    // the final footprint or visual size of the same building type.
     const original = renderer.__v711OriginalBuildingScale;
     if (typeof original === 'function') return original(type, tex, multiplier);
     return null;
@@ -54,47 +49,66 @@
   function normalizeBuilding(renderer, building) {
     const sprite = building?._sprite;
     if (!renderer || !sprite || sprite.destroyed) return false;
-    // Do not disturb temporary construction-stage sprites while the completed
-    // prefab is intentionally hidden. It will be normalized as soon as visible.
     if (sprite.visible === false || sprite.renderable === false) return false;
-
     const scale = canonicalScale(renderer, building.type, sprite.texture, 1);
     if (!Number.isFinite(scale) || scale <= 0) return false;
-
     const signX = sprite.scale.x < 0 ? -1 : 1;
     const signY = sprite.scale.y < 0 ? -1 : 1;
     const drift = Math.max(Math.abs(Math.abs(sprite.scale.x) - scale), Math.abs(Math.abs(sprite.scale.y) - scale));
     if (drift < 0.0005) return false;
-
     sprite.scale.set(scale * signX, scale * signY);
     building.__v711CanonicalScale = scale;
-    if (building.type === 'stable') {
-      sprite.__stableSmallScaleLocked = true;
-      state.stableLocks++;
-    }
-    if (building.type === 'market') {
-      sprite.__marketSmallScaleLocked = true;
-      state.marketLocks++;
-    }
+    if (building.type === 'stable') { sprite.__stableSmallScaleLocked = true; state.stableLocks++; }
+    if (building.type === 'forge') { sprite.__forgeSmallScaleLocked = true; state.forgeLocks++; }
+    if (building.type === 'market') { sprite.__marketSmallScaleLocked = true; state.marketLocks++; }
     return true;
   }
 
   function normalizeAll(sim) {
     let count = 0;
     for (const kingdom of sim?.kingdoms || []) {
-      for (const building of kingdom?.buildings || []) {
-        if (normalizeBuilding(sim.r, building)) count++;
-      }
+      for (const building of kingdom?.buildings || []) if (normalizeBuilding(sim.r, building)) count++;
     }
     state.normalizedExisting += count;
     return count;
+  }
+
+  function isSea(sim, x, y) {
+    return !!sim.inBounds?.(x, y) && !sim.land(x, y);
+  }
+
+  function validPortCell(sim, kingdom, x, y) {
+    if (!kingdom?.alive || !sim.inBounds?.(x, y) || !sim.land(x, y)) return false;
+    if (sim.isRiver?.(x, y) || sim.getOwner?.(x, y) !== kingdom.id) return false;
+    if (['mountain', 'ice_coast'].includes(sim.biome?.(x, y))) return false;
+    if ((sim.coastDistance?.(x, y) ?? 99) > 1) return false;
+    return isSea(sim, x, y + 1) || isSea(sim, x + 1, y);
+  }
+
+  function hasAlivePort(kingdom) {
+    return (kingdom?.buildings || []).some(building =>
+      building?.type === 'port' && !building.__v66Destroyed && (!Number.isFinite(building.hp) || building.hp > 0));
+  }
+
+  function installPortGuard(sim) {
+    if (!sim || sim.__v711FinalPortGuard || typeof sim.addBuilding !== 'function') return false;
+    sim.__v711FinalPortGuard = true;
+    const originalAddBuilding = sim.addBuilding.bind(sim);
+    sim.addBuilding = function(kingdom, type, x, y, ...rest) {
+      if (type === 'port') {
+        if (hasAlivePort(kingdom)) { state.duplicatePortsRejected++; return null; }
+        if (!validPortCell(this, kingdom, x, y)) { state.inlandPortsRejected++; return null; }
+      }
+      return originalAddBuilding(kingdom, type, x, y, ...rest);
+    };
+    state.portGuard = true;
+    return true;
   }
 
   function installScaleLock(sim) {
     const renderer = sim?.r;
     if (!renderer || renderer.__v711ScaleLock || typeof renderer.buildingScale !== 'function') return false;
     renderer.__v711ScaleLock = true;
-
     const originalScale = renderer.buildingScale.bind(renderer);
     renderer.__v711OriginalBuildingScale = originalScale;
     renderer.buildingScale = function(type, tex, multiplier = 1) {
@@ -106,11 +120,7 @@
       const originalAdd = renderer.addBuilding.bind(renderer);
       renderer.addBuilding = async function(kingdom, building, ...rest) {
         const out = await originalAdd(kingdom, building, ...rest);
-        const enforce = () => {
-          if (normalizeBuilding(this, building)) state.normalizedAdds++;
-        };
-        // First correction catches normal builds; later corrections catch the end
-        // of the native-pixel construction phase without touching the animation.
+        const enforce = () => { if (normalizeBuilding(this, building)) state.normalizedAdds++; };
         requestAnimationFrame(enforce);
         setTimeout(enforce, 1650);
         setTimeout(enforce, 2450);
@@ -122,9 +132,7 @@
       const originalRecolor = renderer.recolorBuilding.bind(renderer);
       renderer.recolorBuilding = function(building, kingdom, ...rest) {
         const out = originalRecolor(building, kingdom, ...rest);
-        const enforce = () => {
-          if (normalizeBuilding(this, building)) state.normalizedRecolors++;
-        };
+        const enforce = () => { if (normalizeBuilding(this, building)) state.normalizedRecolors++; };
         if (out && typeof out.then === 'function') out.finally(enforce);
         else requestAnimationFrame(enforce);
         setTimeout(enforce, 120);
@@ -132,20 +140,16 @@
       };
     }
 
-    // Safety net for already-created buildings and any later texture swap. It only
-    // acts when scale has actually drifted, so normal frames incur almost no work.
     let lastSweep = 0;
     const sweep = now => {
       if (!window.__SIM || window.__SIM !== sim) return;
-      if (now - lastSweep >= SWEEP_MS) {
-        lastSweep = now;
-        normalizeAll(sim);
-      }
+      if (now - lastSweep >= SWEEP_MS) { lastSweep = now; normalizeAll(sim); }
       requestAnimationFrame(sweep);
     };
     requestAnimationFrame(sweep);
 
     normalizeAll(sim);
+    installPortGuard(sim);
     state.installed = true;
     document.documentElement.dataset.buildingScaleLock = VERSION;
     return true;
