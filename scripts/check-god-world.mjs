@@ -6,10 +6,11 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, worldShape, visuals, gameplay, farmerDirection, buildingScale, packageJson] = await Promise.all([
+const [index, sw, versionText, worldShape, visuals, gameplay, farmerDirection, buildingScale, construction, packageJson] = await Promise.all([
   read('index.html'), read('sw.js'), read('version.json'),
   read('latest/world-shape.js'), read('latest/visuals.js'), read('latest/gameplay.js'),
   read('latest/farmer-direction.js'), read('latest/building-scale.js'),
+  read('construction-phases-v662-native-pixel.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -50,6 +51,9 @@ if (!worldShape.includes("const VERSION = 'v712-latest-world-shape-1'")) throw n
 if (!worldShape.includes('const rx = halfX * .76, ry = halfY * .88')) throw new Error('Organic island silhouette ratios missing');
 if (!worldShape.includes('function sculptCoast')) throw new Error('Multi-pass coast sculpting missing');
 if (!worldShape.includes('for (let pass = 0; pass < 4; pass++)')) throw new Error('Coast sculpting must use four erosion passes');
+if (!worldShape.includes('function growCoastalTerrain')) throw new Error('Connected coast terrain growth missing');
+if (!worldShape.includes('state.coastAdded = growCoastalTerrain(land, biomes)')) throw new Error('Added coastal terrain must be part of the real land mask');
+if (!worldShape.includes('function neighbourBiome')) throw new Error('New coastal terrain biome continuity missing');
 if (!worldShape.includes('function bell')) throw new Error('Deliberate bay/headland shaping missing');
 if (!worldShape.includes('const bays =')) throw new Error('Bay profile missing from island generator');
 if (!worldShape.includes('pathFor(w, loops(w.land), d, 18, 31)')) throw new Error('Rendered coastline must strongly break straight isometric runs');
@@ -67,6 +71,12 @@ if (!visuals.includes('function splitRiver')) throw new Error('River land/sea vi
 if (!visuals.includes('seaCleaner.stroke({color:0x2f7898,width:24,alpha:1})')) throw new Error('Open-sea river-line cleanup missing');
 if (!visuals.includes('state.seaRiverSuppressed=true')) throw new Error('Sea river suppression diagnostic missing');
 
+if (!construction.includes("version:'v662-native-pixel-3'")) throw new Error('Construction palette-safe revision missing');
+if (!construction.includes('kingdomStageTextureSource:true')) throw new Error('Construction stages must use kingdom-coloured prefab source');
+if (!construction.includes('function kingdomFrames')) throw new Error('Per-kingdom construction frame generation missing');
+if (!construction.includes('renderer?.textureToCanvas?.(sprite?.texture)')) throw new Error('Construction stages must derive from the completed kingdom texture');
+if (!construction.includes('return recolorTeamCanvas(canvas,color)')) throw new Error('Construction team-palette fallback missing');
+
 if (!gameplay.includes('WORK_FRAME_MS')) throw new Error('Worker animation smoothing missing');
 if (!gameplay.includes("{ type: 'windmill', after: 2 }") || !gameplay.includes("{ type: 'church', after: 5 }")) throw new Error('Free founding civics missing');
 if (!gameplay.includes('const LIKE_SUPPORT_PER = 0.22')) throw new Error('Like development support strength missing');
@@ -82,7 +92,7 @@ if (!buildingScale.includes('const STABLE_LOCKED_WORLD_HEIGHT = 28 * 0.72')) thr
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
 
-const syntaxFiles = [...latestScripts, 'latest/flora.js', 'sw.js'];
+const syntaxFiles = [...latestScripts, 'latest/flora.js', 'construction-phases-v662-native-pixel.js', 'sw.js'];
 for (const file of syntaxFiles) {
   const full = resolve(gameRoot, file);
   await access(full);
@@ -97,4 +107,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1])) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World: V7.1.2 latest-only + organic island + clean river mouths + viewer development support OK');
+console.log('TikTok God World: V7.1.2 latest-only + kingdom-coloured construction + connected irregular coasts + clean river mouths + viewer support OK');
