@@ -13,6 +13,8 @@
   const NAMES = ['Greenvale', 'Highrock', 'Brightwood', 'Moonstone', 'Riverhold', 'Goldfield', 'Bluepeak', 'Royal Oak'];
   const MAX_VISIBLE_FARMERS = 24;
   const MAX_GIFT_VISIBLE_FARMERS = 36;
+  const MAX_MATCH_KINGDOMS = 12;
+  const VICTORY_RESTART_MS = 10000;
   const FARMER_WORLD_HEIGHT = 18;
   const CAMERA_MIN = .30, CAMERA_MAX = 2.45;
 
@@ -52,7 +54,8 @@
 
   const UI = {
     age: $('#age'), fps: $('#fps'), players: $('#players'), rank: $('#rankRows'), ranking: $('#ranking'), bridgeText: $('#bridgeText'), feed: $('#feed'),
-    card: $('#kingdomCard'), kColor: $('#kColor'), kName: $('#kName'), food: $('#rFood'), wood: $('#rWood'), stone: $('#rStone'), gold: $('#rGold'), pop: $('#rPop'), terr: $('#rTerr'), power: $('#rPower'), build: $('#rBuild')
+    card: $('#kingdomCard'), kColor: $('#kColor'), kName: $('#kName'), food: $('#rFood'), wood: $('#rWood'), stone: $('#rStone'), gold: $('#rGold'), pop: $('#rPop'), terr: $('#rTerr'), power: $('#rPower'), build: $('#rBuild'),
+    victory: $('#victoryScreen'), victoryWinner: $('#victoryWinner'), victoryRestart: $('#victoryRestart')
   };
 
   function toast(msg) {
@@ -81,6 +84,10 @@
       this.wars = [];
       this.age = 0;
       this.tickN = 0;
+      this.roundEntrants = 0;
+      this.matchStarted = false;
+      this.matchOver = false;
+      this.restartTimer = null;
       this.selected = null;
       this.neutral = [];
       this.riverSet = new Set();
@@ -219,12 +226,19 @@
     async join(name) {
       name = String(name || 'Player').trim().slice(0, 18);
       if (!name) return;
+      if (this.matchOver) { toast('The round is over: the new empty world is loading'); return null; }
       const nameKey = name.toLowerCase();
       const pending = this.foundingByName.get(nameKey);
       if (pending) return pending;
       const existing = this.kingdomByName.get(nameKey);
       if (existing && existing.alive) {
         this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} is already in the world`); return existing;
+      }
+      if (existing && !existing.alive) { toast(`${name}: eliminated until the next world`); return null; }
+      const occupiedSlots = this.kingdoms.filter(k => k.alive || k.founding).length;
+      if (this.roundEntrants >= MAX_MATCH_KINGDOMS || occupiedSlots >= MAX_MATCH_KINGDOMS) {
+        toast(`World full: maximum ${MAX_MATCH_KINGDOMS} kingdoms this round`);
+        return null;
       }
 
       // One promise owns founding for this viewer. Duplicate/back-to-back JOINs
@@ -283,6 +297,9 @@
       }
       k.founding = false;
       k.alive = true;
+      this.roundEntrants++;
+      this.matchStarted = this.roundEntrants >= 2;
+      document.documentElement.dataset.matchEntrants = String(this.roundEntrants);
       this.__v800Performance?.rebuildBuildingIndex?.();
       this.r.redrawTerritories(this);
       this.select(k);
@@ -295,6 +312,7 @@
     }
 
     async waitForKingdomReady(name) {
+      if (this.matchOver) return null;
       const nameKey = String(name || '').trim().toLowerCase();
       const pending = this.foundingByName.get(nameKey);
       if (pending) return pending;
@@ -459,6 +477,7 @@
     power(k) { return k.pop * 2.2 + k.military * 1.4 + k.territory.size * 2.5 + k.buildings.length * 6 + k.resources.gold * .025; }
 
     async tick() {
+      if (this.matchOver) { this.updateUI(); return; }
       this.age++; this.tickN++;
       for (const k of this.kingdoms) {
         if (!k.alive || k.founding) continue;
@@ -761,6 +780,7 @@
     }
     areAllied(a, b) { return !!a?.allies?.has?.(b?.id) && !!b?.allies?.has?.(a?.id); }
     ally(a, b) {
+      if (this.matchOver) return false;
       if (!a?.alive || !b?.alive || a === b) return false;
       a.allies ||= new Set(); b.allies ||= new Set();
       a.allies.add(b.id); b.allies.add(a.id);
@@ -783,6 +803,7 @@
       return null;
     }
     attack(attacker, target) {
+      if (this.matchOver) return false;
       if (!attacker?.alive || !target?.alive || attacker === target) return false;
       if (this.areAllied(attacker, target)) { toast(`${attacker.name}: ${target.name} is an ally`); return false; }
       attacker.aggressive = target.id;
@@ -791,6 +812,7 @@
       return this.startWar(attacker, target);
     }
     startWar(a, b) {
+      if (this.matchOver) return false;
       if (this.areAllied(a, b)) return false;
       if (this.wars.some(w => !w.done && ((w.a === a.id && w.b === b.id) || (w.a === b.id && w.b === a.id)))) return true;
       const pair = this.borderPair(a, b); if (!pair) return false;
@@ -833,7 +855,10 @@
         if (Math.random() < .35) { loser.pop = Math.max(2, loser.pop - 1); void this.syncCitizens(loser); }
         this.r.battleFx(...this.iso(x, y), winner.color);
         this.r.frontImpact(w, this);
-        if ((x === loser.capital[0] && y === loser.capital[1]) || loser.territory.size <= 1) this.eliminate(loser, winner);
+        if ((x === loser.capital[0] && y === loser.capital[1]) || loser.territory.size <= 1) {
+          this.eliminate(loser, winner);
+          if (this.matchOver) return;
+        }
       }
     }
     capture(winner, loser, x, y) {
@@ -897,10 +922,33 @@
       toast(winner?.alive ? `🏰 ${winner.name} destroys ${loser.name}` : `🏰 ${loser.name} has fallen`);
       feed('WORLD', `${loser.name} has fallen — its territory is now neutral`);
       if (this.selected === loser) this.select(winner?.alive ? winner : null);
+      this.checkVictory();
       return true;
     }
 
+    checkVictory() {
+      if (this.matchOver || !this.matchStarted) return false;
+      const contenders = this.kingdoms.filter(k => k.alive && !k.founding && k.territory.size > 0 && k.buildings.some(b => b.type === 'castle' && !b.__v66Destroyed));
+      if (contenders.length !== 1) return false;
+      this.showVictory(contenders[0]);
+      return true;
+    }
+
+    showVictory(winner) {
+      if (this.matchOver || !winner?.alive) return;
+      this.matchOver = true;
+      document.documentElement.dataset.matchState = 'victory';
+      UI.victoryWinner.textContent = winner.name;
+      UI.victoryRestart.textContent = 'A new empty world begins in 10 seconds';
+      UI.victory.classList.remove('hidden');
+      this.select(winner);
+      this.r.focusCell?.(...winner.capital);
+      feed('WORLD', `${winner.name} WINS THE WORLD`);
+      this.restartTimer = window.setTimeout(() => window.location.reload(), VICTORY_RESTART_MS);
+    }
+
     like(name, count = 1) {
+      if (this.matchOver) return;
       const k = this.kingdomByName.get(String(name).toLowerCase());
       if (this.queueFoundingInteraction(k, 'like', [name, count])) return;
       if (!k?.alive) return;
@@ -909,6 +957,7 @@
       k.boostUntil = Math.max(k.boostUntil, this.age + Math.min(18, n * .15)); this.r.supportFx(k, '❤️', Math.min(6, n)); this.updateSelected();
     }
     follow(name) {
+      if (this.matchOver) return;
       const k = this.kingdomByName.get(String(name).toLowerCase());
       if (this.queueFoundingInteraction(k, 'follow', [name])) return;
       if (!k?.alive || k.followed) return;
@@ -965,6 +1014,7 @@
     }
 
     async gift(name, gift, repeat = 1, meta = {}) {
+      if (this.matchOver) return;
       const k = await this.waitForKingdomReady(name); if (!k) return;
       this.r.notifyCameraGift?.(k, 10);
       const g = String(gift || '').toLowerCase(), n = Math.max(1, Number(repeat) || 1);
@@ -1018,7 +1068,7 @@
     boost30() { for (const k of this.kingdoms) if (k.alive) k.boostUntil = this.age + 30; toast('⏩ Simulation boosted for 30 seconds'); }
     updateUI() {
       UI.age.textContent = secs(this.age);
-      const alive = this.kingdoms.filter(k => k.alive); UI.players.textContent = `${alive.length} kingdoms`;
+      const alive = this.kingdoms.filter(k => k.alive); UI.players.textContent = `${alive.length}/${MAX_MATCH_KINGDOMS} kingdoms`;
       document.documentElement.dataset.farms = String(alive.reduce((sum, k) => sum + k.buildings.filter(b => b.type === 'farm').length, 0));
       document.documentElement.dataset.fixedFarmWorkers = String(alive.reduce((sum, k) => sum + k.farmers.filter(f => f.fixedBuilding).length, 0));
       document.documentElement.dataset.visibleCitizens = String(alive.reduce((sum, k) => sum + k.farmers.length, 0));
@@ -1235,10 +1285,10 @@
       };
       this.detailPresentationOwned = true;
       this.detailShot = { key: '', shownAt: 0 };
-      document.documentElement.dataset.autoCamera = 'director-soft-10s-slots-pan-v805';
+      document.documentElement.dataset.autoCamera = 'director-live-territory-v806';
     }
     notifyCameraGift(k, seconds = 10) {
-      if (!this.autoCamera || !k?.alive) return;
+      if (!this.autoCamera || !this.isCameraKingdom(k)) return;
       const now = performance.now();
       this.autoCamera.gift = { kingdom: k, requestedAt: now, startedAt: 0, until: 0, durationMs: Math.max(10, seconds) * 1000 };
       this.autoCamera.manualUntil = 0;
@@ -1261,6 +1311,13 @@
       this.autoCamera.gift = null;
       this.autoCamera.warShot = null;
       this.autoCamera.manualUntil = 0;
+    }
+    isCameraKingdom(kingdom) {
+      return !!(kingdom?.alive && !kingdom.founding && kingdom.territory?.size > 0 &&
+        kingdom.buildings?.some(building => building.type === 'castle' && !building.__v66Destroyed));
+    }
+    cameraKingdoms() {
+      return (this.sim?.kingdoms || []).filter(kingdom => this.isCameraKingdom(kingdom));
     }
     kingdomWorldBounds(kingdom) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1298,17 +1355,30 @@
     warCameraTarget(director, now) {
       const existing = director.warShot;
       if (existing && now < existing.until) {
-        const current = (this.sim.wars || []).find(war => war.id === existing.warId && !war.done && Array.isArray(war.front));
+        const recorded = (this.sim.wars || []).find(war => war.id === existing.warId);
+        const current = recorded && !recorded.done && Array.isArray(recorded.front) &&
+          this.isCameraKingdom(this.sim.kingdoms?.[recorded.a]) && this.isCameraKingdom(this.sim.kingdoms?.[recorded.b]) ? recorded : null;
         if (current) {
           const a = this.sim.iso(...current.front[0]), b = this.sim.iso(...current.front[1]);
           existing.x = (a[0] + b[0]) * .5; existing.y = (a[1] + b[1]) * .5;
+          director.mode = 'war'; director.focusKingdom = null; director.shotKey = `war-${existing.warId}-${existing.startedAt}`;
+          const scale = innerWidth < 600 ? .92 : 1.02;
+          return { scale, x: innerWidth * .5 - existing.x * scale, y: innerHeight * .5 - existing.y * scale };
         }
-        director.mode = 'war'; director.focusKingdom = null; director.shotKey = `war-${existing.warId}-${existing.startedAt}`;
-        const scale = innerWidth < 600 ? .92 : 1.02;
-        return { scale, x: innerWidth * .5 - existing.x * scale, y: innerHeight * .5 - existing.y * scale };
+        const survivor = [recorded?.a, recorded?.b]
+          .map(id => this.sim.kingdoms?.[id]).find(kingdom => this.isCameraKingdom(kingdom)) || this.cameraKingdoms()[0];
+        if (survivor) {
+          director.mode = 'kingdom'; director.focusKingdom = survivor; director.shotKey = `war-survivor-${existing.warId}-${existing.startedAt}`;
+          document.documentElement.dataset.autoCameraFallback = 'live-kingdom';
+          return this.kingdomCameraTarget(survivor, now, existing.startedAt);
+        }
+        director.mode = 'overview'; director.focusKingdom = null; director.shotKey = `war-empty-${existing.startedAt}`;
+        const scale = this.overviewScale();
+        return { scale, x: (innerWidth - this.w.mapWidth * scale) * .5, y: (innerHeight - this.w.mapHeight * scale) * .5 };
       }
 
-      const wars = (this.sim.wars || []).filter(war => !war.done && Array.isArray(war.front));
+      const wars = (this.sim.wars || []).filter(war => !war.done && Array.isArray(war.front) &&
+        this.isCameraKingdom(this.sim.kingdoms?.[war.a]) && this.isCameraKingdom(this.sim.kingdoms?.[war.b]));
       if (!wars.length) {
         director.warShot = null;
         if (director.hadActiveWars) director.tourStartedAt = now - 10000;
@@ -1331,6 +1401,13 @@
       if (!director) return null;
       if (director.critical && now < director.critical.until) {
         const critical = director.critical;
+        const survivor = this.isCameraKingdom(critical.winner) ? critical.winner : this.cameraKingdoms()[0];
+        if (survivor && now - critical.startedAt >= 2000) {
+          director.mode = 'kingdom'; director.focusKingdom = survivor;
+          director.shotKey = `castle-survivor-${critical.startedAt}`;
+          document.documentElement.dataset.autoCameraFallback = 'castle-winner';
+          return this.kingdomCameraTarget(survivor, now, critical.startedAt);
+        }
         director.mode = 'castle-destruction'; director.focusKingdom = null;
         director.shotKey = `castle-destruction-${critical.startedAt}`;
         const scale = innerWidth < 600 ? .96 : 1.08;
@@ -1364,7 +1441,7 @@
       if (warTarget) return warTarget;
 
       const elapsed = Math.max(0, now - director.tourStartedAt);
-      const kingdoms = (this.sim.kingdoms || []).filter(k => k.alive && !k.founding);
+      const kingdoms = this.cameraKingdoms();
       if (elapsed < 10000 || !kingdoms.length) {
         director.mode = 'overview'; director.kingdomIndex = -1; director.focusKingdom = null; director.shotKey = 'overview-0';
         const scale = this.overviewScale();
@@ -1830,8 +1907,6 @@
   function wire(sim, r) {
     $('#closeCard').onclick = () => sim.select(null);
     const hint=$('#touchHint'); if(hint){setTimeout(()=>hint.classList.add('hide'),4200); ['pointerdown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>hint.classList.add('hide'),{once:true,passive:true}));}
-    $('#zoomIn').onclick = () => { if (r.root) r.zoomTo(r.root.scale.x * 1.18, innerWidth / 2, innerHeight / 2); else r.cam.s = clamp(r.cam.s * 1.18, CAMERA_MIN, CAMERA_MAX); };
-    $('#zoomOut').onclick = () => { if (r.root) r.zoomTo(r.root.scale.x * .84, innerWidth / 2, innerHeight / 2); else r.cam.s = clamp(r.cam.s * .84, CAMERA_MIN, CAMERA_MAX); };
     $('#homeCam').onclick = () => r.home(); $('#toggleTest').onclick = () => $('#testPanel').classList.toggle('collapsed');
     $$('[data-test]').forEach(b => b.onclick = async () => {
       const name = $('#testName').value.trim() || 'Player', act = b.dataset.test;

@@ -1,4 +1,4 @@
-const CACHE = 'kingdom-war-v8-0-5-mobile-1';
+const CACHE = 'kingdom-war-v8-0-6-mobile-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',

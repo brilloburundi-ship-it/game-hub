@@ -14,6 +14,7 @@ The compressed and amplified full track is bundled in `assets/audio`.
 ## LIVE actions
 
 - `JOIN`: creates a kingdom with four citizens.
+- Each round accepts up to 12 player kingdoms; eliminated players return in the next world.
 - `LIKE`: boosts the economy.
 - `FOLLOW`: grants builders and materials.
 - Small gifts provide focused food, population or resource bonuses.
@@ -28,6 +29,7 @@ The compressed and amplified full track is bundled in `assets/audio`.
 - Kingdoms begin with four citizens; houses create capacity and a new citizen immediately.
 - Farm workers are reassigned from the existing population, so one fewer citizen roams the settlement.
 - Kingdom resources appear contextually only when the camera zooms into that kingdom.
+- The last surviving kingdom receives the final victory screen, then the game reloads an empty world automatically.
 - The HUD, notifications, weather events and all game-facing text are in English.
 - Gift variety and diamond-aware rewards have been expanded significantly.
 - Individual battalions, destructible buildings, dynamic weather and depth-sorted vegetation remain enabled.

@@ -22,8 +22,15 @@ vm.runInContext(`
   const COLORCSS=['#27a7ff'];
   const MAX_VISIBLE_FARMERS=24;
   const MAX_GIFT_VISIBLE_FARMERS=36;
+  const MAX_MATCH_KINGDOMS=12;
+  const VICTORY_RESTART_MS=10000;
   const BUILD_Y_OFFSET={};
   const BUILD_FOOTPRINT={castle:1};
+  const document={documentElement:{dataset:{}}};
+  const UI={victoryWinner:{textContent:''},victoryRestart:{textContent:''},victory:{classList:{remove:()=>{}}}};
+  globalThis.victoryUI=UI;
+  window.setTimeout=(callback,delay)=>{globalThis.restartCallback=callback;globalThis.restartDelay=delay;return 1;};
+  window.location={reload:()=>{globalThis.didReload=true;}};
   const toast=()=>{};
   const feed=()=>{};
   ${simClass};
@@ -171,9 +178,26 @@ assert(fallenCells.every(token => {
 }), 'Destroyed-castle territory did not disappear into neutral land');
 assert(collapse.wars[0].done && castleCameraEvents === 1, 'Castle collapse did not end war AI or notify the absolute-priority camera');
 
+const finalRound = new Simulation(makeWorld(), makeRenderer());
+const finalist = kingdom(0, [12, 12]), champion = kingdom(1, [18, 18]);
+finalist.buildings.push({ id: 'final-castle', type: 'castle', x: 12, y: 12, owner: finalist.id });
+champion.buildings.push({ id: 'champion-castle', type: 'castle', x: 18, y: 18, owner: champion.id });
+finalRound.kingdoms.push(finalist, champion); seed(finalRound, finalist, 1); seed(finalRound, champion, 1);
+finalRound.roundEntrants = 2; finalRound.matchStarted = true;
+let announcedWinner = null;
+finalRound.showVictory = winner => { announcedWinner = winner; finalRound.matchOver = true; };
+assert(finalRound.eliminate(finalist, champion) && announcedWinner === champion && finalRound.matchOver, 'Last surviving kingdom did not end the round');
+const victoryPresentation = new Simulation(makeWorld(), makeRenderer());
+victoryPresentation.select = () => {};
+victoryPresentation.showVictory(champion);
+assert(victoryPresentation.matchOver && context.victoryUI.victoryWinner.textContent === champion.name && context.restartDelay === 10000, 'Victory message or automatic restart timer is incomplete');
+context.restartCallback();
+assert(context.didReload === true, 'Victory timer did not reload a new empty world');
+
 const directorWorld = { mapWidth: 1200, mapHeight: 900, tileW: 40, tileH: 20 };
 const director = new PixiRenderer(directorWorld, {}, {});
 const cameraA = kingdom(0, [8, 8]), cameraB = kingdom(1, [24, 20]);
+cameraA.buildings.push({ type: 'castle' }); cameraB.buildings.push({ type: 'castle' });
 for (let x = 2; x <= 22; x++) cameraA.territory.add(`${x},8`);
 seed({ setOwner() {} }, cameraB, 1);
 const iso = (x, y) => [(x - y) * 20 + 600, (x + y) * 10 + 100];
@@ -186,6 +210,12 @@ assert(director.autoCameraTarget(0) && director.autoCamera.mode === 'overview', 
 const panStart = director.autoCameraTarget(10000);
 const panEnd = director.autoCameraTarget(19999);
 assert(director.autoCamera.focusKingdom === cameraA && (panStart.x !== panEnd.x || panStart.y !== panEnd.y), 'Large peace-time kingdom did not receive a slow ten-second pan');
+const emptyKingdom = kingdom(2, [32, 28]); emptyKingdom.alive = false;
+director.sim.kingdoms.push(emptyKingdom);
+director.sim.wars = [{ id: 'stale-war', a: 2, b: 1, done: true, front: [[32, 28], [24, 20]] }];
+director.autoCamera.warShot = { warId: 'stale-war', startedAt: 20000, until: 30000, x: 9999, y: 9999 };
+director.autoCameraTarget(21000);
+assert(director.autoCamera.mode === 'kingdom' && director.autoCamera.focusKingdom === cameraB, 'Closed war shot remained focused on empty territory');
 director.sim.wars = [
   { id: 'war-one', a: 0, b: 1, done: false, front: [[8, 8], [9, 8]] },
   { id: 'war-two', a: 0, b: 1, done: false, front: [[20, 20], [21, 20]] }
@@ -202,6 +232,8 @@ director.notifyCameraCastleDestruction({ sx: 11, sy: 22 }, cameraA, cameraB, 10)
 director.notifyCameraCastleDestruction({ sx: 33, sy: 44 }, cameraB, cameraA, 10);
 director.autoCameraTarget(41000);
 assert(director.autoCamera.mode === 'castle-destruction' && director.autoCamera.criticalQueue.length === 1, 'Castle destruction did not preempt the director absolutely');
+director.autoCameraTarget(43001);
+assert(director.autoCamera.mode === 'kingdom' && director.autoCamera.focusKingdom === cameraB, 'Castle priority remained on cleared land instead of the surviving kingdom');
 director.autoCameraTarget(51000);
 assert(director.autoCamera.mode === 'castle-destruction' && director.autoCamera.critical.until === 61000, 'Queued castle destruction lost its full ten-second priority');
 
@@ -276,6 +308,10 @@ f.spawnFarmer = async () => null;
 const rejected = await f.join('Rejected');
 assert(rejected === null && !f.kingdomByName.has('rejected'), 'Failed JOIN remained registered');
 assert(f.kingdoms.every(item => !item.alive || item.name !== 'Rejected'), 'Failed JOIN left a live partial civilization');
+
+const capped = new Simulation(makeWorld(), makeRenderer());
+capped.roundEntrants = 12;
+assert(await capped.join('Thirteenth') === null && capped.kingdoms.length === 0, 'A thirteenth player entered the round');
 
 const countSource = gameplaySource.match(/function bigCityBuildingCount\(gift, value, repeat\) \{[\s\S]*?\n  \}/)?.[0];
 assert(countSource, 'High-gift building count owner could not be isolated');
@@ -422,4 +458,4 @@ assert(completedCastle.visible && completedCastle.renderable, 'Completed castle 
 assert(completedCastle.__constructionStagesComplete && !completedCastle.__constructionStagesPlaying, 'Construction completion state is inconsistent');
 assert(constructionCullCalls === 1, 'Completed castle did not re-evaluate the current mobile viewport');
 
-console.log(`V8.0.5 deterministic logic OK (softCamera=true, castlePersistent=true, castleCollapse=neutral+AIoff, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);
+console.log(`V8.0.6 deterministic logic OK (cameraSkipsEmpty=true, maxPlayers=12, victoryRestart=true, castlePersistent=true, castleCollapse=neutral+AIoff, treeRouting=${treeSafePath.length}, alliance=true, irregular=${ka.territory.size}/${width * height}, coastWait=true, joinRetry=${attempts}, concurrentJoin=1castle, universe=40..56+citizens, queuedGifts=2/2, streak=2)`);
