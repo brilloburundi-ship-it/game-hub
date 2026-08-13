@@ -2,7 +2,7 @@
   'use strict';
   const VERSION='v712-latest-visuals-1';
   if(window.__GOD_WORLD_LATEST_VISUALS?.installed)return;
-  const state=window.__GOD_WORLD_LATEST_VISUALS={installed:false,version:VERSION,smoothRivers:false,unifiedSea:false,errors:[]};
+  const state=window.__GOD_WORLD_LATEST_VISUALS={installed:false,version:VERSION,smoothRivers:false,unifiedSea:false,riverMouthBlend:false,errors:[]};
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
   function smoothPath(g,sim,river){
@@ -34,8 +34,23 @@
       for(const river of sim.w?.rivers||[])if(Array.isArray(river)&&river.length>1)smoothPath(g,sim,river);
       g.stroke({color,width,alpha});group.addChild(g);
     }
+
+    // River endpoints are now one or two ocean cells beyond the shoreline.
+    // A soft wide mouth hides the final seam and makes river + sea read as one body of water.
+    const mouths=new P.Graphics();
+    for(const river of sim.w?.rivers||[]){
+      if(!Array.isArray(river)||river.length<2)continue;
+      const last=river[river.length-1];
+      const p=sim.iso(last[0],last[1]);
+      mouths.circle(p[0],p[1],10).fill({color:0x2f7898,alpha:.95});
+      mouths.circle(p[0],p[1],5).fill({color:0x4e9fba,alpha:.34});
+      mouths.circle(p[0]-1,p[1]-1,2).fill({color:0x8bc5d2,alpha:.20});
+    }
+    mouths.eventMode='none';group.addChild(mouths);
+
     r.root.addChildAt(group,Math.min(1,r.root.children.length));
-    r.__v708RiverOverlay=group;r.__v712RiverOverlay=group;state.smoothRivers=true;return true;
+    r.__v708RiverOverlay=group;r.__v712RiverOverlay=group;
+    state.smoothRivers=true;state.riverMouthBlend=true;return true;
   }
 
   function unifyOcean(sim){
@@ -46,7 +61,14 @@
       const pad=96,w=Math.max(1,innerWidth+pad*2),h=Math.max(1,innerHeight+pad*2);
       base.clear();base.rect(-pad,-pad,w,h).fill({color:0x2f7898,alpha:1});
       waves.clear();
-      for(let y=-40;y<innerHeight+80;y+=34){const row=Math.floor((y+40)/34),shift=(row%2)*21;for(let x=-80+shift;x<innerWidth+100;x+=70){const len=18+(((x+row*13)%3+3)%3)*5;waves.rect(x,y,len,2).fill({color:row%3===0?0x4e9fba:0x3e8eaa,alpha:.24});if((row+Math.floor(x/70))%4===0)waves.rect(x+8,y+7,Math.max(8,len-9),1).fill({color:0x8bc5d2,alpha:.16});}}
+      for(let y=-40;y<innerHeight+80;y+=34){
+        const row=Math.floor((y+40)/34),shift=(row%2)*21;
+        for(let x=-80+shift;x<innerWidth+100;x+=70){
+          const len=18+(((x+row*13)%3+3)%3)*5;
+          waves.rect(x,y,len,2).fill({color:row%3===0?0x4e9fba:0x3e8eaa,alpha:.24});
+          if((row+Math.floor(x/70))%4===0)waves.rect(x+8,y+7,Math.max(8,len-9),1).fill({color:0x8bc5d2,alpha:.16});
+        }
+      }
     };
     redraw();window.addEventListener('resize',redraw,{passive:true});state.unifiedSea=true;return true;
   }
