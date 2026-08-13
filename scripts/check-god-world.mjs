@@ -6,11 +6,11 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, worldShape, visuals, gameplay, farmerDirection, buildingScale, construction, packageJson] = await Promise.all([
+const [index, sw, versionText, worldShape, visuals, gameplay, waterBase, farmerDirection, buildingScale, construction, fishingBoats, packageJson] = await Promise.all([
   read('index.html'), read('sw.js'), read('version.json'),
   read('latest/world-shape.js'), read('latest/visuals.js'), read('latest/gameplay.js'),
-  read('latest/farmer-direction.js'), read('latest/building-scale.js'),
-  read('construction-phases-v662-native-pixel.js'),
+  read('latest/water-base.js'), read('latest/farmer-direction.js'), read('latest/building-scale.js'),
+  read('construction-phases-v662-native-pixel.js'), read('v68-fishing-boats.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -42,6 +42,8 @@ for (const file of latestScripts) {
   if (!sw.includes(`'${file}'`)) throw new Error(`${file} missing from latest cache shell`);
 }
 if (!sw.includes("'latest/flora.js'")) throw new Error('Latest flora payload missing from cache shell');
+if (!index.includes('v68-fishing-boats.js?v=20260813-1236-v712')) throw new Error('Primary fishing boat runtime must stay active');
+if (!sw.includes("'v68-fishing-boats.js'")) throw new Error('Primary fishing boat runtime missing from cache shell');
 
 const token = '20260813-1236-v712';
 const localScriptSrcs = [...index.matchAll(/<script src="(?!https?:\/\/)([^"]+)"/g)].map(m => m[1]);
@@ -84,15 +86,48 @@ if (!gameplay.includes('const ROSE_SUPPORT_PER = 3.5')) throw new Error('Rose de
 if (!gameplay.includes('function installViewerDevelopmentSupport')) throw new Error('Viewer development support integration missing');
 if (!gameplay.includes('function applySupportEconomy')) throw new Error('Persistent viewer economy acceleration missing');
 if (!gameplay.includes('k.lastBuild -= 0.55 * strength')) throw new Error('Viewer support must accelerate normal construction cadence');
+
+// LIVE interaction safeguards: every interaction tier must now affect real kingdom power.
+if (!gameplay.includes("const VERSION = 'v712-engagement-recovery-1'")) throw new Error('Targeted engagement/recovery layer missing');
+if (!gameplay.includes('const LIKE_POWER_PER = 0.035')) throw new Error('Contained LIKE power contribution missing');
+if (!gameplay.includes('function giftPower')) throw new Error('Gift-to-power tier resolver missing');
+if (!gameplay.includes('k.military += power')) throw new Error('All gifts must contribute to real kingdom power');
+if (!gameplay.includes('const BIG_CITY_GIFTS')) throw new Error('High-gift big-help classification missing');
+if (!gameplay.includes('const BIG_CITY_TYPES')) throw new Error('Powerful instant city building pack missing');
+if (!gameplay.includes('function buildPowerCity')) throw new Error('High gifts must be able to build an immediate powerful city');
+if (!gameplay.includes("'church', 'windmill', 'watchtower', 'stone_tower', 'port'")) throw new Error('Big-help city must include late civic/military/port structures');
+
+// Windmill and port recovery are deliberately independent from normal development.
+if (!gameplay.includes('function installWindmillRecovery')) throw new Error('Windmill animation recovery missing');
+if (!gameplay.includes('now - h.changedAt > 1050')) throw new Error('Static-only windmill recovery guard missing');
+if (!gameplay.includes('Math.floor(b.__v712WindClock / 0.18)')) throw new Error('Recovered windmill animation cadence missing');
+if (!gameplay.includes('function installPortRecovery')) throw new Error('Independent port recovery missing');
+if (!gameplay.includes('function buildIndependentPort')) throw new Error('Independent port builder missing');
+if (!gameplay.includes('const PORT_COST = { wood: 90, stone: 24, gold: 12 }')) throw new Error('Port resource rule missing');
 if (gameplay.includes('sim.buildAI =') || gameplay.includes('originalBuildAI')) throw new Error('Latest gameplay must not wrap buildAI');
+
+// Existing fishing pipeline must still provide one primary plus one secondary boat.
+if (!fishingBoats.includes('renderer.__v68FishingBoats=boats')) throw new Error('Primary fishing boat registry missing');
+if (!fishingBoats.includes('fishingLoop:true') || !fishingBoats.includes('returnToPort:true')) throw new Error('Primary fishing boat work loop missing');
+if (!waterBase.includes('const BOATS_PER_PORT = 2')) throw new Error('Two fishing boats per port rule missing');
+if (!waterBase.includes('installSecondFishingBoat(sim)')) throw new Error('Second fishing boat system missing');
+if (!waterBase.includes('api.getFishingBoatCount')) throw new Error('Fishing boat count diagnostic missing');
+
+// Civilians keep the stable facing fix, but now use smooth fractional presentation and dispersed targets.
 if (!farmerDirection.includes('const LOOKAHEAD = 4') || !farmerDirection.includes('const OPPOSITE_HOLD_MS = 240')) throw new Error('Farmer direction stability missing');
+if (!farmerDirection.includes('const WALK_ANIMATION_SPEED = 0.11')) throw new Error('Smooth civilian walk cadence missing');
+if (!farmerDirection.includes('function installAntiTrainTargets')) throw new Error('Farmer anti-train target distribution missing');
+if (!farmerDirection.includes('function spreadTaskTarget')) throw new Error('Farmer target spreading missing');
+if (!farmerDirection.includes('sprite.roundPixels = false')) throw new Error('Farmer fractional-pixel walking missing');
+if (!farmerDirection.includes('Math.exp(-30 * dt)')) throw new Error('Farmer display interpolation missing');
+
 if (!buildingScale.includes('const MARKET_LOCKED_WORLD_HEIGHT = 24')) throw new Error('Reduced market scale lock missing');
 if (!buildingScale.includes('const STABLE_LOCKED_WORLD_HEIGHT = 28 * 0.72')) throw new Error('Stable scale lock missing');
 
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
 
-const syntaxFiles = [...latestScripts, 'latest/flora.js', 'construction-phases-v662-native-pixel.js', 'sw.js'];
+const syntaxFiles = [...latestScripts, 'latest/flora.js', 'construction-phases-v662-native-pixel.js', 'v68-fishing-boats.js', 'sw.js'];
 for (const file of syntaxFiles) {
   const full = resolve(gameRoot, file);
   await access(full);
@@ -107,4 +142,4 @@ for (const entry of [...shellMatch[1].matchAll(/'([^']+)'/g)].map(m => m[1])) {
   await access(resolve(gameRoot, entry));
 }
 
-console.log('TikTok God World: V7.1.2 latest-only + kingdom-coloured construction + connected irregular coasts + clean river mouths + viewer support OK');
+console.log('TikTok God World: V7.1.2 latest-only + LIVE power/big-help + windmill/port/2-boats recovery + smooth anti-train civilians OK');
