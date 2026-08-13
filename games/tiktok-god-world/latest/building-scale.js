@@ -1,14 +1,15 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v711-building-scale-lock-2';
+  const VERSION = 'v711-building-scale-lock-3-targeted';
   if (window.__V711_BUILDING_SCALE_LOCK?.bootstrap) return;
 
-  // Stable/setta keeps the exact small presentation already used by the
-  // construction layer: 72% of the original 28px world-height target.
-  const STABLE_LOCKED_WORLD_HEIGHT = 28 * 0.72;
-  // Market is intentionally smaller than its previous default presentation so
-  // it stays proportional to houses, farms and other village structures.
+  // Stable/setta and forge/fabbro use explicit compact world heights. Keeping the
+  // values here, in the final scale authority, prevents construction/recolor paths
+  // from growing them again later.
+  const STABLE_LOCKED_WORLD_HEIGHT = 17.5;
+  const FORGE_LOCKED_WORLD_HEIGHT = 29;
+  // Market keeps the already-approved compact presentation.
   const MARKET_LOCKED_WORLD_HEIGHT = 24;
   const SWEEP_MS = 1200;
 
@@ -17,11 +18,13 @@
     installed: false,
     version: VERSION,
     stableWorldHeight: STABLE_LOCKED_WORLD_HEIGHT,
+    forgeWorldHeight: FORGE_LOCKED_WORLD_HEIGHT,
     marketWorldHeight: MARKET_LOCKED_WORLD_HEIGHT,
     normalizedExisting: 0,
     normalizedAdds: 0,
     normalizedRecolors: 0,
     stableLocks: 0,
+    forgeLocks: 0,
     marketLocks: 0,
     errors: []
   };
@@ -37,10 +40,10 @@
     if (!tex) return null;
     const h = Math.max(1, Number(tex.height) || Number(fallbackTexture?.height) || 1);
 
-    // These two structures use explicit final world heights. Because buildingScale
-    // is wrapped below, the core construction grow tween also targets these exact
-    // sizes and cannot enlarge them again when construction finishes.
+    // Explicit final world heights are enforced by the same buildingScale function
+    // used by the construction grow tween, so no second resize animation is added.
     if (type === 'stable') return (STABLE_LOCKED_WORLD_HEIGHT / h) * multiplier;
+    if (type === 'forge') return (FORGE_LOCKED_WORLD_HEIGHT / h) * multiplier;
     if (type === 'market') return (MARKET_LOCKED_WORLD_HEIGHT / h) * multiplier;
 
     // Every other building uses the original scale formula but always with its
@@ -71,6 +74,10 @@
     if (building.type === 'stable') {
       sprite.__stableSmallScaleLocked = true;
       state.stableLocks++;
+    }
+    if (building.type === 'forge') {
+      sprite.__forgeSmallScaleLocked = true;
+      state.forgeLocks++;
     }
     if (building.type === 'market') {
       sprite.__marketSmallScaleLocked = true;
