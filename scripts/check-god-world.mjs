@@ -6,7 +6,7 @@ const root = resolve(import.meta.dirname, '..');
 const gameRoot = resolve(root, 'games/tiktok-god-world');
 const read = name => readFile(resolve(gameRoot, name), 'utf8');
 
-const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCameraFishing, waterPalette, packageJson] = await Promise.all([
+const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCameraFishing, waterPalette, farmerDirection, packageJson] = await Promise.all([
   read('index.html'),
   read('sw.js'),
   read('version.json'),
@@ -15,6 +15,7 @@ const [index, sw, versionText, treeDepth, worldPolish, gameplayPolish, waterCame
   read('v707-gameplay-polish.js'),
   read('v708-water-camera-fishing.js'),
   read('v709-water-palette.js'),
+  read('v710-farmer-direction.js'),
   readFile(resolve(root, 'package.json'), 'utf8')
 ]);
 
@@ -22,11 +23,12 @@ const version = JSON.parse(versionText);
 if (version.version !== '6.6.2-startup-recovery') throw new Error(`Expected V6.6.2 stable core version, found ${version.version}`);
 if (version.marker !== 'god-world-v662-resilient-assets-ios') throw new Error('V6.6.2 stable core marker missing');
 if (!index.includes('V6.6.2 STABLE')) throw new Error('V6.6.2 STABLE UI marker missing');
-if (!sw.includes("const CACHE = 'god-world-v7-0-9-unified-water-palette'")) throw new Error('V7.0.9 unified-water cache marker missing');
+if (!sw.includes("const CACHE = 'god-world-v7-1-0-farmer-direction-stability'")) throw new Error('V7.1.0 farmer-direction cache marker missing');
 if (!worldPolish.includes("const VERSION = 'v706-world-polish-1'")) throw new Error('V7.0.6 world-polish runtime marker missing');
 if (!gameplayPolish.includes("const VERSION = 'v707-gameplay-polish-3'")) throw new Error('V7.0.7 outside-buildAI runtime marker missing');
 if (!waterCameraFishing.includes("const VERSION = 'v708-water-camera-two-boats-1'")) throw new Error('V7.0.8 water/camera/two-boats runtime marker missing');
 if (!waterPalette.includes("const VERSION = 'v709-unified-water-palette-1'")) throw new Error('V7.0.9 unified-water runtime marker missing');
+if (!farmerDirection.includes("const VERSION = 'v710-farmer-direction-stability-1'")) throw new Error('V7.1.0 farmer-direction runtime marker missing');
 if (!treeDepth.includes("const VERSION = 'v706-sparse-user-pixel-flora-1'")) throw new Error('V7.0.6 sparse pixel flora marker missing');
 
 const expectedScripts = [
@@ -60,7 +62,8 @@ const expectedScripts = [
   'v70-war-peace-cleanup.js',
   'v707-gameplay-polish.js',
   'v708-water-camera-fishing.js',
-  'v709-water-palette.js'
+  'v709-water-palette.js',
+  'v710-farmer-direction.js'
 ];
 
 for (const file of expectedScripts) {
@@ -112,6 +115,13 @@ if (!waterPalette.includes('recolorBackdrop')) throw new Error('Unified-water ba
 if (!waterPalette.includes('0x2f7898')) throw new Error('Sea must use the same primary blue as the river');
 if (!waterPalette.includes('0x4e9fba') || !waterPalette.includes('0x8bc5d2')) throw new Error('Sea highlight palette must match river layers');
 
+if (!farmerDirection.includes('const LOOKAHEAD = 4')) throw new Error('Farmer route lookahead must inspect four upcoming cells');
+if (!farmerDirection.includes('const OPPOSITE_HOLD_MS = 240')) throw new Error('Farmer opposite-direction anti-flip hold missing');
+if (!farmerDirection.includes('routeVector')) throw new Error('Farmer route-vector direction resolver missing');
+if (!farmerDirection.includes('stableDirection')) throw new Error('Farmer direction hysteresis missing');
+if (!farmerDirection.includes('syntheticVector')) throw new Error('Farmer animation-facing vector stabilizer missing');
+if (!farmerDirection.includes('Farmer position, pathfinding')) throw new Error('Farmer direction fix must leave physical movement untouched');
+
 const pkg = JSON.parse(packageJson);
 if (!String(pkg.scripts?.check || '').includes('check:god-world')) throw new Error('npm run check must include check:god-world');
 
@@ -140,4 +150,4 @@ for (const atlasPart of [
   if (!sw.includes(`'${atlasPart}'`)) throw new Error(`Pixel flora atlas part missing from preload shell: ${atlasPart}`);
 }
 
-console.log('TikTok God World: stable buildAI + unified river/sea palette + bounded camera + two fishing boats per port OK');
+console.log('TikTok God World: stable buildAI + unified water + bounded camera + two fishing boats + stable farmer walking direction OK');
