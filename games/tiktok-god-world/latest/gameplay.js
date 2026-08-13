@@ -11,11 +11,16 @@
     manualWorkFrames: false,
     foundingCivics: false,
     spearOverlayRemoved: false,
+    viewerSupport: false,
     freeCivicsGranted: 0,
+    likeSupportEvents: 0,
+    roseSupportEvents: 0,
     errors: []
   };
 
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
   const WORK_ACTIONS = new Set([
     'harvest', 'plant_seed', 'dig', 'pickaxe', 'water', 'chop_wood',
     'fish', 'milk_cow', 'push_cart', 'carry_sack', 'carry_log', 'carry_basket'
@@ -35,6 +40,12 @@
     carry_log: 380,
     carry_basket: 380
   };
+
+  // Viewer support is deliberately cumulative: sustained likes and gifts must make
+  // a supported kingdom visibly out-develop an otherwise equivalent idle kingdom.
+  const SUPPORT_CAP = 32;
+  const LIKE_SUPPORT_PER = 0.22;
+  const ROSE_SUPPORT_PER = 3.5;
 
   // These two founding buildings are independent gifts. They never replace,
   // wrap or delay the simulation's original buildAI development loop.
@@ -206,8 +217,6 @@
         return;
       }
 
-      // Never compete with the normal simulation tick/buildAI. If a tick is active,
-      // wait and try again outside it instead of making the development loop await us.
       if (sim.__v69TickBusy || sim.__v707CivicGrantBusy) {
         setTimeout(attempt, 700);
         return;
@@ -288,6 +297,113 @@
     state.spearOverlayRemoved = true;
   }
 
+  function supportedKingdom(sim, name) {
+    return sim.kingdomByName?.get?.(String(name || '').toLowerCase()) || null;
+  }
+
+  function addViewerSupport(sim, k, points, duration) {
+    if (!k?.alive) return;
+    k.__v712ViewerSupport = clamp(Number(k.__v712ViewerSupport || 0) + points, 0, SUPPORT_CAP);
+    k.__v712ViewerSupportUntil = Math.max(Number(k.__v712ViewerSupportUntil || 0), sim.age + duration);
+  }
+
+  function supportStrength(sim, k) {
+    let meter = Number(k?.__v712ViewerSupport || 0);
+    if (meter <= 0) return 0;
+    if (sim.age > Number(k.__v712ViewerSupportUntil || 0)) {
+      meter = Math.max(0, meter - 0.8);
+      k.__v712ViewerSupport = meter;
+      if (!meter) return 0;
+    }
+    return Math.min(1.6, meter / 10);
+  }
+
+  function applyLikeSupport(sim, k, count) {
+    const n = Math.max(1, Number(count) || 1);
+    k.resources.food += 0.90 * n;
+    k.resources.wood += 0.65 * n;
+    k.resources.stone += 0.28 * n;
+    k.resources.gold += 0.12 * n;
+    k.lastBuild -= Math.min(2.5, n * 0.08);
+    k.lastExpand -= Math.min(1.5, n * 0.05);
+    k.lastPop -= Math.min(0.8, n * 0.025);
+    addViewerSupport(sim, k, n * LIKE_SUPPORT_PER, Math.max(14, Math.min(34, 10 + n * 0.6)));
+    state.likeSupportEvents++;
+  }
+
+  async function applyRoseSupport(sim, k, repeat) {
+    const n = Math.max(1, Number(repeat) || 1);
+    k.resources.food += 65 * n;
+    k.resources.wood += 55 * n;
+    k.resources.stone += 30 * n;
+    k.resources.gold += 16 * n;
+    k.popCap += n;
+    k.lastBuild -= Math.min(4, 1.35 * n);
+    k.lastExpand -= Math.min(2.5, 0.85 * n);
+    k.lastPop -= Math.min(1.8, 0.55 * n);
+    addViewerSupport(sim, k, n * ROSE_SUPPORT_PER, Math.max(50, 35 + n * 10));
+    if (typeof sim.giftPopulation === 'function') await sim.giftPopulation(k, Math.min(n, 3));
+    state.roseSupportEvents++;
+  }
+
+  function applySupportEconomy(sim, k) {
+    const strength = supportStrength(sim, k);
+    if (strength <= 0) return;
+
+    // Persistent spectator support accelerates the same normal economy/build cycle.
+    // It never calls buildAI itself and never spawns buildings out of sequence.
+    k.resources.food += 2.3 * strength;
+    k.resources.wood += 1.8 * strength;
+    k.resources.stone += 0.85 * strength;
+    k.resources.gold += 0.42 * strength;
+
+    k.lastBuild -= 0.55 * strength;
+    k.lastExpand -= 0.38 * strength;
+    k.lastPop -= 0.24 * strength;
+  }
+
+  function installViewerDevelopmentSupport(sim) {
+    if (sim.__v712ViewerDevelopmentSupport) return;
+    sim.__v712ViewerDevelopmentSupport = true;
+
+    if (typeof sim.like === 'function') {
+      const originalLike = sim.like.bind(sim);
+      sim.like = function(name, count = 1) {
+        const result = originalLike(name, count);
+        const k = supportedKingdom(this, name);
+        if (k?.alive) {
+          applyLikeSupport(this, k, count);
+          this.updateSelected?.();
+        }
+        return result;
+      };
+    }
+
+    if (typeof sim.gift === 'function') {
+      const originalGift = sim.gift.bind(sim);
+      sim.gift = async function(name, gift, repeat = 1, meta = {}) {
+        const result = await originalGift(name, gift, repeat, meta);
+        const k = supportedKingdom(this, name);
+        if (k?.alive && String(gift || '').toLowerCase().includes('rose')) {
+          await applyRoseSupport(this, k, repeat);
+          this.updateSelected?.();
+        }
+        return result;
+      };
+    }
+
+    if (typeof sim.economy === 'function') {
+      const originalEconomy = sim.economy.bind(sim);
+      sim.economy = function(k) {
+        const result = originalEconomy(k);
+        if (k?.alive) applySupportEconomy(this, k);
+        return result;
+      };
+    }
+
+    state.viewerSupport = true;
+  }
+
   async function install() {
     for (let i = 0; i < 2400; i++) {
       const sim = window.__SIM;
@@ -300,9 +416,16 @@
     installFarmerAnimationSmoothing(sim);
     installFoundingCivics(sim);
     installNoDrawnSpears(sim);
+    installViewerDevelopmentSupport(sim);
 
     state.installed = true;
     state.civicPlan = CIVIC_PLAN.map(p => ({ type: p.type, after: p.after, free: true, outsideBuildAI: true }));
+    state.support = {
+      likePerEvent: LIKE_SUPPORT_PER,
+      rosePerEvent: ROSE_SUPPORT_PER,
+      cap: SUPPORT_CAP,
+      buildAIUntouched: true
+    };
     document.documentElement.dataset.gameplayPolish = VERSION;
   }
 
