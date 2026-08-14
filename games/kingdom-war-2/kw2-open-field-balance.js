@@ -1,14 +1,14 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260814-open-field-power-1';
+  const VERSION = '20260814-war-fps-power-2';
   const EARLY_RING_TARGET = 25;
   const EARLY_BUILD_LIMIT = 7;
   const EARLY_EXPAND_INTERVAL = 1;
-  const FIELD_TOTAL = 22;
-  const FIELD_MIN = 6;
-  const FIELD_MAX = 12;
+  const FIELD_BASE = 12;
+  const FIELD_MAX = 22;
   const EVEN_POWER_RATIO = 1.08;
+  const RESERVE_UPDATE_STEP = 0.05;
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const cellKey = (x, y) => `${x},${y}`;
@@ -34,40 +34,136 @@
     return Math.max(1, Number(sim.power?.(kingdom)) || 1);
   }
 
+  // Both armies keep the full historical 12-soldier battle core. Power no longer
+  // reduces the weaker army: it adds visible reserves only to the stronger side.
   function fieldCount(sim, kingdom, war) {
-    if (!war || !kingdom?.alive) return 8;
+    if (!war || !kingdom?.alive) return FIELD_BASE;
     const enemyId = war.a === kingdom.id ? war.b : war.a;
     const enemy = sim.kingdoms?.[enemyId];
-    if (!enemy?.alive) return FIELD_MAX;
+    if (!enemy?.alive) return FIELD_BASE;
 
     const ownPower = powerValue(sim, kingdom);
     const enemyPower = powerValue(sim, enemy);
-    const ratio = Math.max(ownPower, enemyPower) / Math.max(1, Math.min(ownPower, enemyPower));
-    if (ratio < EVEN_POWER_RATIO) return 11;
+    if (ownPower <= enemyPower * EVEN_POWER_RATIO) return FIELD_BASE;
 
-    const share = ownPower / (ownPower + enemyPower);
-    return clamp(Math.round(FIELD_TOTAL * share), FIELD_MIN, FIELD_MAX);
+    const ratio = ownPower / Math.max(1, enemyPower);
+    const extra = clamp(Math.round(Math.log2(ratio) * 6), 1, FIELD_MAX - FIELD_BASE);
+    return FIELD_BASE + extra;
   }
 
-  function liveUnits(renderer, kingdomId) {
-    return (renderer.__v66Guards?.get?.(kingdomId) || []).filter(unit => unit && !unit.dead && unit.s && !unit.s.destroyed);
+  function liveUnits(renderer, kingdomId, warId = null) {
+    return (renderer.__v66Guards?.get?.(kingdomId) || []).filter(unit =>
+      unit && !unit.dead && unit.s && !unit.s.destroyed && (!warId || unit.warId === warId)
+    );
   }
 
-  function trimToPowerShare(renderer, kingdomId, desired) {
-    const current = renderer.__v66Guards?.get?.(kingdomId) || [];
-    const live = current.filter(unit => unit && !unit.dead && unit.s && !unit.s.destroyed);
-    if (live.length <= desired) return;
+  function reserveMap(renderer) {
+    renderer.__kw2FieldReserves ||= new Map();
+    return renderer.__kw2FieldReserves;
+  }
 
-    const surplus = live.length - desired;
-    const candidates = [...live].sort((a, b) => {
-      const score = unit => unit.state === 'combat' ? 3 : unit.state === 'advance' ? 2 : unit.state === 'rally' ? 1 : 0;
-      return score(a) - score(b);
-    });
-    const removeSet = new Set(candidates.slice(0, surplus));
-    for (const unit of removeSet) {
-      if (unit.s && !unit.s.destroyed) unit.s.destroy({ children: true });
+  function destroyReserve(renderer, side) {
+    const map = reserveMap(renderer);
+    const list = map.get(side) || [];
+    for (const unit of list) {
+      if (unit?.s && !unit.s.destroyed) unit.s.destroy({ children: true });
     }
-    renderer.__v66Guards.set(kingdomId, current.filter(unit => !removeSet.has(unit)));
+    map.delete(side);
+  }
+
+  function destroyAllReserves(renderer) {
+    const map = reserveMap(renderer);
+    for (const side of [...map.keys()]) destroyReserve(renderer, side);
+  }
+
+  function makeReserve(renderer, kingdom, index) {
+    const role = index % 5 === 0 ? 'archer' : (index % 3 === 0 ? 'spear' : 'sword');
+    const soldier = renderer.makeSoldier?.(kingdom, role);
+    if (!soldier) return null;
+    soldier.scale.set(0.88);
+    soldier.zIndex = 0;
+    renderer.entities?.addChild?.(soldier);
+    return { s: soldier, side: kingdom.id, role, index, anim: '' };
+  }
+
+  function setReserveAnim(renderer, unit, action) {
+    if (!unit?.s || unit.s.destroyed || unit.anim === action) return;
+    unit.anim = action;
+    renderer.swapAnim?.(unit.s, action);
+  }
+
+  function faceReserve(unit, targetX) {
+    const sprite = unit?.s?._sprite;
+    if (!sprite) return;
+    const magnitude = Math.abs(sprite.scale.x || 1);
+    sprite.scale.x = targetX >= unit.s.x ? magnitude : -magnitude;
+  }
+
+  function syncFieldReserves(sim, renderer, war) {
+    if (!war?.__v66 || war.done) {
+      destroyAllReserves(renderer);
+      return;
+    }
+
+    const phase = war.__v66.phase || 'rally';
+    for (const side of [war.a, war.b]) {
+      const kingdom = sim.kingdoms?.[side];
+      if (!kingdom?.alive) {
+        destroyReserve(renderer, side);
+        continue;
+      }
+
+      const desiredTotal = fieldCount(sim, kingdom, war);
+      const wanted = Math.max(0, desiredTotal - FIELD_BASE);
+      const map = reserveMap(renderer);
+      const list = map.get(side) || [];
+
+      while (list.length < wanted) {
+        const unit = makeReserve(renderer, kingdom, list.length);
+        if (!unit) break;
+        list.push(unit);
+      }
+      while (list.length > wanted) {
+        const unit = list.pop();
+        if (unit?.s && !unit.s.destroyed) unit.s.destroy({ children: true });
+      }
+      map.set(side, list);
+      kingdom.__kw2DesiredFieldArmy = desiredTotal;
+      kingdom.__kw2VisiblePowerReserves = wanted;
+
+      if (!list.length) continue;
+
+      const enemyId = side === war.a ? war.b : war.a;
+      const enemy = sim.kingdoms?.[enemyId];
+      const ownCapital = sim.iso(...kingdom.capital);
+      const enemyCapital = enemy?.capital ? sim.iso(...enemy.capital) : ownCapital;
+      let dx = enemyCapital[0] - ownCapital[0], dy = enemyCapital[1] - ownCapital[1];
+      const length = Math.max(1, Math.hypot(dx, dy));
+      dx /= length; dy /= length;
+      const px = -dy, py = dx;
+
+      const core = liveUnits(renderer, side, war.id);
+      let anchorX = ownCapital[0], anchorY = ownCapital[1] + 6;
+      if (core.length) {
+        anchorX = core.reduce((sum, unit) => sum + Number(unit.x || 0), 0) / core.length;
+        anchorY = core.reduce((sum, unit) => sum + Number(unit.y || 0), 0) / core.length;
+      }
+
+      for (let i = 0; i < list.length; i++) {
+        const unit = list[i];
+        if (!unit?.s || unit.s.destroyed) continue;
+        const row = Math.floor(i / 5);
+        const column = (i % 5) - 2;
+        const back = 16 + row * 11;
+        const lateral = column * 8.5;
+        const targetX = anchorX - dx * back + px * lateral;
+        const targetY = anchorY - dy * back + py * lateral;
+        unit.s.position.set(targetX, targetY);
+        unit.s.zIndex = Math.round(targetY * 100) + 15;
+        setReserveAnim(renderer, unit, phase === 'combat' ? 'attack' : 'walk');
+        faceReserve(unit, enemyCapital[0]);
+      }
+    }
   }
 
   function sectorFor(dx, dy) {
@@ -156,9 +252,83 @@
     return best;
   }
 
+  function setFarmerHidden(farmer, hidden) {
+    if (!farmer) return;
+    farmer.__kw2WarHidden = hidden;
+    if (hidden) {
+      farmer.path = [];
+      farmer.action = 'idle';
+      farmer.actionUntil = 0;
+    }
+    const sprite = farmer._sprite;
+    if (!sprite || sprite.destroyed) return;
+    sprite.visible = !hidden;
+    sprite.renderable = !hidden;
+    if (hidden) sprite.stop?.();
+    else sprite.play?.();
+  }
+
+  function setKingdomFarmersHidden(kingdom, hidden) {
+    if (!kingdom?.alive) return;
+    for (const farmer of kingdom.farmers || []) setFarmerHidden(farmer, hidden);
+    kingdom.__kw2FarmersHiddenForWar = hidden;
+  }
+
+  function syncWarFarmerVisibility(sim) {
+    const war = activeWar(sim);
+    for (const kingdom of sim.kingdoms || []) {
+      if (!kingdom?.alive) continue;
+      const hidden = !!war && (kingdom.id === war.a || kingdom.id === war.b);
+      if (!!kingdom.__kw2FarmersHiddenForWar !== hidden) setKingdomFarmersHidden(kingdom, hidden);
+    }
+  }
+
+  function releaseFixedFarmers(sim) {
+    let released = 0;
+    for (const kingdom of sim.kingdoms || []) {
+      for (const farmer of kingdom.farmers || []) {
+        if (!farmer?.fixedBuilding) continue;
+        const buildingId = farmer.fixedBuilding;
+        if (sim.releaseFarmWorker?.(kingdom, buildingId)) released++;
+      }
+    }
+    document.documentElement.dataset.kw2ReleasedFixedFarmers = String(released);
+    return released;
+  }
+
   function install(sim) {
     if (sim.__kw2OpenFieldBalance === VERSION) return true;
     const renderer = sim.r;
+
+    // Farms remain productive buildings but never pin a visible citizen in place.
+    releaseFixedFarmers(sim);
+    sim.spawnFarmWorker = async function() { return null; };
+
+    const previousFarmerAI = sim.farmerAI.bind(sim);
+    sim.farmerAI = function(kingdom) {
+      if (activeWarFor(this, kingdom?.id)) {
+        setKingdomFarmersHidden(kingdom, true);
+        return false;
+      }
+      if (kingdom?.__kw2FarmersHiddenForWar) setKingdomFarmersHidden(kingdom, false);
+      return previousFarmerAI(kingdom);
+    };
+
+    const previousUpdateFarmer = typeof renderer.updateFarmer === 'function' ? renderer.updateFarmer.bind(renderer) : null;
+    if (previousUpdateFarmer) {
+      renderer.updateFarmer = function(farmer, ...args) {
+        if (farmer?.__kw2WarHidden) return;
+        return previousUpdateFarmer(farmer, ...args);
+      };
+    }
+
+    const previousSetFarmerAction = typeof renderer.setFarmerAction === 'function' ? renderer.setFarmerAction.bind(renderer) : null;
+    if (previousSetFarmerAction) {
+      renderer.setFarmerAction = function(farmer, action) {
+        if (farmer?.__kw2WarHidden) return;
+        return previousSetFarmerAction(farmer, action);
+      };
+    }
 
     const previousJoin = sim.join.bind(sim);
     sim.join = async function(name) {
@@ -210,7 +380,13 @@
     sim.startWar = function(a, b) {
       const running = activeWar(this);
       if (running && !samePair(running, a, b)) return false;
-      return previousStartWar(a, b);
+      const result = previousStartWar(a, b);
+      const war = activeWar(this);
+      if (war && samePair(war, a, b)) {
+        setKingdomFarmersHidden(a, true);
+        setKingdomFarmersHidden(b, true);
+      }
+      return result;
     };
 
     const previousAttack = sim.attack.bind(sim);
@@ -220,39 +396,36 @@
       return previousAttack(attacker, target);
     };
 
+    const previousEndWar = typeof renderer.endWar === 'function' ? renderer.endWar.bind(renderer) : null;
+    if (previousEndWar) {
+      renderer.endWar = function(war) {
+        const result = previousEndWar(war);
+        destroyAllReserves(this);
+        const a = sim.kingdoms?.[war?.a], b = sim.kingdoms?.[war?.b];
+        if (a?.alive) setKingdomFarmersHidden(a, false);
+        if (b?.alive) setKingdomFarmersHidden(b, false);
+        return result;
+      };
+    }
+
     const previousUpdateWars = renderer.updateWars.bind(renderer);
     renderer.updateWars = function(battleSim, dt) {
       const liveSim = battleSim || sim;
-      const war = activeWar(liveSim);
-
-      if (war && this.__v661Reinforce instanceof Map) {
-        for (const side of [war.a, war.b]) {
-          const kingdom = liveSim.kingdoms?.[side];
-          if (!kingdom?.alive) continue;
-          const desired = fieldCount(liveSim, kingdom, war);
-          kingdom.__kw2DesiredFieldArmy = desired;
-          const current = liveUnits(this, side).length;
-          if (current < desired) {
-            const state = this.__v661Reinforce.get(side) || { next: 0 };
-            state.next = 0;
-            this.__v661Reinforce.set(side, state);
-          }
-        }
-      }
-
+      syncWarFarmerVisibility(liveSim);
       const result = previousUpdateWars(liveSim, dt);
 
-      if (war && !war.done) {
-        for (const side of [war.a, war.b]) {
-          const kingdom = liveSim.kingdoms?.[side];
-          if (!kingdom?.alive) continue;
-          const desired = fieldCount(liveSim, kingdom, war);
-          trimToPowerShare(this, side, desired);
-          kingdom.__kw2DesiredFieldArmy = desired;
-        }
-        const a = liveSim.kingdoms?.[war.a], b = liveSim.kingdoms?.[war.b];
-        if (a?.alive && b?.alive) {
-          document.documentElement.dataset.kw2FieldArmy = `${a.name}:${a.__kw2DesiredFieldArmy}|${b.name}:${b.__kw2DesiredFieldArmy}`;
+      this.__kw2ReserveAccumulator = Number(this.__kw2ReserveAccumulator || 0) + Math.max(0, Number(dt) || 0);
+      if (this.__kw2ReserveAccumulator >= RESERVE_UPDATE_STEP) {
+        this.__kw2ReserveAccumulator = 0;
+        const war = activeWar(liveSim);
+        syncFieldReserves(liveSim, this, war);
+        if (war && !war.done) {
+          const a = liveSim.kingdoms?.[war.a], b = liveSim.kingdoms?.[war.b];
+          if (a?.alive && b?.alive) {
+            document.documentElement.dataset.kw2FieldArmy = `${a.name}:${fieldCount(liveSim, a, war)}|${b.name}:${fieldCount(liveSim, b, war)}`;
+          }
+        } else {
+          document.documentElement.dataset.kw2FieldArmy = '';
         }
       }
 
@@ -265,13 +438,18 @@
       version: VERSION,
       singleActiveWar: true,
       powerBasedOpenFieldMajority: true,
-      fieldTotalTarget: FIELD_TOTAL,
-      fieldMinimum: FIELD_MIN,
+      weakerArmyNeverReduced: true,
+      fieldBase: FIELD_BASE,
       fieldMaximum: FIELD_MAX,
+      lightweightPowerReserves: true,
+      warParticipantFarmersHidden: true,
+      fixedFarmWorkers: false,
+      roamingFarmerVarietyPreserved: true,
       earlyCapitalRingTarget: EARLY_RING_TARGET,
       earlyBalancedConstruction: true
     });
     document.documentElement.dataset.kw2OpenFieldBalance = VERSION;
+    document.documentElement.dataset.kw2FixedFarmWorkers = '0';
     return true;
   }
 
@@ -285,6 +463,7 @@
         typeof sim.power === 'function' &&
         typeof sim.findBuildCell === 'function' &&
         typeof sim.expandAI === 'function' &&
+        typeof sim.farmerAI === 'function' &&
         typeof sim.r.updateWars === 'function'
       ) {
         install(sim);
@@ -292,11 +471,11 @@
       }
       await sleep(25);
     }
-    throw new Error('Kingdom War 2 runtime unavailable for open-field balance patch');
+    throw new Error('Kingdom War 2 runtime unavailable for war FPS balance patch');
   }
 
   wait().catch(error => {
     window.__KW2_OPEN_FIELD_BALANCE_ERROR = String(error?.stack || error?.message || error);
-    console.error('[Kingdom War 2 open field balance]', error);
+    console.error('[Kingdom War 2 war FPS balance]', error);
   });
 })();
