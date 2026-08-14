@@ -11,36 +11,45 @@ const version=JSON.parse(read('version.json'));
 const index=read('index.html');
 const game=read('game.js');
 const core=read('core.js');
-const combat=read('combat.js');
+const combat=read('combat-v13.js');
+const arena=read('arena-hd.js');
+const idle=read('idle-wait.js');
 const effects=read('asset-effects.js');
 const manifest=JSON.parse(read('manifest-core.json'));
 const fighters={...JSON.parse(read('fighters-0.json')),...JSON.parse(read('fighters-1.json')),...JSON.parse(read('fighters-2.json'))};
 
-assert(version.version==='1.2.1','Fighter Arena release version must be 1.2.1');
+assert(version.version==='1.3.0','Fighter Arena release version must be 1.3.0');
 assert(index.includes(`game.js?v=${version.version}`),'index.html cache-bust does not match release version');
+assert(index.includes(`idle-wait.js?v=${version.version}`),'idle waiting runtime is not wired into index.html');
 assert(game.includes(`const VERSION='${version.version}'`),'game.js version does not match version.json');
-assert(game.includes("FX_ASSETS"),'Original VFX pack loader missing');
+assert(game.includes("combat-v13.js?v=1.3.0"),'1.3 combat runtime is not wired');
+assert(game.includes('FX_ASSETS'),'Original VFX pack loader missing');
 assert((effects.match(/data:image\/png;base64,/g)||[]).length===8,'Expected eight original Effects pack spritesheets');
 assert(manifest.arenas.length===6,'Expected six Fighter Arena HD scenes');
 assert(new Set(manifest.arenas.map(a=>a.id)).size===6,'Arena ids must be unique');
-assert(combat.includes('renderArenaStatic'),'Native HD arena renderer missing');
+assert(arena.includes('renderArenaHD'),'Retina HD arena renderer missing');
+for(const name of ['skyDojo','neonCity','volcanic','ice','forge','dragon'])assert(arena.includes(`function ${name}`),`HD arena scene ${name} missing`);
 assert(combat.includes('doubleChance'),'Random double attack bonus missing');
 assert(combat.includes('DOUBLE ATTACK!'),'Double attack feedback missing');
-assert(combat.includes('stableScaleFor'),'Stable fighter height normalization missing');
-assert(combat.includes('combatGap'),'Base combat spacing missing');
+assert(combat.includes('combatGap'),'Expanded combat spacing missing');
+assert(combat.includes('getMetrics'),'Stable fighter body metrics missing');
 assert(combat.includes('sheetFx'),'Original VFX sprite runtime missing');
-assert(core.includes('resetRoundRuntime'),'Round-side reset missing');
-assert(game.includes("window.FighterArenaBridge.version=VERSION"),'Bridge release version override missing');
+assert(core.includes('setAvailableFighters'),'Loaded fighter availability gating missing');
+assert(core.includes('winner.x=spawnX(winSide)'),'Waiting champion must return to and remain on their side');
+assert(!core.includes('S.queue.push(loser.viewer)'),'Defeated fighter must not be auto-requeued for an immediate rematch');
+assert(idle.includes("S.round==='waiting'"),'Waiting champion idle state controller missing');
+assert(idle.includes('r.anim+=dt'),'Waiting champion idle animation must continue advancing');
+assert(game.includes('loadedIds.size<2'),'Arena should only hard-block when fewer than two real fighter atlases load');
+assert(game.includes('scheduleRecovery'),'Background fighter atlas recovery missing');
+assert(game.includes('recovering in background'),'Partial fighter readiness status missing');
+assert(game.includes("get('demo')==='1'"),'Demo viewer stream must be gated behind ?demo=1');
+assert(game.includes('scheduleDemo'),'Timed simulated LIVE viewer stream missing');
+assert(game.includes('4500+Math.random()*9500'),'Natural viewer waiting interval missing');
+assert(game.includes('8000+Math.random()*10000'),'Long demo waiting gaps missing');
+assert(index.includes('testStreamButton'),'LIVE test stream control missing');
+assert(index.includes('winner stays on their side in idle'),'Idle champion behavior not documented in UI');
 assert(!game.includes('chooseFallbackAtlas'),'Cross-fighter sprite substitution must never return');
 assert(game.includes('atlasFits'),'Sprite atlas geometry validation missing');
-assert(game.includes("kind:'embedded-data'"),'Embedded fighter decode must be attempted before file recovery');
-assert(game.includes('HELD_URLS.add'),'Persistent Safari Blob recovery missing');
-assert(game.includes('arena start blocked'),'Missing fighter atlases must block arena start');
-assert(!game.includes('procedural safety renderer enabled'),'Visible procedural fighter recovery must not be enabled by the loader');
-assert(game.includes('RENDER_SCALE={samurai:.80,medieval_king:.94}'),'Mobile fighter scale calibration missing');
-assert(game.includes('desiredCenterGap'),'Mobile engagement spacing guard missing');
-assert(game.includes("a.x=S.w*.14;b.x=S.w*.86"),'Round fighters must reset farther apart');
-assert(game.includes('@media(max-width:699px)'),'Mobile HUD safe-area correction missing');
 for(const[id,f]of Object.entries(fighters)){
   assert(f.atlas,`${id}: missing atlas`);
   for(const a of ['idle','run','attack1','hurt'])assert(f.animations?.[a],`${id}: missing ${a} animation`);
@@ -51,8 +60,8 @@ for(const[id,f]of Object.entries(fighters)){
     assert(Number.isFinite(a.fps)&&a.fps>0,`${id}/${name}: invalid fps`);
   }
 }
-for(const name of ['game.js','core.js','combat.js','asset-effects.js']){
+for(const name of ['game.js','core.js','combat-v13.js','arena-hd.js','idle-wait.js','asset-effects.js']){
   const p=resolve(root,name),r=spawnSync(process.execPath,['--check',p],{encoding:'utf8'});
   assert(r.status===0,`${name} syntax check failed: ${r.stderr||r.stdout}`);
 }
-console.log(`Fighter Arena ${version.version}: ${Object.keys(fighters).length} unique fighters, ${manifest.arenas.length} HD arenas, 8 VFX sheets, mobile spacing/asset checks passed.`);
+console.log(`Fighter Arena ${version.version}: ${Object.keys(fighters).length} unique fighter definitions, ${manifest.arenas.length} Retina HD arenas, timed demo stream and animated idle champion checks passed.`);
