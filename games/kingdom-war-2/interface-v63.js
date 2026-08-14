@@ -1,5 +1,17 @@
 (() => {
   'use strict';
+
+  // Load the final war policy independently from the legacy command UI. The patch
+  // waits for the physical-war runtime before installing, so existing script order
+  // and all non-war systems remain unchanged.
+  if (!document.querySelector('script[data-kw2-auto-war-performance]')) {
+    const script = document.createElement('script');
+    script.src = 'live-auto-war-performance.js?v=20260814-auto-war-performance-1';
+    script.async = true;
+    script.dataset.kw2AutoWarPerformance = '1';
+    document.head.appendChild(script);
+  }
+
   const commands = [
     ['👑', 'JOIN = create your kingdom'],
     ['❤️', 'LIKE = speed up the economy'],
