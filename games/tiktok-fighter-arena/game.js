@@ -1,10 +1,10 @@
-import{S,cfg,clamp,emit,fillArena,installBridge,setArena,setAvailableFighters}from'./core.js?v=1.3.0';
+import{S,cfg,clamp,emit,fillArena,installBridge,setArena,setAvailableFighters}from'./core.js?v=1.3.0-r13';
 import{startCombat}from'./combat-v13.js?v=1.3.0';
 import{FX_ASSETS}from'./asset-effects.js?v=1.2.0';
 
 const VERSION='1.3.0';
-const MODULES=Array.from({length:9},(_,i)=>`./assets-${i}.js?v=${VERSION}`);
-const RESCUE_MODULES=['asset-evil-wizard.js','asset-hero-knight.js','asset-huntress.js','asset-martial-champion.js','asset-martial-hero.js','asset-medieval-king.js','asset-evil-wizard-2.js'];
+const MODULES=Array.from({length:9},(_,i)=>`./assets-${i}.js?v=${VERSION}-r13`);
+const RESCUE_MODULES=['asset-evil-wizard.js','asset-hero-knight.js','asset-huntress.js','asset-martial-champion.js','asset-martial-hero.js','asset-medieval-king.js','asset-evil-wizard-2.js','asset-new-roster.js'];
 const ASSETS={"./assets/street_mon.webp":"./assets/street_mon.webp"};
 const HELD_URLS=new Set();
 const key=src=>`./${String(src||'').replace(/^\.\//,'')}`;
@@ -13,7 +13,7 @@ const U={q:$('#queueCount'),fq:$('#fightCount'),dq:$('#drawerQueueCount'),ql:$('
 const patch=document.createElement('style');patch.textContent=`#game{image-rendering:auto!important}.versus-hud{top:max(40px,calc(28px + env(safe-area-inset-top)))!important}.arena-label{top:25%!important}@media(max-width:699px){.versus-hud{top:max(92px,calc(50px + env(safe-area-inset-top)))!important}.arena-label{top:24%!important}}@media(min-width:800px) and (orientation:landscape){.versus-hud{top:38px!important}.arena-label{top:24%!important}}`;document.head.append(patch);
 
 async function json(url){const r=await fetch(`${url}?v=${VERSION}`,{cache:'no-store'});if(!r.ok)throw Error(`Failed ${url} (${r.status})`);return r.json()}
-async function loadAssetModules(){const errors=[];for(let i=0;i<MODULES.length;i++){U.text.textContent=`Loading fighter pack ${i+1}/${MODULES.length}…`;U.bar.style.width=`${6+Math.round(i/MODULES.length*22)}%`;try{const mod=await import(MODULES[i]);const pack=mod[`A${i}`]||Object.values(mod).find(v=>v&&typeof v==='object'&&!Array.isArray(v));if(pack)Object.assign(ASSETS,pack);else errors.push(`pack ${i}: export missing`)}catch(e){errors.push(`pack ${i}: ${e?.message||e}`)}}for(const file of RESCUE_MODULES){try{const mod=await import(`./${file}?v=${VERSION}`);const pack=Object.values(mod).find(v=>v&&typeof v==='object'&&!Array.isArray(v));if(pack)Object.assign(ASSETS,pack)}catch(e){errors.push(`${file}: ${e?.message||e}`)}}if(errors.length)console.warn('[Fighter Arena] asset module notes',errors);return errors}
+async function loadAssetModules(){const errors=[];for(let i=0;i<MODULES.length;i++){U.text.textContent=`Loading fighter pack ${i+1}/${MODULES.length}…`;U.bar.style.width=`${6+Math.round(i/MODULES.length*22)}%`;try{const mod=await import(MODULES[i]);const pack=mod[`A${i}`]||Object.values(mod).find(v=>v&&typeof v==='object'&&!Array.isArray(v));if(pack)Object.assign(ASSETS,pack);else errors.push(`pack ${i}: export missing`)}catch(e){errors.push(`pack ${i}: ${e?.message||e}`)}}for(const file of RESCUE_MODULES){try{const mod=await import(`./${file}?v=${VERSION}-r13`);const pack=Object.values(mod).find(v=>v&&typeof v==='object'&&!Array.isArray(v));if(pack)Object.assign(ASSETS,pack)}catch(e){errors.push(`${file}: ${e?.message||e}`)}}if(errors.length)console.warn('[Fighter Arena] asset module notes',errors);return errors}
 function releaseHeldUrls(){for(const u of HELD_URLS)try{URL.revokeObjectURL(u)}catch{}HELD_URLS.clear()}
 function dataUriToBlobUrl(data){if(typeof data!=='string'||!data.startsWith('data:image/'))return null;const comma=data.indexOf(','),head=data.slice(0,comma),payload=data.slice(comma+1),mime=(head.match(/^data:([^;,]+)/)||[])[1]||'image/webp';if(!/;base64/i.test(head))return null;const raw=atob(payload),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);return URL.createObjectURL(new Blob([bytes],{type:mime}))}
 function imageFrom(url,label,timeout=9000){return new Promise((ok,no)=>{const im=new Image(),timer=setTimeout(()=>no(Error(`Image timeout: ${label}`)),timeout);im.decoding='async';im.onload=()=>{clearTimeout(timer);try{const c=document.createElement('canvas');c.width=c.height=1;c.getContext('2d').drawImage(im,0,0,1,1);ok(im)}catch{no(Error(`Image render failed: ${label}`))}};im.onerror=()=>{clearTimeout(timer);no(Error(`Image decode failed: ${label}`))};im.src=url})}
