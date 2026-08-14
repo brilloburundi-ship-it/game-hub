@@ -2,6 +2,7 @@ const text=document.querySelector('#loadText');
 const button=document.querySelector('#startButton');
 const fail=err=>{
   const msg=err?.message||String(err||'Unknown startup error');
+  window.__fighterArenaLoadError=err||new Error(msg);
   text.textContent=`Startup error: ${msg}`;
   button.disabled=false;
   button.textContent='RELOAD ARENA';
@@ -10,7 +11,15 @@ const fail=err=>{
 };
 window.addEventListener('error',e=>{if(!window.__fighterArenaReady&&e?.error)fail(e.error)});
 window.addEventListener('unhandledrejection',e=>{if(!window.__fighterArenaReady)fail(e.reason)});
-Promise.all([
-  import('./idle-wait.js?v=1.3.0'),
-  import('./game.js?v=1.3.0-r13')
-]).catch(fail);
+(async()=>{
+  await Promise.allSettled([
+    fetch('./core.js?v=1.3.0',{cache:'reload'}),
+    fetch('./core.js?v=1.3.0-r13',{cache:'reload'}),
+    fetch('./asset-new-roster.js?v=1.3.0-r13',{cache:'reload'})
+  ]);
+  await Promise.all([
+    import('./idle-wait.js?v=1.3.0'),
+    import('./roster-gate.js?v=r18-step1'),
+    import('./game.js?v=1.3.0-r18-step1')
+  ]);
+})().catch(fail);
