@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#090714" />
   <title>TikTok Fighter Arena</title>
-  <link rel="stylesheet" href="./style.css?v=1.0.5" />
+  <link rel="stylesheet" href="./style.css?v=1.0.6" />
 </head>
 <body>
   <div id="app">
@@ -118,7 +118,7 @@
     </div>
   </div>
   <script type="importmap">
-    {"imports":{"./assets-8.js?v=1.0.4":"./assets-8-fixed.js?v=1.0.5"}}
+    {"imports":{"./assets-5.js?v=1.0.4":"./assets-5.js?v=1.0.6","./assets-7.js?v=1.0.4":"./assets-7.js?v=1.0.6","./assets-8.js?v=1.0.4":"./assets-8.js?v=1.0.6"}}
   </script>
   <script type="module">
     const text=document.querySelector('#loadText');
@@ -126,7 +126,7 @@
     const fail=err=>{const msg=err?.message||String(err||'Unknown startup error');text.textContent=`Startup error: ${msg}`;button.disabled=false;button.textContent='RELOAD ARENA';button.onclick=()=>location.reload();console.error(err)};
     window.addEventListener('error',e=>{if(!window.__fighterArenaReady&&e?.error)fail(e.error)});
     window.addEventListener('unhandledrejection',e=>{if(!window.__fighterArenaReady)fail(e.reason)});
-    import('./game.js?v=1.0.5').catch(fail);
+    import('./game.js?v=1.0.6').catch(fail);
   </script>
 </body>
 </html>
