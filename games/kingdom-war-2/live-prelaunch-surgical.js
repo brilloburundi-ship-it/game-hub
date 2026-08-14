@@ -1,8 +1,13 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260814-live-prelaunch-1';
+  const VERSION = '20260814-live-prelaunch-2';
   const BLOCKED_PREFABS = new Set(['stable', 'forge']);
+  const HUMAN_MILITARY_VISUALS = Object.freeze({
+    archer: Object.freeze(['ArcherMan', 'CrossBowMan', 'Mage', 'ArchMage']),
+    spear: Object.freeze(['SpearMan', 'HalberdMan', 'ShieldMan', 'CavalierMan']),
+    sword: Object.freeze(['SwordMan', 'HorseMan', 'KingMan', 'PrinceMan'])
+  });
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
   if (window.__KW2_LIVE_PRELAUNCH_PATCH?.installed) return;
@@ -14,6 +19,66 @@
     );
   }
 
+  function installHumanMilitaryVariety(sim) {
+    const r = sim?.r;
+    if (!r || typeof r.makeSoldier !== 'function' || typeof r.getMinifolkFrames !== 'function') return false;
+
+    const originalMakeSoldier = r.makeSoldier.bind(r);
+    r.__kw2LiveMilitaryVisualSeq ||= new Map();
+
+    r.makeSoldier = function(kingdom, role) {
+      const combatRole = role === 'archer' ? 'archer' : (role === 'spear' ? 'spear' : 'sword');
+      const roster = HUMAN_MILITARY_VISUALS[combatRole];
+      const kingdomId = Number(kingdom?.id) || 0;
+      const sequenceKey = `${kingdomId}:${combatRole}`;
+      const sequence = Number(this.__kw2LiveMilitaryVisualSeq.get(sequenceKey) || 0);
+      const unit = roster[(sequence + kingdomId * 2) % roster.length];
+      this.__kw2LiveMilitaryVisualSeq.set(sequenceKey, sequence + 1);
+
+      const P = this.P;
+      if (!P?.Container || !P?.Graphics || !P?.AnimatedSprite) return originalMakeSoldier(kingdom, role);
+
+      const anim = {
+        idle: this.getMinifolkFrames('humans', unit, 'idle', kingdom),
+        walk: this.getMinifolkFrames('humans', unit, 'walk', kingdom),
+        attack: this.getMinifolkFrames('humans', unit, 'attack', kingdom),
+        hurt: this.getMinifolkFrames('humans', unit, 'hurt', kingdom),
+        death: this.getMinifolkFrames('humans', unit, 'death', kingdom)
+      };
+      const initialFrames = anim.idle?.length ? anim.idle : (anim.walk?.length ? anim.walk : anim.attack);
+      if (!initialFrames?.length) return originalMakeSoldier(kingdom, role);
+
+      const container = new P.Container();
+      const shadow = new P.Graphics();
+      shadow.ellipse(0, 1, 7, 3).fill({ color: 0x000000, alpha: .22 });
+      container.addChild(shadow);
+
+      const sprite = new P.AnimatedSprite(initialFrames);
+      sprite.anchor.set(.5, 1);
+      sprite.animationSpeed = combatRole === 'archer' ? .12 : .16;
+      sprite.play();
+      sprite.scale.set(combatRole === 'archer' ? 0.62 : (combatRole === 'spear' ? 0.64 : 0.63));
+      container.addChild(sprite);
+
+      container._sprite = sprite;
+      container._shadow = shadow;
+      container._anim = anim;
+      container._animKey = 'idle';
+      container._role = combatRole;
+      container._unit = unit;
+      container.scale.set(1);
+
+      this.__kw2SoldierTypes ||= new Set();
+      this.__kw2SoldierTypes.add(unit);
+      this.__kw2SoldiersCreated = Number(this.__kw2SoldiersCreated || 0) + 1;
+      document.documentElement.dataset.minifolksSoldierTypes = [...this.__kw2SoldierTypes].join(',');
+      document.documentElement.dataset.minifolksSoldiersCreated = String(this.__kw2SoldiersCreated);
+      return container;
+    };
+
+    return true;
+  }
+
   async function install() {
     // Install after the existing late runtime wrappers so this remains the final,
     // narrow pre-live policy layer and does not alter their implementation.
@@ -23,6 +88,8 @@
         sim?.r &&
         typeof sim.warAI === 'function' &&
         typeof sim.addBuilding === 'function' &&
+        typeof sim.r.makeSoldier === 'function' &&
+        typeof sim.r.getMinifolkFrames === 'function' &&
         window.__V70_WAR_PEACE_CLEANUP?.installed &&
         window.__V707_GAMEPLAY_POLISH?.installed &&
         window.__V713_LIVE_POWER?.installed &&
@@ -66,13 +133,23 @@
       return true;
     };
 
+    const humanMilitaryVariety = installHumanMilitaryVariety(sim);
+
     sim.__kw2LivePrelaunchPatch = VERSION;
     window.__KW2_LIVE_PRELAUNCH_PATCH = Object.freeze({
       installed: true,
       version: VERSION,
       randomAutomaticWars: false,
       explicitAttackPreserved: true,
-      blockedPrefabs: Object.freeze(['stable', 'forge'])
+      blockedPrefabs: Object.freeze(['stable', 'forge']),
+      castleEliminationCleanupPreserved: true,
+      visibleArmyCaps: Object.freeze({ peace: 8, war: 12 }),
+      humanMilitaryVariety,
+      humanMilitaryVisuals: Object.freeze([
+        'SwordMan', 'SpearMan', 'ShieldMan', 'HalberdMan',
+        'ArcherMan', 'CrossBowMan', 'HorseMan', 'CavalierMan',
+        'Mage', 'ArchMage', 'KingMan', 'PrinceMan'
+      ])
     });
     document.documentElement.dataset.kw2LivePrelaunch = VERSION;
   }
