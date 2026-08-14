@@ -1,4 +1,4 @@
-const V='r20-ios-fix1';
+const V='r20-ios-fix2';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
 async function read(path){
@@ -43,9 +43,8 @@ const specs=[
   ['new_huntress_2.webp',8800,['./assets/r18/huntress_2.0.b64','./assets/r18/huntress_2.1.b64']],
   ['new_samurai_ronin.webp',23664,['./assets/r18/samurai_ronin.0.b64','./assets/r18/samurai_ronin.1.b64','./assets/r18/samurai_ronin.2.b64','./assets/r18/samurai_ronin.3.b64']],
   ['new_samurai_archer.webp',26688,['./assets/r18/samurai_archer.0.b64','./assets/r18/samurai_archer.1.b64','./assets/r18/samurai_archer.2.b64','./assets/r18/samurai_archer.3.b64']],
-  // These two complete source payloads already exist in the repository. The
-  // old reconstructed chunk sets were respectively truncated and overlapped.
-  ['new_samurai_commander.webp',25824,['./assets/new_samurai_commander.b64']],
+  // Rebuilt losslessly from the original CraftPix source supplied by the user.
+  ['new_samurai_commander.webp',25404,['./assets/r20/samurai-commander.0.b64','./assets/r20/samurai-commander.1.b64','./assets/r20/samurai-commander.2.b64','./assets/r20/samurai-commander.3.b64']],
   ['new_fire_wizard.webp',22860,['./assets/r18_fire_wizard.b64']],
   ['new_lightning_mage.webp',19408,['./assets/r18/lightning.clean0.b64','./assets/r18/lightning.clean1.b64','./assets/r18/lightning.clean2.b64','./assets/r18/lightning_mage.tail.b64']],
   ['new_wanderer_magician.webp',24104,['./assets/r18/wanderer_magician.0.b64','./assets/r18/wanderer_magician.1a.b64','./assets/r18/wanderer_magician.1b.b64']]
