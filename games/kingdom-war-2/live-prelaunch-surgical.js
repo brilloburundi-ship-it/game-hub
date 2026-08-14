@@ -1,8 +1,9 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260814-live-prelaunch-2';
+  const VERSION = '20260814-live-prelaunch-3';
   const BLOCKED_PREFABS = new Set(['stable', 'forge']);
+  const HIDDEN_RENDER_PREFABS = new Set(['warehouse']);
   const HUMAN_MILITARY_VISUALS = Object.freeze({
     archer: Object.freeze(['ArcherMan', 'CrossBowMan', 'Mage', 'ArchMage']),
     spear: Object.freeze(['SpearMan', 'HalberdMan', 'ShieldMan', 'CavalierMan']),
@@ -88,6 +89,7 @@
         sim?.r &&
         typeof sim.warAI === 'function' &&
         typeof sim.addBuilding === 'function' &&
+        typeof sim.r.addBuilding === 'function' &&
         typeof sim.r.makeSoldier === 'function' &&
         typeof sim.r.getMinifolkFrames === 'function' &&
         window.__V70_WAR_PEACE_CLEANUP?.installed &&
@@ -104,6 +106,23 @@
       throw new Error('Kingdom War 2 simulation unavailable for live prelaunch patch');
     }
     if (sim.__kw2LivePrelaunchPatch === VERSION) return;
+
+    // Warehouse must still exist logically because buildAI uses it for normal
+    // progression/economy. Suppress only its renderer so the unwanted prefab
+    // never appears while all simulation counts and costs keep working unchanged.
+    const originalRenderBuilding = typeof sim.r.addBuilding === 'function'
+      ? sim.r.addBuilding.bind(sim.r)
+      : null;
+    if (originalRenderBuilding) {
+      sim.r.addBuilding = function(kingdom, building, ...rest) {
+        const normalized = String(building?.type ?? '').trim().toLowerCase();
+        if (HIDDEN_RENDER_PREFABS.has(normalized)) {
+          if (building) building.__kw2RenderSuppressed = true;
+          return Promise.resolve(building);
+        }
+        return originalRenderBuilding(kingdom, building, ...rest);
+      };
+    }
 
     const originalAddBuilding = sim.addBuilding.bind(sim);
     sim.addBuilding = function(kingdom, type, ...rest) {
@@ -142,6 +161,7 @@
       randomAutomaticWars: false,
       explicitAttackPreserved: true,
       blockedPrefabs: Object.freeze(['stable', 'forge']),
+      hiddenRenderPrefabs: Object.freeze(['warehouse']),
       castleEliminationCleanupPreserved: true,
       visibleArmyCaps: Object.freeze({ peace: 8, war: 12 }),
       humanMilitaryVariety,
