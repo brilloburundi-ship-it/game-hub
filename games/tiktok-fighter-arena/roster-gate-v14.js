@@ -7,6 +7,7 @@ const REQUIRED=[
   'lightning_mage','wanderer_magician','medieval_warrior_2','medieval_warrior_3'
 ];
 const EXPECTED=REQUIRED.length;
+const MIN_READY=EXPECTED-1;
 const button=document.querySelector('#startButton');
 const text=document.querySelector('#loadText');
 let complete=false;
@@ -16,17 +17,18 @@ function check(){
   const loaded=REQUIRED.filter(id=>source.has(id));
   const missing=REQUIRED.filter(id=>!source.has(id));
 
+  // Never allow an unverified/unknown fighter into the active selection pool.
   if(source.size!==loaded.length||[...source].some(id=>!REQUIRED.includes(id))){
     setAvailableFighters(loaded);
   }
 
-  complete=loaded.length===EXPECTED;
+  complete=loaded.length>=MIN_READY;
   window.__fighterArenaRosterStatus={
-    expected:EXPECTED,total:EXPECTED,ready:loaded.length,complete,
+    expected:EXPECTED,total:EXPECTED,minimumReady:MIN_READY,ready:loaded.length,complete,
     loaded:[...loaded],missing:[...missing]
   };
   window.__fighterArenaRoster={
-    expected:EXPECTED,loaded:[...loaded],missing:[...missing]
+    expected:EXPECTED,minimumReady:MIN_READY,loaded:[...loaded],missing:[...missing]
   };
 
   if(window.__fighterArenaLoadError){
@@ -40,7 +42,7 @@ function check(){
   if(!S.manifest){
     if(button){
       button.disabled=true;
-      button.textContent=`LOADING ${EXPECTED} FIGHTERS`;
+      button.textContent=`LOADING FIGHTERS`;
     }
     return;
   }
@@ -48,14 +50,16 @@ function check(){
   if(!complete){
     if(button){
       button.disabled=true;
-      button.textContent=`WAIT FOR ${EXPECTED} FIGHTERS`;
+      button.textContent=`WAIT FOR ${MIN_READY} FIGHTERS`;
     }
-    if(text)text.textContent=`${loaded.length}/${EXPECTED} fighters verified · waiting for complete roster`;
+    if(text)text.textContent=`${loaded.length}/${EXPECTED} fighters verified · ${MIN_READY} required to enter`;
     return;
   }
 
-  if(text&&(!window.__fighterArenaReady||/fighters verified|waiting for complete roster/i.test(text.textContent||''))){
-    text.textContent=`All ${EXPECTED} fighters verified · arenas ready`;
+  if(text&&(!window.__fighterArenaReady||/fighters verified|waiting for complete roster|required to enter/i.test(text.textContent||''))){
+    text.textContent=missing.length
+      ?`${loaded.length}/${EXPECTED} fighters verified · arena ready · ${missing.length} unavailable`
+      :`All ${EXPECTED} fighters verified · arenas ready`;
   }
 
   if(button){
