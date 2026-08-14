@@ -139,7 +139,7 @@
     if(!r?.root||typeof r.updateAutoCamera!=='function'||typeof r.autoCameraTarget!=='function'||r.__v712LongTravelCameraSmoothing)return false;
     r.__v712LongTravelCameraSmoothing=true;
 
-    const BASE_SECONDS=4.8;
+    const BASE_SECONDS=Math.max(.1,Number(r.autoCamera?.transitionSeconds)||4.8);
     const LONG_THRESHOLD=.72;
     const MAX_SECONDS=7.2;
     const transition={key:'',startedAt:0,fromX:0,fromY:0,fromScale:1,duration:BASE_SECONDS,long:false};
@@ -148,7 +148,12 @@
     // interpolation step: normal moves retain the original exponential response,
     // while genuinely long transfers use the same quintic ease used by kingdom pans.
     r.updateAutoCamera=function(dt,now=performance.now()){
-      if(!this.autoCamera||!this.root||this.drag||now<this.autoCamera.manualUntil)return;
+      if(!this.autoCamera||!this.root)return;
+      if(this.drag||now<this.autoCamera.manualUntil){
+        transition.key='';
+        transition.long=false;
+        return;
+      }
       const target=this.autoCameraTarget(now);
       if(!target)return;
 
@@ -183,7 +188,8 @@
         );
         if(progress>=1)transition.long=false;
       }else{
-        const alpha=1-Math.exp(-Math.max(.35,3/BASE_SECONDS)*Math.max(.001,dt));
+        const seconds=Math.max(.1,Number(this.autoCamera.transitionSeconds)||BASE_SECONDS);
+        const alpha=1-Math.exp(-Math.max(.35,3/seconds)*Math.max(.001,dt));
         const scale=this.root.scale.x+(target.scale-this.root.scale.x)*alpha;
         this.root.scale.set(scale);
         this.root.position.set(
