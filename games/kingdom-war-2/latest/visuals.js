@@ -1,12 +1,13 @@
 (() => {
   'use strict';
-  const VERSION='v712-latest-visuals-1';
+  const VERSION='v712-latest-visuals-2-long-camera';
   if(window.__GOD_WORLD_LATEST_VISUALS?.installed)return;
   const state=window.__GOD_WORLD_LATEST_VISUALS={
     installed:false,version:VERSION,smoothRivers:false,unifiedSea:false,
-    riverMouthBlend:false,seaRiverSuppressed:false,errors:[]
+    riverMouthBlend:false,seaRiverSuppressed:false,longTravelCameraSmoothing:false,errors:[]
   };
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
   function smoothPath(g,sim,cells){
     const pts=cells.map(([x,y])=>sim.iso(x,y));
@@ -133,6 +134,70 @@
     return true;
   }
 
+  function installLongTravelCameraSmoothing(sim){
+    const r=sim.r;
+    if(!r?.root||typeof r.updateAutoCamera!=='function'||typeof r.autoCameraTarget!=='function'||r.__v712LongTravelCameraSmoothing)return false;
+    r.__v712LongTravelCameraSmoothing=true;
+
+    const BASE_SECONDS=4.8;
+    const LONG_THRESHOLD=.72;
+    const MAX_SECONDS=7.2;
+    const transition={key:'',startedAt:0,fromX:0,fromY:0,fromScale:1,duration:BASE_SECONDS,long:false};
+
+    // The existing ticker remains the only camera clock. We replace only the
+    // interpolation step: normal moves retain the original exponential response,
+    // while genuinely long transfers use the same quintic ease used by kingdom pans.
+    r.updateAutoCamera=function(dt,now=performance.now()){
+      if(!this.autoCamera||!this.root||this.drag||now<this.autoCamera.manualUntil)return;
+      const target=this.autoCameraTarget(now);
+      if(!target)return;
+
+      const shotKey=String(this.autoCamera.shotKey||this.autoCamera.mode||'camera');
+      if(shotKey!==transition.key){
+        const diagonal=Math.max(1,Math.hypot(innerWidth,innerHeight));
+        const distance=Math.hypot(target.x-this.root.x,target.y-this.root.y);
+        const ratio=distance/diagonal;
+        transition.key=shotKey;
+        transition.startedAt=now;
+        transition.fromX=this.root.x;
+        transition.fromY=this.root.y;
+        transition.fromScale=this.root.scale.x;
+        transition.long=ratio>LONG_THRESHOLD;
+        transition.duration=transition.long
+          ? clamp(BASE_SECONDS+(ratio-LONG_THRESHOLD)*1.45,BASE_SECONDS,MAX_SECONDS)
+          : BASE_SECONDS;
+        document.documentElement.dataset.autoCameraTravel=transition.long?'long-smooth':'standard';
+      }
+
+      document.documentElement.dataset.autoCameraMode=this.autoCamera.mode;
+      document.documentElement.dataset.autoCameraShotMs='10000';
+
+      if(transition.long){
+        const progress=clamp((now-transition.startedAt)/(transition.duration*1000),0,1);
+        const eased=progress*progress*progress*(progress*(progress*6-15)+10);
+        const scale=transition.fromScale+(target.scale-transition.fromScale)*eased;
+        this.root.scale.set(scale);
+        this.root.position.set(
+          transition.fromX+(target.x-transition.fromX)*eased,
+          transition.fromY+(target.y-transition.fromY)*eased
+        );
+        if(progress>=1)transition.long=false;
+      }else{
+        const alpha=1-Math.exp(-Math.max(.35,3/BASE_SECONDS)*Math.max(.001,dt));
+        const scale=this.root.scale.x+(target.scale-this.root.scale.x)*alpha;
+        this.root.scale.set(scale);
+        this.root.position.set(
+          this.root.x+(target.x-this.root.x)*alpha,
+          this.root.y+(target.y-this.root.y)*alpha
+        );
+      }
+      this.constrainCamera();
+    };
+
+    state.longTravelCameraSmoothing=true;
+    return true;
+  }
+
   async function install(){
     for(let i=0;i<1800;i++){
       if(window.__SIM?.r&&window.__V708_WATER_CAMERA_FISHING?.installed&&window.__GOD_WORLD_LATEST_SHAPE?.installed)break;
@@ -142,6 +207,7 @@
     if(!sim?.r)throw new Error('latest visuals renderer unavailable');
     replaceRivers(sim);
     unifyOcean(sim);
+    installLongTravelCameraSmoothing(sim);
     state.installed=true;
     document.documentElement.dataset.latestVisuals=VERSION;
   }
