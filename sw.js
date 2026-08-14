@@ -1,4 +1,4 @@
-const CACHE = "game-hub-studio-v3";
+const CACHE = "game-hub-studio-v4-launch-fix";
 const SHELL = [
   "./",
   "./index.html",
@@ -26,15 +26,33 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
+  if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (url.hostname === "api.github.com" || event.request.method !== "GET") return;
+
+  // Never let the Game Hub shell service worker replace a game document or
+  // game asset with the studio index. Each game must load its real deployed
+  // files, otherwise iOS/PWA previews can appear to stop launching every game.
+  if (url.origin === self.location.origin && url.pathname.includes("/games/")) {
+    event.respondWith(fetch(event.request, { cache: "no-store" }));
+    return;
+  }
+
+  if (url.hostname === "api.github.com") return;
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        if (response && response.ok && response.type === "basic") {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(event.request).then(match => match || caches.match("./index.html")))
+      .catch(async () => {
+        const match = await caches.match(event.request);
+        if (match) return match;
+        if (event.request.mode === "navigate") return caches.match("./index.html");
+        return Response.error();
+      })
   );
 });
