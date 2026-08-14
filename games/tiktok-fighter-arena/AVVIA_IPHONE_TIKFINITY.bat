@@ -15,6 +15,14 @@ if not defined NODE_EXE (
   exit /b 1
 )
 
+"%NODE_EXE%" -e "process.exit(Number(process.versions.node.split('.')[0]) >= 22 ? 0 : 1)" >nul 2>nul
+if errorlevel 1 (
+  echo Fighter Arena bridge richiede Node.js 22 o superiore.
+  "%NODE_EXE%" --version
+  pause
+  exit /b 1
+)
+
 echo Avvio bridge Fighter Arena...
 echo TikFinity Desktop deve essere gia aperto oppure puo essere aperto subito dopo.
 echo.
