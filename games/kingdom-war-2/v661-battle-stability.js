@@ -1,12 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '8.0.4-battle-readability-arrows-3';
+  const VERSION = '8.0.4-battle-readability-arrows-4-live-density';
   const AI_HZ = 30;
   const AI_STEP = 1 / AI_HZ;
   const MAX_STEP = 0.045;
-  const MAX_WAR_GUARDS = 9;
-  const MAX_PEACE_GUARDS = 6;
+  const MAX_WAR_GUARDS = 12;
+  const MAX_PEACE_GUARDS = 8;
   const MIN_ALLY_SPACING = 10.5;
   const MIN_ENEMY_SPACING = 7.2;
   const BUILDING_RELEVANCE_RADIUS = 105;
