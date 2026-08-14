@@ -1,3 +1,4 @@
-STEP 1: roster-only repair in progress.
-Target: 18/18 real fighter atlases loadable before arena start.
-Do not modify arenas, 3-2-1/FIGHT/KO announcer, TikFinity bridge, UI or combat rules in this step.
+ROSTER REPAIR: completed and superseded by Fighter Arena v1.4.
+Target: 20/20 real fighter entries, including Medieval Warrior 2 and Medieval Warrior 3.
+The active release keeps arenas, 3-2-1/FIGHT/KO announcer, TikFinity bridge and existing UI connected while using the shared v1.4 combat state.
+Next-round rotation is gated by completion of the defeated fighter's death animation.
