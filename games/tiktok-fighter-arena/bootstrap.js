@@ -15,11 +15,12 @@ window.addEventListener('unhandledrejection',e=>{if(!window.__fighterArenaReady)
   await Promise.allSettled([
     fetch('./core.js?v=1.4.0',{cache:'reload'}),
     fetch('./combat-v14.js?v=1.4.0',{cache:'reload'}),
+    fetch('./idle-wait.js?v=1.4.0',{cache:'reload'}),
     fetch('./asset-medieval-warrior-2.js?v=1.4.0',{cache:'reload'}),
     fetch('./asset-medieval-warrior-3.js?v=1.4.0',{cache:'reload'})
   ]);
   await Promise.all([
-    import('./idle-wait.js?v=1.3.0'),
+    import('./idle-wait.js?v=1.4.0'),
     import('./roster-gate-v14.js?v=1.4.0'),
     import('./game-v14.js?v=1.4.0')
   ]);
