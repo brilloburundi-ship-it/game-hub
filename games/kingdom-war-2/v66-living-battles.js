@@ -1,11 +1,12 @@
 (() => {
   'use strict';
 
-  const VERSION = '8.0.3-living-battles-navigation-3';
+  const VERSION = '8.0.3-living-battles-navigation-4-castle-lock';
   const PEACE_GUARD_MAX = 8;
   const WAR_GUARD_MAX = 14;
   const MAX_FRAME_DT = 0.05;
   const CIVILIAN_VISIBLE_CAP = 24;
+  const CASTLE_LOCK_PADDING = 30;
   const LARGE_PREFAB_SCALE = { warehouse: 0.72 };
 
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -259,7 +260,9 @@
 
   function buildingAttackRadius(b, role) {
     const [rx, ry] = buildingRadii(b);
-    return Math.hypot(rx, ry) * 0.72 + (role === 'archer' ? 18 : 5);
+    const collisionEdge = Math.hypot(rx, ry);
+    if (b?.type === 'castle') return collisionEdge + (role === 'archer' ? 18 : 3);
+    return collisionEdge * 0.72 + (role === 'archer' ? 18 : 5);
   }
 
   function worldCell(sim, worldX, worldY) {
@@ -425,13 +428,21 @@
 
   function nearestEnemyBuilding(enemy, u, allowCastle = false) {
     let best = null, bestD = Infinity;
+    let lockedCastle = null, lockedCastleD = Infinity;
     for (const b of enemy.buildings || []) {
       if (b.__v66Destroyed || b.hp <= 0) continue;
-      if (!allowCastle && b.type === 'castle') continue;
       const d = dist(u.x, u.y, b.sx, b.sy);
+      if (!allowCastle && b.type === 'castle') {
+        const lockRange = buildingAttackRadius(b, u.role) + CASTLE_LOCK_PADDING;
+        if (d <= lockRange && d < lockedCastleD) {
+          lockedCastle = b;
+          lockedCastleD = d;
+        }
+        continue;
+      }
       if (d < bestD) { best = b; bestD = d; }
     }
-    return [best, bestD];
+    return lockedCastle ? [lockedCastle, lockedCastleD] : [best, bestD];
   }
 
   function attackGuard(r, u, target, dt) {
@@ -490,10 +501,13 @@
     const guardDistance = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
     const [building, buildingDistance] = nearestEnemyBuilding(enemy, u, enemy.territory.size <= 5);
 
-    // A unit that has reached the village may peel off to burn/destroy nearby
-    // structures while the rest of the formation keeps enemy guards occupied.
+    // Once troops physically reach the castle perimeter, the castle becomes the
+    // locked objective even before the defender is reduced to its final cells.
+    // This reuses the existing building-attack path and avoids creating a second siege system.
     const buildingRange = building ? buildingAttackRadius(building, u.role) : 14;
-    if (building && buildingDistance < buildingRange + 24 && guardDistance > 24) {
+    const castleLocked = building?.type === 'castle' && buildingDistance <= buildingRange + CASTLE_LOCK_PADDING;
+    const nearbyBuilding = building && buildingDistance < buildingRange + 24;
+    if (building && (castleLocked || (nearbyBuilding && guardDistance > 24))) {
       u.targetBuilding = building;
       if (buildingDistance > buildingRange) moveGuard(sim, r, u, building.sx, building.sy + 5, dt, 19, peers);
       else attackBuilding(sim, r, u, enemy, building, dt);
@@ -700,7 +714,7 @@
     }
     sim.__v66LivingBattlesInstalled = true;
     window.__BUILD_VERSION = VERSION;
-    document.documentElement.dataset.battleSystem = 'living-v803-navigation';
+    document.documentElement.dataset.battleSystem = 'living-v803-navigation-castle-lock';
 
     r.__v66Guards = new Map();
     r.__v66Fires = new Map();
