@@ -1,0 +1,1 @@
+import{A3 as N}from'./asset-neon.js';import{X4}from'./asset-evil-wizard.js';export const A3={...N,...X4};

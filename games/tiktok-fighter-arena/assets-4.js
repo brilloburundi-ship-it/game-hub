@@ -1,0 +1,1 @@
+import{A1}from'./assets-1.js';import{X6}from'./asset-hero-knight.js';export const A4={...X6,"./assets/arena_sky_dojo.webp":A1["./assets/arena_ice_crystal.webp"]};

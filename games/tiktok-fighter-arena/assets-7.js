@@ -1,0 +1,1 @@
+import{X11}from'./asset-martial-champion.js';export const A7={...X11};

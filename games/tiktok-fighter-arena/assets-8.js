@@ -1,0 +1,1 @@
+import{X12}from'./asset-medieval-king.js';export const A8={...X12};

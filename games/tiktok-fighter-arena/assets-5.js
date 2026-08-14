@@ -1,0 +1,1 @@
+import{X7}from'./asset-huntress.js';export const A5={...X7,"./assets/street_mon.webp":"./assets/street_mon.webp"};

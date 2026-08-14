@@ -1,0 +1,1 @@
+import{X9}from'./asset-evil-wizard-2.js';import{X10}from'./asset-martial-hero.js';export const A6={...X9,...X10};
