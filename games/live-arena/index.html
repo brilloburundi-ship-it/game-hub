@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#0b1017" />
+  <title>Live Arena — TikTok Auto Battle</title>
+  <link rel="stylesheet" href="./style.css?v=1.0.0" />
+</head>
+<body>
+  <main id="app">
+    <canvas id="game" aria-label="Live Arena"></canvas>
+
+    <header class="hud top-hud">
+      <div class="brand"><span class="brand-kicker">TIKTOK LIVE</span><strong>LIVE ARENA</strong></div>
+      <div class="world-stats"><div><span id="activeCount">0</span><small>FIGHTERS</small></div><div><span id="koCount">0</span><small>KOs</small></div></div>
+      <button id="testToggle" class="mini-btn" type="button">TEST</button>
+    </header>
+
+    <aside class="hud ranking" id="ranking"><div class="panel-title">TOP FIGHTERS</div><div id="rankingRows"></div></aside>
+    <aside class="hud feed" id="feed"><div class="panel-title">ARENA FEED</div><div id="feedRows"></div></aside>
+
+    <section class="hud test-panel hidden" id="testPanel">
+      <div class="panel-title">LIVE EVENT SIMULATOR</div>
+      <div class="test-row"><input id="testName" value="Viewer" maxlength="16" aria-label="Viewer name" /><button data-event="join">JOIN</button></div>
+      <div class="test-grid"><button data-event="like">♥ LIKE</button><button data-event="giftSmall">🎁 SMALL</button><button data-event="giftMedium">🎁 MEDIUM</button><button data-event="giftLarge">✨ LARGE</button></div>
+      <small>Bridge API: <code>window.ArenaLiveBridge.emit(type, payload)</code></small>
+    </section>
+
+    <footer class="hud bottom-hud">
+      <div class="join-cta">ENTER LIVE → YOUR FIGHTER JOINS THE ARENA</div>
+      <div class="guide"><span>♥ LIKE <b>HEALS YOU</b></span><span>🎁 GIFTS <b>EVOLVE + BOOST</b></span><span>⚔ AUTO BATTLE</span></div>
+    </footer>
+
+    <div id="loading" class="loading"><div class="crest">⚔</div><strong>PREPARING THE ARENA</strong><span>Loading fighter animations…</span></div>
+  </main>
+  <script type="module" src="./game.js?v=1.0.0"></script>
+</body>
+</html>
