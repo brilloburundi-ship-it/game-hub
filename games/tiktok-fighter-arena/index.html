@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#090714" />
   <title>TikTok Fighter Arena</title>
-  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./style.css?v=1.0.4" />
 </head>
 <body>
   <div id="app">
@@ -112,11 +112,18 @@
         <h1>TikTok Fighter Arena</h1>
         <p>Loading fighters, effects and arenas before the live starts.</p>
         <div class="loadbar"><i id="loadProgress"></i></div>
-        <span id="loadText">Preparing assets…</span>
+        <span id="loadText">Starting loader…</span>
         <button id="startButton" type="button" disabled>ENTER ARENA</button>
       </div>
     </div>
   </div>
-  <script type="module" src="./game.js"></script>
+  <script type="module">
+    const text=document.querySelector('#loadText');
+    const button=document.querySelector('#startButton');
+    const fail=err=>{const msg=err?.message||String(err||'Unknown startup error');text.textContent=`Startup error: ${msg}`;button.disabled=false;button.textContent='RELOAD ARENA';button.onclick=()=>location.reload();console.error(err)};
+    window.addEventListener('error',e=>{if(!window.__fighterArenaReady&&e?.error)fail(e.error)});
+    window.addEventListener('unhandledrejection',e=>{if(!window.__fighterArenaReady)fail(e.reason)});
+    import('./game.js?v=1.0.4').catch(fail);
+  </script>
 </body>
 </html>
