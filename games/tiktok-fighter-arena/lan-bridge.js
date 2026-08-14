@@ -86,8 +86,7 @@
 
     if (eventName.includes('chat') || eventName.includes('comment') || data.comment || data.message) {
       const comment = String(data.comment ?? data.message ?? data.text ?? data.commentText ?? '').trim();
-      if (/^join$/i.test(comment)) return { type: 'join', payload: { ...base, comment } };
-      return null;
+      return { type: 'join', payload: { ...base, comment } };
     }
     if (eventName.includes('like')) {
       return { type: 'like', payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.count ?? data.repeatCount ?? 1) || 1) } };
