@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#0c1c19" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Kingdom War 3" />
+  <title>Kingdom War 3 — Survivor Siege Arena</title>
+  <link rel="stylesheet" href="styles.css?v=20260814-kw3-arena-1" />
+</head>
+<body>
+  <div id="shell">
+    <canvas id="game" width="900" height="1400" aria-label="Kingdom War 3 survivor siege arena"></canvas>
+
+    <header class="top-hud hud">
+      <div class="brand"><strong>KINGDOM WAR 3</strong><span>SURVIVOR SIEGE ARENA</span></div>
+      <div class="round-state"><b id="phase">WAITING FOR JOIN</b><small id="roundInfo">Champion slot open</small></div>
+      <div class="fps"><span id="fps">60</span><small>FPS</small></div>
+    </header>
+
+    <section id="northCard" class="kingdom-card hud north empty">
+      <div class="slot-title"><span class="dot"></span><b id="northName">OPEN SLOT</b><em id="northStreak">0 W</em></div>
+      <div class="life"><i id="northLife"></i></div>
+      <div class="stats"><span>👥 <b id="northPop">0</b></span><span>⚔ <b id="northArmy">0</b></span><span>🪵 <b id="northWood">0</b></span><span>🪨 <b id="northStone">0</b></span><span>🪙 <b id="northGold">0</b></span></div>
+    </section>
+
+    <section id="southCard" class="kingdom-card hud south empty">
+      <div class="slot-title"><span class="dot"></span><b id="southName">OPEN SLOT</b><em id="southStreak">0 W</em></div>
+      <div class="life"><i id="southLife"></i></div>
+      <div class="stats"><span>👥 <b id="southPop">0</b></span><span>⚔ <b id="southArmy">0</b></span><span>🪵 <b id="southWood">0</b></span><span>🪨 <b id="southStone">0</b></span><span>🪙 <b id="southGold">0</b></span></div>
+    </section>
+
+    <div id="shieldBanner" class="shield-banner hud hidden">🛡 CHAMPION SHIELD ACTIVE</div>
+    <div id="eventBanner" class="event-banner hud"></div>
+    <div class="join-banner hud"><strong>WRITE JOIN TO ENTER THE ARENA</strong><span>Likes repair • Gifts reinforce, rebuild and boost siege</span></div>
+
+    <section id="testPanel" class="test-panel hud collapsed">
+      <button id="toggleTest">TEST</button>
+      <div class="test-body">
+        <input id="testName" value="Player" maxlength="18" />
+        <button data-test="join">JOIN</button>
+        <button data-test="like">LIKE ×50</button>
+        <button data-test="follow">FOLLOW</button>
+        <button data-test="rose">ROSE</button>
+        <button data-test="gift">GIFT</button>
+        <button data-test="big">BIG GIFT</button>
+        <button data-test="repair">REBUILD</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="game.js?v=20260814-kw3-arena-1"></script>
+</body>
+</html>
