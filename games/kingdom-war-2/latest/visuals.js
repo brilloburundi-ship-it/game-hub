@@ -1,10 +1,10 @@
 (() => {
   'use strict';
-  const VERSION='v712-latest-visuals-2-long-camera';
+  const VERSION='v712-latest-visuals-3-kingdom-map-tour';
   if(window.__GOD_WORLD_LATEST_VISUALS?.installed)return;
   const state=window.__GOD_WORLD_LATEST_VISUALS={
     installed:false,version:VERSION,smoothRivers:false,unifiedSea:false,
-    riverMouthBlend:false,seaRiverSuppressed:false,longTravelCameraSmoothing:false,errors:[]
+    riverMouthBlend:false,seaRiverSuppressed:false,longTravelCameraSmoothing:false,kingdomMapTour:false,errors:[]
   };
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -51,9 +51,6 @@
     group.label='latest-smooth-rivers';
     group.eventMode='none';
 
-    // The terrain texture used to contain the extended river mouth all the way into
-    // open water. Paint only those ocean cells back to the sea base colour first.
-    // This removes the visible "second water line" without changing river logic.
     const seaCleaner=new P.Graphics();
     let cleaned=0;
     for(const river of sim.w?.rivers||[]){
@@ -88,8 +85,6 @@
       group.addChild(g);
     }
 
-    // Mouth cap lives on the final LAND cell only. Nothing river-coloured is drawn
-    // over open sea; the sea itself visually completes the river.
     const mouths=new P.Graphics();
     for(const river of sim.w?.rivers||[]){
       const {land}=splitRiver(sim,river);
@@ -140,18 +135,20 @@
     r.__v712LongTravelCameraSmoothing=true;
 
     const BASE_SECONDS=Math.max(.1,Number(r.autoCamera?.transitionSeconds)||4.8);
-    const LONG_THRESHOLD=.72;
-    const MAX_SECONDS=7.2;
-    const transition={key:'',startedAt:0,fromX:0,fromY:0,fromScale:1,duration:BASE_SECONDS,long:false};
+    const KINGDOM_LONG_THRESHOLD=.42;
+    const KINGDOM_MIN_SECONDS=7.4;
+    const KINGDOM_MAX_SECONDS=9.4;
+    const transition={key:'',startedAt:0,fromX:0,fromY:0,fromScale:1,duration:BASE_SECONDS,long:false,kingdomTour:false};
 
-    // The existing ticker remains the only camera clock. We replace only the
-    // interpolation step: normal moves retain the original exponential response,
-    // while genuinely long transfers use the same quintic ease used by kingdom pans.
+    // Keep one camera clock and one director. Only kingdom-to-kingdom transfers are
+    // deliberately slowed so the viewer can watch the world scroll beneath the camera.
+    // War tracking stays responsive and continues following the physical army.
     r.updateAutoCamera=function(dt,now=performance.now()){
       if(!this.autoCamera||!this.root)return;
       if(this.drag||now<this.autoCamera.manualUntil){
         transition.key='';
         transition.long=false;
+        transition.kingdomTour=false;
         return;
       }
       const target=this.autoCameraTarget(now);
@@ -162,16 +159,20 @@
         const diagonal=Math.max(1,Math.hypot(innerWidth,innerHeight));
         const distance=Math.hypot(target.x-this.root.x,target.y-this.root.y);
         const ratio=distance/diagonal;
+        const previousKey=transition.key;
+        const mode=String(this.autoCamera.mode||'');
         transition.key=shotKey;
         transition.startedAt=now;
         transition.fromX=this.root.x;
         transition.fromY=this.root.y;
         transition.fromScale=this.root.scale.x;
-        transition.long=ratio>LONG_THRESHOLD;
-        transition.duration=transition.long
-          ? clamp(BASE_SECONDS+(ratio-LONG_THRESHOLD)*1.45,BASE_SECONDS,MAX_SECONDS)
+        transition.kingdomTour=!!previousKey&&mode!=='war'&&ratio>KINGDOM_LONG_THRESHOLD;
+        transition.long=transition.kingdomTour;
+        transition.duration=transition.kingdomTour
+          ? clamp(KINGDOM_MIN_SECONDS+(ratio-KINGDOM_LONG_THRESHOLD)*1.8,KINGDOM_MIN_SECONDS,KINGDOM_MAX_SECONDS)
           : BASE_SECONDS;
-        document.documentElement.dataset.autoCameraTravel=transition.long?'long-smooth':'standard';
+        document.documentElement.dataset.autoCameraTravel=transition.kingdomTour?'kingdom-map-tour':'standard';
+        document.documentElement.dataset.autoCameraTravelMs=String(Math.round(transition.duration*1000));
       }
 
       document.documentElement.dataset.autoCameraMode=this.autoCamera.mode;
@@ -186,7 +187,10 @@
           transition.fromX+(target.x-transition.fromX)*eased,
           transition.fromY+(target.y-transition.fromY)*eased
         );
-        if(progress>=1)transition.long=false;
+        if(progress>=1){
+          transition.long=false;
+          transition.kingdomTour=false;
+        }
       }else{
         const seconds=Math.max(.1,Number(this.autoCamera.transitionSeconds)||BASE_SECONDS);
         const alpha=1-Math.exp(-Math.max(.35,3/seconds)*Math.max(.001,dt));
@@ -201,6 +205,7 @@
     };
 
     state.longTravelCameraSmoothing=true;
+    state.kingdomMapTour=true;
     return true;
   }
 
