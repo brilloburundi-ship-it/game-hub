@@ -13,12 +13,14 @@ const game=read('game.js');
 const core=read('core.js');
 const combat=read('combat-v13.js');
 const arena=read('arena-hd.js');
+const idle=read('idle-wait.js');
 const effects=read('asset-effects.js');
 const manifest=JSON.parse(read('manifest-core.json'));
 const fighters={...JSON.parse(read('fighters-0.json')),...JSON.parse(read('fighters-1.json')),...JSON.parse(read('fighters-2.json'))};
 
 assert(version.version==='1.3.0','Fighter Arena release version must be 1.3.0');
 assert(index.includes(`game.js?v=${version.version}`),'index.html cache-bust does not match release version');
+assert(index.includes(`idle-wait.js?v=${version.version}`),'idle waiting runtime is not wired into index.html');
 assert(game.includes(`const VERSION='${version.version}'`),'game.js version does not match version.json');
 assert(game.includes("combat-v13.js?v=1.3.0"),'1.3 combat runtime is not wired');
 assert(game.includes('FX_ASSETS'),'Original VFX pack loader missing');
@@ -35,6 +37,8 @@ assert(combat.includes('sheetFx'),'Original VFX sprite runtime missing');
 assert(core.includes('setAvailableFighters'),'Loaded fighter availability gating missing');
 assert(core.includes('winner.x=spawnX(winSide)'),'Waiting champion must return to and remain on their side');
 assert(!core.includes('S.queue.push(loser.viewer)'),'Defeated fighter must not be auto-requeued for an immediate rematch');
+assert(idle.includes("S.round==='waiting'"),'Waiting champion idle state controller missing');
+assert(idle.includes('r.anim+=dt'),'Waiting champion idle animation must continue advancing');
 assert(game.includes('loadedIds.size<2'),'Arena should only hard-block when fewer than two real fighter atlases load');
 assert(game.includes('scheduleRecovery'),'Background fighter atlas recovery missing');
 assert(game.includes('recovering in background'),'Partial fighter readiness status missing');
@@ -56,8 +60,8 @@ for(const[id,f]of Object.entries(fighters)){
     assert(Number.isFinite(a.fps)&&a.fps>0,`${id}/${name}: invalid fps`);
   }
 }
-for(const name of ['game.js','core.js','combat-v13.js','arena-hd.js','asset-effects.js']){
+for(const name of ['game.js','core.js','combat-v13.js','arena-hd.js','idle-wait.js','asset-effects.js']){
   const p=resolve(root,name),r=spawnSync(process.execPath,['--check',p],{encoding:'utf8'});
   assert(r.status===0,`${name} syntax check failed: ${r.stderr||r.stdout}`);
 }
-console.log(`Fighter Arena ${version.version}: ${Object.keys(fighters).length} unique fighter definitions, ${manifest.arenas.length} Retina HD arenas, timed demo stream and idle champion checks passed.`);
+console.log(`Fighter Arena ${version.version}: ${Object.keys(fighters).length} unique fighter definitions, ${manifest.arenas.length} Retina HD arenas, timed demo stream and animated idle champion checks passed.`);
