@@ -1,5 +1,5 @@
 export const S={manifest:null,images:new Map(),viewers:new Map(),queue:[],active:[null,null],fightNo:0,arenaIndex:0,round:'waiting',clock:0,delay:0,started:false,w:innerWidth,h:innerHeight,fx:null,availableFighters:new Set(),testStream:false};
-const R=[['street_mon','hero_knight'],['huntress','evil_wizard'],['martial_hero','medieval_king'],['martial_champion','evil_wizard_2'],['samurai']];
+const R=[['street_mon','hero_knight'],['huntress','evil_wizard','hero_knight_prime'],['martial_hero','medieval_king','fantasy_warrior','huntress_2','samurai_ronin'],['martial_champion','evil_wizard_2'],['samurai']];
 const C=['#50ddff','#ff5aa5','#ffd45f','#6fe985','#b987ff','#ff845c','#67f1cf','#8da5ff'];
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const pick=a=>a[Math.floor(Math.random()*a.length)];
