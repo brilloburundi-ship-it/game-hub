@@ -1,7 +1,7 @@
 import{S,clamp}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.0';
-const CHARGE_MAX=100;
+const VERSION='1.1.0';
+const CHARGE_MAX=20;
 const ROSE_HEAL_PER_UNIT=25;
 const ATTACK_STATE=/^(attack\d+|special|dash)$/;
 
@@ -21,6 +21,7 @@ function isRose(type,p={}){
   return t==='rose'||(t==='gift'&&String(p.giftName||p.name||'').toLowerCase().includes('rose'));
 }
 function chargeOf(v){return clamp(Number(v?.likeCriticalCharge||0),0,CHARGE_MAX)}
+function chargePercent(v){return CHARGE_MAX>0?clamp(chargeOf(v)/CHARGE_MAX*100,0,100):0}
 function setCharge(v,n){if(v)v.likeCriticalCharge=clamp(Number(n||0),0,CHARGE_MAX)}
 
 function announceReady(v){
@@ -58,7 +59,8 @@ function installEnergyLock(r){
   try{
     Object.defineProperty(r,'energy',{
       configurable:true,enumerable:true,
-      get(){return chargeOf(r.viewer)},
+      // HUD expects a 0–100 percentage even though the real Like counter is 0–20.
+      get(){return chargePercent(r.viewer)},
       set(_v){}
     });
     r.__likeCriticalEnergyLock=VERSION;
@@ -114,7 +116,7 @@ function installBridge(){
     const v=viewerFromPayload(p,out);
     if(t==='like'&&v){
       const r=runtimeFor(v);
-      // LIKE is now offense-only: undo the legacy heal/potion side effect.
+      // TAP/LIKE is offense-only: undo the legacy heal/potion side effect.
       if(r&&!r.dead&&Number.isFinite(beforeHp))r.hp=Math.min(r.maxHp,beforeHp);
       v.potions=Number.isFinite(beforePotions)?beforePotions:0;
       addLikeCharge(v,likeCount(p));
