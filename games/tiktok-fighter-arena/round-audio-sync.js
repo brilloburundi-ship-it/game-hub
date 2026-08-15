@@ -1,6 +1,6 @@
 // Focused Fighter Arena announcer audio sync.
 // Scope: 3-2-1-FIGHT and K.O. only. Combat, queue, bridge and arena logic are untouched.
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const CHUNKS={
   countdown:[
     './assets/audio/round-321-fight.b64.0',
@@ -31,9 +31,12 @@ const CHUNKS={
 };
 const VOLUME={countdown:.78,ko:.9};
 const START_OFFSET={countdown:.02,ko:.035};
-let context=null,activeSource=null,activeName='',lastState='idle';
+let context=null,activeSource=null,activeName='',lastState='idle',koSequence=0;
 const decoded=new Map();
 
+function emit(name,detail={}){
+  dispatchEvent(new CustomEvent(name,{detail:{version:VERSION,...detail}}));
+}
 function getContext(){
   if(!context)context=new(window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
   return context;
@@ -70,11 +73,14 @@ async function prime(){
   }
 }
 function stop(){
-  if(activeSource)try{activeSource.stop()}catch{}
+  if(activeSource){
+    activeSource.__fighterArenaCancelled=true;
+    try{activeSource.stop()}catch{}
+  }
   activeSource=null;
   activeName='';
 }
-async function play(name){
+async function play(name,sequence=0){
   try{
     const ctx=getContext();
     if(ctx.state==='suspended')await ctx.resume();
@@ -87,7 +93,11 @@ async function play(name){
     gain.gain.value=VOLUME[name];
     source.connect(gain).connect(ctx.destination);
     source.onended=()=>{
+      const cancelled=Boolean(source.__fighterArenaCancelled);
       if(activeSource===source){activeSource=null;activeName=''}
+      if(name==='ko'&&!cancelled&&sequence===koSequence&&lastState!=='countdown'&&lastState!=='fight'){
+        emit('fighterarena:ko-audio-ended',{sequence,duration:buffer.duration});
+      }
     };
     activeSource=source;
     activeName=name;
@@ -108,12 +118,15 @@ function sync(){
   const next=readState();
   if(next===lastState)return;
   lastState=next;
+  emit('fighterarena:round-audio-state',{state:next});
   if(next==='countdown'){
     stop();
     void play('countdown');
   }else if(next==='ko'){
     stop();
-    void play('ko');
+    const sequence=++koSequence;
+    emit('fighterarena:ko-audio-started',{sequence});
+    void play('ko',sequence);
   }
   // countdown -> fight intentionally keeps the same clip playing:
   // the spoken FIGHT is embedded at the exact visual transition.
