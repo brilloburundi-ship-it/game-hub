@@ -84,6 +84,9 @@
     const userId = userIdOf(data, username);
     const base = { userId, username, uniqueId: username };
 
+    if (['viewerleave', 'memberleave', 'viewerexit', 'memberexit', 'leave', 'exit'].some(name => eventName.includes(name))) {
+      return { type: 'leave', payload: base };
+    }
     if (eventName.includes('chat') || eventName.includes('comment') || data.comment || data.message) {
       const comment = String(data.comment ?? data.message ?? data.text ?? data.commentText ?? '').trim();
       return { type: 'join', payload: { ...base, comment } };
