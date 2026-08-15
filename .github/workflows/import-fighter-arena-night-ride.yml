@@ -110,4 +110,5 @@ jobs:
           git add games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3
           git diff --cached --quiet && exit 0
           git commit -m 'Add Fighter Arena Night Ride BGM'
+          git pull --rebase origin main
           git push origin HEAD:main
