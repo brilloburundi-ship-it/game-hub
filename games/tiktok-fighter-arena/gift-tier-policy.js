@@ -1,10 +1,21 @@
-import{S,cfg,clamp,runtime,tierColor}from'./core.js?v=1.4.0';
+import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.0';
+const VERSION='2.0.0';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
+const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander'];
+const GIFT_TIER_3=['martial_hero','medieval_warrior_2','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
+const FOLLOW_FIGHTER='samurai_ronin';
+const PROFILES={
+  follow:{hp:2.0,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
+  tier1:{hp:2.4,attack:1.35,defense:1.25,combo:1,targetFreeWins:5,color:'#ffd56b'},
+  tier2:{hp:3.4,attack:1.60,defense:1.45,combo:2,targetFreeWins:12,color:'#c489ff'},
+  tier3:{hp:4.6,attack:1.90,defense:1.70,combo:3,targetFreeWins:20,color:'#ff6ab6'}
+};
+const POOLS={tier1:GIFT_TIER_1,tier2:GIFT_TIER_2,tier3:GIFT_TIER_3};
 
 const giftValue=p=>Math.max(1,Number(p?.diamondCount||p?.value||p?.coins||1))*Math.max(1,Number(p?.repeatCount||1));
 const giftLevel=d=>d>=500?3:d>=100?2:d>=10?1:0;
+const classForLevel=level=>level===3?'tier3':level===2?'tier2':level===1?'tier1':'';
 function viewerFromPayload(p={},out=null){
   if(out?.id&&S.viewers.has(out.id))return S.viewers.get(out.id);
   const raw=String(p.userId||p.id||'');
@@ -14,71 +25,101 @@ function viewerFromPayload(p={},out=null){
   return S.viewers.get(fallback)||[...S.viewers.values()].find(v=>v.name===name)||null;
 }
 function available(id){return !!cfg(id)&&(S.availableFighters.size===0||S.availableFighters.has(id))}
-function chooseTier1(v){
-  let pool=GIFT_TIER_1.filter(available);
-  if(!pool.length)return null;
+function choose(pool,v){
+  let ids=pool.filter(available);
+  if(!ids.length)return null;
   const opponent=S.active.find(r=>r&&r.viewer.id!==v.id)?.fighterId;
-  const distinct=pool.filter(id=>id!==opponent&&id!==v.fighterId);
-  if(distinct.length)pool=distinct;
+  const distinct=ids.filter(id=>id!==opponent&&id!==v.fighterId);
+  if(distinct.length)ids=distinct;
   else{
-    const noOpponent=pool.filter(id=>id!==opponent);
-    if(noOpponent.length)pool=noOpponent;
+    const noOpponent=ids.filter(id=>id!==opponent);
+    if(noOpponent.length)ids=noOpponent;
   }
-  return pool[Math.floor(Math.random()*pool.length)]||pool[0];
+  return ids[Math.floor(Math.random()*ids.length)]||ids[0];
 }
-function assign(v,id,{announce=true}={}){
-  const f=cfg(id);if(!v||!f||!available(id))return false;
+function profileFor(v){return PROFILES[v?.rewardClass]||null}
+function baseStats(v,f){
+  const level=Math.max(1,Number(v?.level||1));
+  return{
+    hp:f.stats.hp*(1+(level-1)*.075),
+    attack:f.stats.attack*(1+(level-1)*.055),
+    defense:f.stats.defense*(1+(level-1)*.045)
+  };
+}
+function applyProfile(r,v,{preserveRatio=true}={}){
+  const profile=profileFor(v),f=cfg(r?.fighterId);
+  if(!r||!v||!profile||!f)return;
+  const b=baseStats(v,f),desired={hp:b.hp*profile.hp,attack:b.attack*profile.attack,defense:b.defense*profile.defense};
+  const key=`${v.rewardClass}|${r.fighterId}|${v.level}`;
+  if(r.__giftProfileKey!==key){
+    const ratio=preserveRatio&&r.maxHp>0?clamp(r.hp/r.maxHp,.05,1):1;
+    r.maxHp=desired.hp;r.hp=desired.hp*ratio;r.__giftProfileKey=key;
+  }else{
+    r.maxHp=desired.hp;r.hp=Math.min(r.hp,r.maxHp);
+  }
+  r.attack=desired.attack;r.defense=desired.defense;r.comboLimit=profile.combo;
+  v.comboLimit=profile.combo;v.targetFreeWins=profile.targetFreeWins;
+}
+function assign(v,id,rewardClass,{announce=true}={}){
+  const f=cfg(id),profile=PROFILES[rewardClass];if(!v||!f||!profile||!available(id))return false;
   const idx=S.active.findIndex(r=>r?.viewer.id===v.id);
-  v.fighterId=id;
+  v.fighterId=id;v.rewardClass=rewardClass;v.comboLimit=profile.combo;v.targetFreeWins=profile.targetFreeWins;
+  if(rewardClass.startsWith('tier'))v.giftTierLevel=Math.max(v.giftTierLevel||0,Number(rewardClass.slice(4))||0);
   v.highestTier=Math.max(v.highestTier||0,f.tier||0);
   if(idx>=0){
     const old=S.active[idx],fresh=runtime(v,idx),ratio=old?.maxHp?clamp(old.hp/old.maxHp,.25,1):1;
-    fresh.hp=fresh.maxHp*ratio;
-    fresh.energy=old?.energy||0;
-    fresh.shield=old?.shield||0;
-    fresh.x=old?.x??fresh.x;
-    fresh.inv=Math.max(.35,old?.inv||0);
-    S.active[idx]=fresh;
+    fresh.hp=fresh.maxHp*ratio;fresh.energy=old?.energy||0;fresh.shield=old?.shield||0;fresh.x=old?.x??fresh.x;fresh.inv=Math.max(.35,old?.inv||0);
+    S.active[idx]=fresh;applyProfile(fresh,v,{preserveRatio:true});
   }
-  if(announce)S.fx?.toast?.(`${v.name} · GIFT TIER 1 → ${f.name}`,tierColor(f.tier||1));
+  if(announce)S.fx?.toast?.(`${v.name} · ${rewardClass==='follow'?'FOLLOW ×2':`GIFT ${rewardClass.toUpperCase()} · COMBO ×${profile.combo}`} → ${f.name}`,profile.color);
   return true;
 }
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
-  window.__fighterArenaSelectionPolicy={...current,giftRare:[...GIFT_TIER_1],giftTier1:[...GIFT_TIER_1]};
-  window.__fighterArenaGiftPolicy={version:VERSION,tier1:[...GIFT_TIER_1],diamondRange:[10,99]};
+  window.__fighterArenaSelectionPolicy={...current,giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
+  window.__fighterArenaGiftPolicy={version:VERSION,tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES};
 }
 function install(){
   const api=window.FighterArenaBridge;
   if(!api?.emit)return false;
-  if(api.emit.__giftTierPolicy){publish();return true}
+  if(api.emit.__giftTierPolicy===VERSION){publish();return true}
   const base=api.emit.bind(api);
   const wrapped=(type,p={})=>{
-    const t=String(type||'').toLowerCase();
-    const isRose=String(p.giftName||p.name||'').toLowerCase().includes('rose');
-    if(t!=='gift'||isRose)return base(type,p);
-    const d=giftValue(p),level=giftLevel(d),before=viewerFromPayload(p),beforeId=before?.fighterId||'',beforeLevel=before?.giftTierLevel||0;
+    const t=String(type||'').toLowerCase(),before=viewerFromPayload(p),beforeId=before?.fighterId||'',beforeClass=before?.rewardClass||'',beforeLevel=before?.giftTierLevel||0;
     const out=base(type,p),v=viewerFromPayload(p,out);
-    if(!v||level===0)return out;
+    if(!v)return out;
+    if(t==='follow'){
+      if((v.giftTierLevel||0)===0){v.rewardClass='follow';v.comboLimit=2;if(v.fighterId!==FOLLOW_FIGHTER&&available(FOLLOW_FIGHTER))assign(v,FOLLOW_FIGHTER,'follow');else{const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v)}}
+      publish();return out;
+    }
+    if(t!=='gift'||String(p.giftName||p.name||'').toLowerCase().includes('rose')){const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v);return out}
+    const d=giftValue(p),level=giftLevel(d);if(level===0)return out;
     if(level<beforeLevel&&beforeId){
-      assign(v,beforeId,{announce:false});
-      v.giftTierLevel=beforeLevel;
-      return out;
+      v.rewardClass=beforeClass;v.giftTierLevel=beforeLevel;assign(v,beforeId,beforeClass||classForLevel(beforeLevel),{announce:false});return out;
     }
+    const rewardClass=classForLevel(level),pool=POOLS[rewardClass],id=choose(pool,v);
     v.giftTierLevel=Math.max(beforeLevel,level);
-    if(level===1){
-      const id=chooseTier1(v);
-      if(id)assign(v,id);
-    }
-    publish();
-    return out;
+    if(id)assign(v,id,rewardClass);
+    publish();return out;
   };
-  wrapped.__giftTierPolicy=VERSION;
-  api.emit=wrapped;
-  window.dispatchFighterArenaEvent=wrapped;
-  publish();
-  return true;
+  wrapped.__giftTierPolicy=VERSION;api.emit=wrapped;window.dispatchFighterArenaEvent=wrapped;publish();return true;
+}
+function syncPowerAndCombos(){
+  for(const r of S.active){
+    if(!r||!r.viewer)continue;
+    const v=r.viewer,profile=profileFor(v);if(profile)applyProfile(r,v);
+    const limit=Math.max(0,Number(v.comboLimit||r.comboLimit||0));
+    if(!/^attack\d+$/.test(r.state)){
+      if(r.state==='idle'||r.state==='run'||r.state==='hurt'||r.dead)r.__tierComboThirdArmed=false;
+      continue;
+    }
+    if(limit===1&&!r.comboStrike)r.doubleQueued=false;
+    if(limit>=2&&!r.comboStrike&&!r.__tierComboThirdArmed)r.doubleQueued=true;
+    if(limit>=3&&r.comboStrike&&r.hit&&!r.__tierComboThirdArmed){r.__tierComboThirdArmed=true;r.comboStrike=false;r.doubleQueued=true}
+  }
 }
 
-const timer=setInterval(()=>{if(install())clearInterval(timer)},50);
-setTimeout(()=>{install();clearInterval(timer)},12000);
+const installTimer=setInterval(()=>{if(install())clearInterval(installTimer)},50);
+const syncTimer=setInterval(()=>{install();syncPowerAndCombos();publish()},40);
+window.addEventListener('beforeunload',()=>{clearInterval(installTimer);clearInterval(syncTimer)},{once:true});
+setTimeout(()=>{install();publish()},12000);
