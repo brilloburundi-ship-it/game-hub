@@ -7,12 +7,17 @@
   if (suppliedToken) localStorage.setItem(storageKey, suppliedToken);
   const token = suppliedToken || localStorage.getItem(storageKey) || '';
   const DEBUG = params.get('bridgeDebug') === '1' || localStorage.getItem('fighter_arena_bridge_debug') === '1';
+  const DIRECT_URL = params.get('tikfinityWs') || 'ws://localhost:21213/';
   const queuedEvents = [];
   const giftProgress = new Map();
   const JOIN_COMMANDS = new Set(['join', 'me', 'play', 'fight', 'entra', 'gioca', 'combatti', 'arena']);
   let stream = null;
+  let socket = null;
+  let reconnectTimer = null;
+  let manuallyDisconnected = false;
   let lastRaw = null;
   let lastNormalized = null;
+  let transport = token ? 'lan-sse' : 'direct-ws';
 
   function status(text, state = 'offline') {
     document.documentElement.dataset.fighterBridgeStatus = state;
@@ -27,8 +32,8 @@
     const merged = { ...envelope };
     let current = envelope;
     const seen = new Set([current]);
-    for (let depth = 0; depth < 4; depth++) {
-      const nested = [current.data, current.eventData, current.payload, current.detail, current.body]
+    for (let depth = 0; depth < 5; depth++) {
+      const nested = [current.data, current.eventData, current.payload, current.detail, current.body, current.message]
         .find(value => isObject(value) && !seen.has(value));
       if (!nested) break;
       seen.add(nested);
@@ -64,7 +69,7 @@
       if (!isObject(source)) continue;
       for (const key of keys) {
         const value = source[key];
-        if (value === undefined || value === null) continue;
+        if (value === undefined || value === null || isObject(value)) continue;
         const text = String(value).trim();
         if (text) return text;
       }
@@ -101,13 +106,14 @@
 
   function eventNameOf(envelope, data) {
     return String(
-      envelope.event ?? envelope.type ?? envelope.eventType ?? envelope.event_name ?? envelope.eventName ??
-      data.event ?? data.type ?? data.eventType ?? data.event_name ?? data.eventName ?? ''
+      envelope.type ?? envelope.event ?? envelope.eventType ?? envelope.event_name ?? envelope.eventName ?? envelope.action ?? envelope.name ??
+      data.type ?? data.event ?? data.eventType ?? data.event_name ?? data.eventName ?? data.action ?? data.name ?? ''
     ).toLowerCase().replace(/[\s_-]+/g, '');
   }
 
   function commentOf(data) {
-    return firstText([data], ['comment', 'message', 'text', 'commentText', 'comment_text', 'chatText', 'chat_text', 'content']);
+    return firstText([data], ['comment', 'text', 'commentText', 'comment_text', 'chatText', 'chat_text', 'content']) ||
+      (typeof data.message === 'string' ? data.message.trim() : '');
   }
 
   function commandOf(comment) {
@@ -116,18 +122,18 @@
   }
 
   function looksLikeJoin(eventName, data) {
+    if (eventName.includes('roomuser')) return false;
     const action = String(data.action ?? data.memberAction ?? data.actionName ?? '').toLowerCase();
     const displayType = String(data.displayType ?? data.common?.displayType ?? '').toLowerCase();
     const label = String(data.label ?? '').toLowerCase();
     const actionId = Number(data.actionId ?? data.actionCode ?? 0);
     const namedJoin = [
       'member', 'viewerenter', 'viewerjoin', 'memberenter', 'memberjoin', 'userjoin',
-      'roomenter', 'enterroom', 'roomuserjoin', 'roomuserenter', 'enter', 'join'
+      'roomenter', 'enterroom', 'enter', 'join', 'subscribe'
     ].some(name => eventName.includes(name));
-    const roomUserWithIdentity = eventName.includes('roomuser') && hasDirectIdentity(data);
     const payloadJoin = action === 'join' || action === 'enter' || action === 'joined' || actionId === 1 ||
       displayType.includes('enter') || displayType.includes('joined') || label.includes(' joined');
-    return hasDirectIdentity(data) && (namedJoin || roomUserWithIdentity || payloadJoin);
+    return hasDirectIdentity(data) && (namedJoin || payloadJoin);
   }
 
   function giftPayload(data, username, userId) {
@@ -155,7 +161,7 @@
       giftProgress.set(key, totalRepeat);
       if (giftProgress.size > 500) giftProgress.delete(giftProgress.keys().next().value);
     } else {
-      const giftType = Number(data.giftType ?? data.gift_type ?? details.giftType ?? details.gift_type);
+      const giftType = Number(data.giftType ?? data.gift_type ?? details.giftType ?? details.gift_type ?? gift.giftType ?? 0);
       const repeatEndValue = data.repeatEnd ?? data.repeat_end ?? details.repeatEnd ?? details.repeat_end;
       const repeatEnded = repeatEndValue === true || repeatEndValue === 1 || String(repeatEndValue).toLowerCase() === 'true';
       if (giftType === 1 && !repeatEnded) return null;
@@ -179,21 +185,23 @@
     const hasIdentity = hasDirectIdentity(data);
     const comment = commentOf(data);
 
+    if (eventName.includes('roomuser')) {
+      return { type: 'roomuser', payload: { viewerCount: Math.max(0, Number(data.viewerCount ?? data.viewer_count ?? data.count ?? 0) || 0) } };
+    }
     if (['viewerleave', 'memberleave', 'viewerexit', 'memberexit', 'leave', 'exit'].some(name => eventName.includes(name))) {
       return hasIdentity ? { type: 'leave', payload: base } : null;
-    }
-    if (looksLikeJoin(eventName, data)) {
-      return { type: 'join', payload: base };
     }
 
     const chatLike = eventName.includes('chat') || eventName.includes('comment') || Boolean(comment);
     if (chatLike) {
       if (!hasIdentity) {
-        if (DEBUG) console.warn('[Fighter Arena LAN] Chat event without user identity', raw);
+        if (DEBUG) console.warn('[Fighter Arena LIVE] Chat event without user identity', raw);
         return null;
       }
       return { type: 'join', payload: { ...base, comment, command: commandOf(comment), sourceEvent: eventName || 'chat' } };
     }
+
+    if (looksLikeJoin(eventName, data)) return { type: 'join', payload: base };
 
     if (eventName.includes('like')) {
       return hasIdentity ? {
@@ -217,16 +225,20 @@
   }
 
   function deliver(raw) {
+    if (Array.isArray(raw)) {
+      for (const item of raw) deliver(item);
+      return;
+    }
     lastRaw = raw;
     if (raw?.__bridgeStatus) {
-      if (raw.__bridgeStatus === 'connected') status('TikFinity online', 'online');
-      else status('PC online · waiting for TikFinity', 'waiting');
+      if (raw.__bridgeStatus === 'connected') status('TikFinity online through PC bridge', 'online');
+      else status('PC bridge online · waiting for TikFinity', 'waiting');
       return;
     }
     const event = normalize(raw);
     lastNormalized = event;
-    if (DEBUG) console.debug('[Fighter Arena LAN]', raw, '=>', event);
-    if (!event) return;
+    if (DEBUG) console.debug(`[Fighter Arena ${transport}]`, raw, '=>', event);
+    if (!event || event.type === 'roomuser') return;
     if (!gameReady()) {
       queuedEvents.push(event);
       if (queuedEvents.length > 300) queuedEvents.shift();
@@ -245,31 +257,106 @@
     return true;
   }
 
-  function connect() {
-    if (!token) {
-      status('local bridge not active — open the phone URL generated by the PC', 'inactive');
+  function scheduleDirectReconnect() {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    if (manuallyDisconnected || token) return;
+    status('TikFinity reconnecting…', 'reconnecting');
+    reconnectTimer = setTimeout(connectDirect, 3000);
+  }
+
+  function parseDirectMessage(data) {
+    if (typeof data === 'string') {
+      try { deliver(JSON.parse(data)); }
+      catch (error) { if (DEBUG) console.warn('[Fighter Arena direct] Invalid JSON', error, data); }
       return;
     }
-    status('connecting to PC…', 'connecting');
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      data.text().then(parseDirectMessage).catch(error => {
+        if (DEBUG) console.warn('[Fighter Arena direct] Blob read failed', error);
+      });
+      return;
+    }
+    if (isObject(data) || Array.isArray(data)) deliver(data);
+  }
+
+  function connectDirect() {
+    transport = 'direct-ws';
+    manuallyDisconnected = false;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    try { socket?.close(); } catch {}
+    socket = null;
+    status('connecting directly to TikFinity…', 'connecting');
+    try {
+      socket = new WebSocket(DIRECT_URL);
+    } catch (error) {
+      status('direct TikFinity blocked · use local LIVE launcher', 'inactive');
+      if (DEBUG) console.warn('[Fighter Arena direct] WebSocket open failed', error);
+      scheduleDirectReconnect();
+      return;
+    }
+    socket.addEventListener('open', () => {
+      status('TikFinity direct online', 'online');
+      if (DEBUG) console.info(`[Fighter Arena direct] connected ${DIRECT_URL}`);
+    });
+    socket.addEventListener('message', event => parseDirectMessage(event.data));
+    socket.addEventListener('close', () => {
+      socket = null;
+      scheduleDirectReconnect();
+    }, { once: true });
+    socket.addEventListener('error', () => {
+      status('TikFinity unavailable · retrying…', 'reconnecting');
+      try { socket?.close(); } catch { scheduleDirectReconnect(); }
+    }, { once: true });
+  }
+
+  function connectLan() {
+    transport = 'lan-sse';
+    status('connecting to PC bridge…', 'connecting');
+    try { stream?.close(); } catch {}
     stream = new EventSource(`/bridge/events?token=${encodeURIComponent(token)}`);
-    stream.onopen = () => status('PC online · waiting for TikFinity', 'waiting');
+    stream.onopen = () => status('PC bridge online · waiting for TikFinity', 'waiting');
     stream.onmessage = message => {
       try { deliver(JSON.parse(message.data)); }
       catch (error) { console.warn('[Fighter Arena LAN] Event ignored', error); }
     };
     stream.onerror = () => status('PC bridge reconnecting…', 'reconnecting');
-    window.FighterArenaLanBridge = {
-      stream,
-      flushQueue,
-      normalize,
-      reconnect: connect,
-      pending: queuedEvents,
-      get lastRaw() { return lastRaw; },
-      get lastNormalized() { return lastNormalized; },
-      debug: DEBUG,
-      joinCommands: [...JOIN_COMMANDS]
-    };
   }
+
+  function connect() {
+    if (token) connectLan();
+    else connectDirect();
+  }
+
+  function disconnect({ reconnect = false } = {}) {
+    manuallyDisconnected = !reconnect;
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+    try { stream?.close(); } catch {}
+    try { socket?.close(); } catch {}
+    stream = null;
+    socket = null;
+    if (reconnect) connect();
+    else status('LIVE bridge disconnected', 'inactive');
+  }
+
+  window.FighterArenaLanBridge = {
+    flushQueue,
+    normalize,
+    reconnect: connect,
+    disconnect,
+    pending: queuedEvents,
+    get stream() { return stream; },
+    get socket() { return socket; },
+    get transport() { return transport; },
+    get lastRaw() { return lastRaw; },
+    get lastNormalized() { return lastNormalized; },
+    debug: DEBUG,
+    directUrl: DIRECT_URL,
+    joinCommands: [...JOIN_COMMANDS]
+  };
+  window.FighterArenaLiveBridge = window.FighterArenaLanBridge;
 
   const readyTimer = setInterval(() => {
     if (!flushQueue()) return;
