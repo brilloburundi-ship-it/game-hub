@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title Fighter Arena - Safari + TikFinity - Porta 8766
+title Fighter Arena - Safari + TikFinity - Porta 8795
 
-set "PORT=8766"
-set "FIGHTER_ARENA_PORT=8766"
+set "PORT=8795"
+set "FIGHTER_ARENA_PORT=8795"
 set "FIGHTER_ARENA_TOKEN=DU0r2ET4_ZFQV_uwdbyX5GQw86x9pT_N"
 
 set "NODE_EXE="
@@ -31,7 +31,8 @@ echo ============================================
 echo   FIGHTER ARENA - SAFARI + TIKFINITY
  echo ============================================
 echo.
-echo Libero la porta %PORT% dal vecchio server locale...
+echo Porta dedicata Fighter Arena: %PORT%
+echo Libero solo questa porta da eventuali vecchi processi Fighter Arena...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "$pids = Get-NetTCPConnection -LocalPort %PORT% -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique; foreach($pid in $pids){ try { Stop-Process -Id $pid -Force -ErrorAction Stop; Write-Host ('Chiuso vecchio processo PID ' + $pid) } catch { Write-Host ('Impossibile chiudere PID ' + $pid) } }" 2>nul
 ping 127.0.0.1 -n 2 >nul
 
