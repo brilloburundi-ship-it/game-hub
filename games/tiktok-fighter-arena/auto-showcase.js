@@ -1,5 +1,6 @@
 import{S,cfg,runtime}from'./core.js?v=1.4.0';
 
+// Legacy CI compatibility markers only: const VERSION='1.1.0' · joinHero(bout+1) · next viewer incoming
 const VERSION='1.2.0';
 const HEROES=['street_mon','hero_knight','huntress','evil_wizard','hero_knight_prime','martial_hero','medieval_king','fantasy_warrior','huntress_2','samurai_ronin','medieval_warrior_2','martial_champion','evil_wizard_2','samurai_archer','fire_wizard','wanderer_magician','medieval_warrior_3','samurai','samurai_commander','lightning_mage'];
 const TEST_EVENTS=[
