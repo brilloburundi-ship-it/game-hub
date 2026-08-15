@@ -1,12 +1,12 @@
 import{renderArenaHD as baseRender,preloadArenaHD as basePreload}from'./arena-hd-v116.js?v=1.16.0';
 
-const VERSION='1.17.1';
+const VERSION='1.17.2';
 
 // Global foreground-only lift. Fighters keep the exact same groundY; only the
 // imported arena artwork is raised so the walkable surface meets their feet.
 function arenaLift(w,h){
   const portrait=w<600;
-  return Math.min(portrait?48:42,h*(portrait?.050:.058));
+  return Math.min(portrait?52:46,h*(portrait?.054:.062));
 }
 
 function liftedContext(c,lift){
@@ -43,6 +43,6 @@ window.__fighterArenaArenaFloorAlignment={
   version:VERSION,
   foregroundOnly:true,
   fightersUntouched:true,
-  portraitMaxLift:48,
-  landscapeMaxLift:42
+  portraitMaxLift:52,
+  landscapeMaxLift:46
 };
