@@ -1,14 +1,15 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.6.1';
+const VERSION='2.7.0';
 const COMBAT_TEMPO=1.60;
 
-// Tier 1/2/3 and Free no longer modify damage at all. Each fighter keeps only
-// its native attack stat (plus normal viewer level scaling); higher gift tiers
-// are stronger exclusively because they have more Max HP.
+// Free and Gift Tier 1/2/3 use the same damage rules. Higher gift tiers are
+// stronger because they have more Max HP, not because of attack/defense gaps.
 const STRONG_CORRECTION=1.50/1.45;
 const SECOND_COMBO_CORRECTION=.85/.84;
 const THIRD_COMBO_CORRECTION=.70/.84;
+const LIKE_CRITICAL_FIRST=1.60;
+const LIKE_CRITICAL_SECOND_TARGET=1.35;
 
 function baseAttack(r){
   const f=cfg(r?.fighterId);
@@ -20,6 +21,11 @@ function stateCorrection(r){
   let mult=1;
   if(r?.state==='special'||r?.state==='attack3'||r?.state==='attack4')mult*=STRONG_CORRECTION;
   if(r?.comboStrike)mult*=r.__tierComboThirdArmed?THIRD_COMBO_CORRECTION:SECOND_COMBO_CORRECTION;
+  if(r?.__likeCriticalActive){
+    // First critical hit = x1.60. The chained second hit normally resolves at
+    // ~0.85 power, so compensate it to land at ~x1.35 of a normal attack.
+    mult*=r.comboStrike?(LIKE_CRITICAL_SECOND_TARGET/.85):LIKE_CRITICAL_FIRST;
+  }
   return mult;
 }
 function effectiveAttack(r){
@@ -63,6 +69,7 @@ window.__fighterArenaCombatRules={
   giftTierComboBonus:false,
   followCombo:2,
   specialMultiplier:1.50,
-  note:'Free and Gift Tier 1/2/3 use the same damage rules. Gift tier advantage is Max HP only; fighter-native attack characteristics remain intact. Defense and tier matchup modifiers are disabled.'
+  likeCritical:{first:LIKE_CRITICAL_FIRST,second:LIKE_CRITICAL_SECOND_TARGET,doubleHit:true},
+  note:'Tier does not modify damage. The blue bar is now Like-driven; at 100 Likes it arms a double critical attack. Defense remains disabled.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
