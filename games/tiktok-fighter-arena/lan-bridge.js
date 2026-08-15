@@ -6,9 +6,13 @@
   const storageKey = 'fighter_arena_bridge_token';
   if (suppliedToken) localStorage.setItem(storageKey, suppliedToken);
   const token = suppliedToken || localStorage.getItem(storageKey) || '';
+  const DEBUG = params.get('bridgeDebug') === '1' || localStorage.getItem('fighter_arena_bridge_debug') === '1';
   const queuedEvents = [];
   const giftProgress = new Map();
+  const JOIN_COMMANDS = new Set(['join', 'me', 'play', 'fight', 'entra', 'gioca', 'combatti', 'arena']);
   let stream = null;
+  let lastRaw = null;
+  let lastNormalized = null;
 
   function status(text, state = 'offline') {
     document.documentElement.dataset.fighterBridgeStatus = state;
@@ -16,47 +20,120 @@
     if (el) el.textContent = `LIVE bridge: ${text}`;
   }
 
+  const isObject = value => Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
   function payloadOf(raw) {
-    const envelope = raw && typeof raw === 'object' ? raw : {};
-    const nested = [envelope.data, envelope.eventData, envelope.payload]
-      .find(value => value && typeof value === 'object' && !Array.isArray(value)) || {};
-    return { envelope, data: { ...envelope, ...nested } };
+    const envelope = isObject(raw) ? raw : {};
+    const merged = { ...envelope };
+    let current = envelope;
+    const seen = new Set([current]);
+    for (let depth = 0; depth < 4; depth++) {
+      const nested = [current.data, current.eventData, current.payload, current.detail, current.body]
+        .find(value => isObject(value) && !seen.has(value));
+      if (!nested) break;
+      seen.add(nested);
+      Object.assign(merged, nested);
+      current = nested;
+    }
+    return { envelope, data: merged };
+  }
+
+  function identitySources(data) {
+    const roots = [
+      data,
+      data.user,
+      data.userInfo,
+      data.userData,
+      data.author,
+      data.sender,
+      data.from,
+      data.member,
+      data.profile,
+      data.owner
+    ].filter(isObject);
+    for (const root of [...roots]) {
+      for (const child of [root.user, root.userInfo, root.userData, root.author, root.sender]) {
+        if (isObject(child) && !roots.includes(child)) roots.push(child);
+      }
+    }
+    return roots;
+  }
+
+  function firstText(sources, keys) {
+    for (const source of sources) {
+      if (!isObject(source)) continue;
+      for (const key of keys) {
+        const value = source[key];
+        if (value === undefined || value === null) continue;
+        const text = String(value).trim();
+        if (text) return text;
+      }
+    }
+    return '';
   }
 
   function usernameOf(data) {
-    return String(
-      data.username ?? data.uniqueId ?? data.userId ??
-      data.user?.uniqueId ?? data.user?.nickname ?? data.nickname ?? 'Viewer'
-    ).replace(/^@/, '').trim().slice(0, 32) || 'Viewer';
+    const sources = identitySources(data);
+    const direct = firstText(sources, [
+      'uniqueId', 'unique_id', 'username', 'userName', 'user_name',
+      'nickname', 'displayName', 'display_name', 'handle'
+    ]);
+    if (direct) return direct.replace(/^@/, '').trim().slice(0, 32) || 'Viewer';
+    const numeric = firstText(sources.slice(1), ['userId', 'user_id', 'id', 'uid']);
+    return numeric ? `Viewer-${numeric.slice(-8)}` : 'Viewer';
   }
 
   function userIdOf(data, username) {
-    return String(data.userId ?? data.user?.userId ?? data.user?.id ?? `viewer:${username.toLowerCase()}`);
+    const sources = identitySources(data);
+    const stable = firstText(sources.slice(1), ['secUid', 'sec_uid', 'userId', 'user_id', 'id', 'uid']) ||
+      firstText([data], ['userId', 'user_id', 'senderUserId', 'sender_user_id', 'gifterId', 'gifter_id', 'secUid', 'sec_uid']);
+    return stable || `viewer:${username.toLowerCase()}`;
   }
 
   function hasDirectIdentity(data) {
+    const sources = identitySources(data);
     return Boolean(
-      data?.username || data?.uniqueId || data?.userId || data?.nickname ||
-      data?.user?.uniqueId || data?.user?.userId || data?.user?.id || data?.user?.nickname
+      firstText(sources, ['uniqueId', 'unique_id', 'username', 'userName', 'user_name', 'nickname', 'displayName', 'display_name']) ||
+      firstText(sources.slice(1), ['secUid', 'sec_uid', 'userId', 'user_id', 'id', 'uid']) ||
+      firstText([data], ['userId', 'user_id', 'senderUserId', 'sender_user_id'])
     );
   }
 
+  function eventNameOf(envelope, data) {
+    return String(
+      envelope.event ?? envelope.type ?? envelope.eventType ?? envelope.event_name ?? envelope.eventName ??
+      data.event ?? data.type ?? data.eventType ?? data.event_name ?? data.eventName ?? ''
+    ).toLowerCase().replace(/[\s_-]+/g, '');
+  }
+
+  function commentOf(data) {
+    return firstText([data], ['comment', 'message', 'text', 'commentText', 'comment_text', 'chatText', 'chat_text', 'content']);
+  }
+
+  function commandOf(comment) {
+    const first = String(comment || '').trim().toLowerCase().split(/\s+/)[0].replace(/^[!/.#]+/, '');
+    return JOIN_COMMANDS.has(first) ? first : '';
+  }
+
   function looksLikeJoin(eventName, data) {
-    const action = String(data.action ?? data.memberAction ?? '').toLowerCase();
+    const action = String(data.action ?? data.memberAction ?? data.actionName ?? '').toLowerCase();
     const displayType = String(data.displayType ?? data.common?.displayType ?? '').toLowerCase();
     const label = String(data.label ?? '').toLowerCase();
     const actionId = Number(data.actionId ?? data.actionCode ?? 0);
-    const namedJoin = ['member', 'viewerenter', 'viewerjoin', 'memberenter', 'memberjoin', 'userjoin', 'roomenter', 'enterroom', 'enter', 'join']
-      .some(name => eventName.includes(name));
-    const payloadJoin = action === 'join' || action === 'enter' || actionId === 1 ||
+    const namedJoin = [
+      'member', 'viewerenter', 'viewerjoin', 'memberenter', 'memberjoin', 'userjoin',
+      'roomenter', 'enterroom', 'roomuserjoin', 'roomuserenter', 'enter', 'join'
+    ].some(name => eventName.includes(name));
+    const roomUserWithIdentity = eventName.includes('roomuser') && hasDirectIdentity(data);
+    const payloadJoin = action === 'join' || action === 'enter' || action === 'joined' || actionId === 1 ||
       displayType.includes('enter') || displayType.includes('joined') || label.includes(' joined');
-    return hasDirectIdentity(data) && (namedJoin || payloadJoin);
+    return hasDirectIdentity(data) && (namedJoin || roomUserWithIdentity || payloadJoin);
   }
 
   function giftPayload(data, username, userId) {
-    const details = data.giftDetails && typeof data.giftDetails === 'object' ? data.giftDetails : {};
-    const gift = data.gift && typeof data.gift === 'object' ? data.gift : {};
-    const extended = data.extendedGiftInfo && typeof data.extendedGiftInfo === 'object' ? data.extendedGiftInfo : {};
+    const details = isObject(data.giftDetails) ? data.giftDetails : {};
+    const gift = isObject(data.gift) ? data.gift : {};
+    const extended = isObject(data.extendedGiftInfo) ? data.extendedGiftInfo : {};
     const giftName = String(
       data.giftName ?? data.gift_name ?? details.giftName ?? details.gift_name ?? details.name ??
       gift.name ?? extended.giftName ?? extended.name ?? data.name ?? 'gift'
@@ -95,31 +172,40 @@
 
   function normalize(raw) {
     const { envelope, data } = payloadOf(raw);
-    const eventName = String(
-      envelope.event ?? envelope.type ?? envelope.eventType ?? envelope.event_name ??
-      data.event ?? data.type ?? data.eventType ?? ''
-    ).toLowerCase();
+    const eventName = eventNameOf(envelope, data);
     const username = usernameOf(data);
     const userId = userIdOf(data, username);
     const base = { userId, username, uniqueId: username };
+    const hasIdentity = hasDirectIdentity(data);
+    const comment = commentOf(data);
 
     if (['viewerleave', 'memberleave', 'viewerexit', 'memberexit', 'leave', 'exit'].some(name => eventName.includes(name))) {
-      return { type: 'leave', payload: base };
+      return hasIdentity ? { type: 'leave', payload: base } : null;
     }
     if (looksLikeJoin(eventName, data)) {
       return { type: 'join', payload: base };
     }
-    if (eventName.includes('chat') || eventName.includes('comment') || data.comment || data.message) {
-      const comment = String(data.comment ?? data.message ?? data.text ?? data.commentText ?? '').trim();
-      return { type: 'join', payload: { ...base, comment } };
+
+    const chatLike = eventName.includes('chat') || eventName.includes('comment') || Boolean(comment);
+    if (chatLike) {
+      if (!hasIdentity) {
+        if (DEBUG) console.warn('[Fighter Arena LAN] Chat event without user identity', raw);
+        return null;
+      }
+      return { type: 'join', payload: { ...base, comment, command: commandOf(comment), sourceEvent: eventName || 'chat' } };
     }
+
     if (eventName.includes('like')) {
-      return { type: 'like', payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.count ?? data.repeatCount ?? 1) || 1) } };
+      return hasIdentity ? {
+        type: 'like',
+        payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.like_count ?? data.count ?? data.repeatCount ?? 1) || 1) }
+      } : null;
     }
     if (eventName.includes('follow') || (eventName.includes('social') && String(data.action ?? '').toLowerCase().includes('follow'))) {
-      return { type: 'follow', payload: base };
+      return hasIdentity ? { type: 'follow', payload: base } : null;
     }
     if (eventName.includes('gift')) {
+      if (!hasIdentity) return null;
       const payload = giftPayload(data, username, userId);
       return payload ? { type: 'gift', payload } : null;
     }
@@ -131,12 +217,15 @@
   }
 
   function deliver(raw) {
+    lastRaw = raw;
     if (raw?.__bridgeStatus) {
       if (raw.__bridgeStatus === 'connected') status('TikFinity online', 'online');
       else status('PC online · waiting for TikFinity', 'waiting');
       return;
     }
     const event = normalize(raw);
+    lastNormalized = event;
+    if (DEBUG) console.debug('[Fighter Arena LAN]', raw, '=>', event);
     if (!event) return;
     if (!gameReady()) {
       queuedEvents.push(event);
@@ -169,7 +258,17 @@
       catch (error) { console.warn('[Fighter Arena LAN] Event ignored', error); }
     };
     stream.onerror = () => status('PC bridge reconnecting…', 'reconnecting');
-    window.FighterArenaLanBridge = { stream, flushQueue, normalize, reconnect: connect, pending: queuedEvents };
+    window.FighterArenaLanBridge = {
+      stream,
+      flushQueue,
+      normalize,
+      reconnect: connect,
+      pending: queuedEvents,
+      get lastRaw() { return lastRaw; },
+      get lastNormalized() { return lastNormalized; },
+      debug: DEBUG,
+      joinCommands: [...JOIN_COMMANDS]
+    };
   }
 
   const readyTimer = setInterval(() => {
