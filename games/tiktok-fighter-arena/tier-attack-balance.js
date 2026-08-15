@@ -1,7 +1,7 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.6.0';
-const COMBAT_TEMPO=1.45;
+const VERSION='2.6.1';
+const COMBAT_TEMPO=1.60;
 
 // Tier 1/2/3 and Free no longer modify damage at all. Each fighter keeps only
 // its native attack stat (plus normal viewer level scaling); higher gift tiers
