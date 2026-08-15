@@ -85,6 +85,12 @@ function isMemberEnter(raw){
 function emitNow(identity){
   if(!identity)return;
   const key=identity.userId||identity.username;
+  const bridge=window.FighterArenaBridge;
+  if(window.__fighterArenaReady!==true||!bridge?.emit){
+    pending.set(key,identity);
+    return;
+  }
+
   const now=Date.now();
   const last=recentlySeen.get(key)||0;
   if(now-last<1500)return;
@@ -93,12 +99,7 @@ function emitNow(identity){
     const cutoff=now-120000;
     for(const [id,stamp] of recentlySeen)if(stamp<cutoff)recentlySeen.delete(id);
   }
-  const bridge=window.FighterArenaBridge;
-  if(window.__fighterArenaReady===true&&bridge?.emit){
-    bridge.emit('join',{...identity,source:'tikfinity-member-fastpath'});
-    return;
-  }
-  pending.set(key,identity);
+  bridge.emit('join',{...identity,source:'tikfinity-member-fastpath'});
 }
 
 function consume(raw){
@@ -135,8 +136,9 @@ function bind(){
 const pump=setInterval(()=>{
   bind();
   if(window.__fighterArenaReady===true&&window.FighterArenaBridge?.emit&&pending.size){
-    for(const identity of pending.values())emitNow(identity);
+    const batch=[...pending.values()];
     pending.clear();
+    for(const identity of batch)emitNow(identity);
   }
 },50);
 
