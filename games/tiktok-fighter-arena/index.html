@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#090714" />
   <title>TikTok Fighter Arena</title>
   <link rel="stylesheet" href="./style.css?v=1.3.0" />
+  <style>#liveQueueRail,.live-queue-rail{display:none!important}</style>
 </head>
 <body>
   <div id="app">
@@ -18,7 +19,8 @@
     <div id="loading" class="loading-screen"><div class="loading-card"><span class="eyebrow">GAME HUB · LIVE PROJECT</span><h1>TikTok Fighter Arena</h1><p>Loading unique fighters, original VFX and 8 optimized fantasy arenas.</p><div class="loadbar"><i id="loadProgress"></i></div><span id="loadText">Starting loader…</span><button id="startButton" type="button" disabled>ENTER ARENA</button></div></div>
   </div>
   <script src="./lan-bridge.js?v=1.3.1"></script>
-  <script type="importmap">{"imports":{"./arena-hd.js?v=1.3.0":"./arena-hd.js?v=1.9.0","./combat-v14.js?v=1.4.0":"./combat-v14.js?v=1.4.0-groundlock-noprojectile-huntress85-20260815","./game-v14.js?v=1.4.0":"./game-v14.js?v=1.4.0-starter-follow-lock-20260815","./core.js?v=1.4.0":"./core.js?v=1.4.0-starter-follow-lock-20260815","./core-r18.js?v=r18-step1":"./core-r18.js?v=r18-step1-starter-follow-lock-20260815"}}</script>
+  <script type="importmap">{"imports":{"./arena-hd.js?v=1.3.0":"./arena-hd.js?v=1.9.0","./combat-v14.js?v=1.4.0":"./combat-v14.js?v=1.4.0-scale-commander110-void138-20260815","./game-v14.js?v=1.4.0":"./game-v14.js?v=1.4.0-starter-follow-lock-20260815","./core.js?v=1.4.0":"./core.js?v=1.4.0-starter-follow-lock-20260815","./core-r18.js?v=r18-step1":"./core-r18.js?v=r18-step1-starter-follow-lock-20260815"}}</script>
+  <script>const purgeLegacyQueue=()=>document.querySelectorAll('#liveQueueRail,.live-queue-rail').forEach(el=>el.remove());purgeLegacyQueue();new MutationObserver(purgeLegacyQueue).observe(document.documentElement,{childList:true,subtree:true});</script>
   <script type="module" src="./bootstrap.js?v=1.4.0"></script>
   <script type="module" src="./arena-randomizer.js?v=1.0.0"></script>
   <script type="module" src="./vfx-combat-overlay.js?v=1.2.0-blood16"></script>
@@ -27,7 +29,7 @@
   <script type="module" src="./round-announcer.js?v=1.0.0"></script>
   <script type="module" src="./combat-audio-v11.js?v=1.1.0"></script>
   <script type="module" src="./round-audio-sync.js?v=1.0.0"></script>
-  <!-- release-cache-contract: game-v14.js?v=1.4.0 shared core.js?v=1.4.0 · combat-v14.js?v=1.4.0-groundlock-noprojectile-huntress85-20260815 · gift-tier-policy.js?v=2.0.0 · combat-audio-v11.js?v=1.1.0 · arena-hd.js?v=1.9.0 · arena-randomizer.js?v=1.0.0 · vfx-combat-overlay.js?v=1.2.0-blood16 · auto-showcase.js?v=1.3.0 -->
+  <!-- release-cache-contract: game-v14.js?v=1.4.0 shared core.js?v=1.4.0 · combat-v14.js?v=1.4.0-scale-commander110-void138-20260815 · gift-tier-policy.js?v=2.0.0 · combat-audio-v11.js?v=1.1.0 · arena-hd.js?v=1.9.0 · arena-randomizer.js?v=1.0.0 · vfx-combat-overlay.js?v=1.2.0-blood16 · auto-showcase.js?v=1.3.0 -->
   <!-- legacy-ci-markers only: vfx-combat-overlay.js?v=1.1.0 · auto-showcase.js?v=1.1.0 · testStreamButton -->
 </body>
 </html>
