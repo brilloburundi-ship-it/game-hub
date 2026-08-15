@@ -34,7 +34,6 @@ let tikFinity = null;
 let tikFinityConnected = false;
 let reconnectTimer = null;
 let shuttingDown = false;
-let lastTestAt = 0;
 
 function tokenMatches(candidate = '') {
   const left = Buffer.from(String(candidate));
@@ -267,29 +266,6 @@ const server = http.createServer((request, response) => {
     return;
   }
 
-  if (url.pathname === '/bridge/test' && request.method === 'POST') {
-    if (!tokenMatches(url.searchParams.get('token'))) {
-      response.writeHead(401).end('Invalid token');
-      return;
-    }
-    if (Date.now() - lastTestAt < 700) {
-      response.writeHead(429).end('Slow down');
-      return;
-    }
-    lastTestAt = Date.now();
-    const allowed = new Set(['join', 'like', 'follow', 'gift']);
-    const type = allowed.has(url.searchParams.get('type')) ? url.searchParams.get('type') : 'join';
-    const base = { uniqueId: 'BridgeTest', userId: 'bridge-test-user' };
-    let event;
-    if (type === 'join') event = { event: 'chat', data: { ...base, comment: 'JOIN' } };
-    else if (type === 'like') event = { event: 'like', data: { ...base, likeCount: 10 } };
-    else if (type === 'follow') event = { event: 'follow', data: base };
-    else event = { event: 'gift', data: { ...base, giftName: 'Rose', diamondCount: 1, repeatCount: 1, repeatEnd: true } };
-    broadcast(event);
-    response.writeHead(204).end();
-    return;
-  }
-
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     response.writeHead(405).end('Method not allowed');
     return;
@@ -346,7 +322,7 @@ server.listen(PORT, HOST, () => {
   console.log('\nApri su iPhone, sulla stessa Wi-Fi:');
   if (phoneUrls.length) for (const phoneUrl of phoneUrls) console.log(`  ${phoneUrl}`);
   else console.log('  Nessun IP LAN rilevato.');
-  console.log(`\nTest PC: ${urlFor('127.0.0.1')}`);
+  console.log(`\nPC: ${urlFor('127.0.0.1')}`);
   console.log(`Health:  http://127.0.0.1:${PORT}/bridge/health?token=${encodeURIComponent(token)}`);
   console.log('\nLascia aperta questa finestra durante la LIVE.');
   console.log('CTRL+C per chiudere il bridge.\n');
