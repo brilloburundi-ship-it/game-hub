@@ -1,6 +1,6 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.1.1';
+const VERSION='2.2.0';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
 const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander'];
 const GIFT_TIER_3=['martial_hero','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
@@ -71,8 +71,9 @@ function baseStats(v,f){
 function applyProfile(r,v,{preserveRatio=true}={}){
   const profile=profileFor(v),f=cfg(r?.fighterId);
   if(!r||!v||!profile||!f)return;
-  const b=baseStats(v,f),desired={hp:b.hp*profile.hp,attack:b.attack*profile.attack,defense:b.defense*profile.defense};
-  const key=`${v.rewardClass}|${r.fighterId}|${v.level}`;
+  const b=baseStats(v,f),roseHp=Math.max(0,Number(v.roseHpBonus||0));
+  const desired={hp:b.hp*profile.hp+roseHp,attack:b.attack*profile.attack,defense:b.defense*profile.defense};
+  const key=`${v.rewardClass}|${r.fighterId}|${v.level}|rose:${roseHp}`;
   if(r.__giftProfileKey!==key){
     const ratio=preserveRatio&&r.maxHp>0?clamp(r.hp/r.maxHp,.05,1):1;
     r.maxHp=desired.hp;r.hp=desired.hp*ratio;r.__giftProfileKey=key;
@@ -104,7 +105,7 @@ function assign(v,id,rewardClass,{announce=true}={}){
 }
 function resetGiftSession(v){
   if(!v)return;
-  v.giftSessionValue=0;v.giftTierLevel=0;v.giftTierFighterId='';v.__giftTierSessionEnded=false;
+  v.giftSessionValue=0;v.giftTierLevel=0;v.giftTierFighterId='';v.roseHpBonus=0;v.__giftTierSessionEnded=false;
   v.rewardClass=v.followed?'follow':'';v.comboLimit=v.followed?PROFILES.follow.combo:0;v.targetFreeWins=v.followed?PROFILES.follow.targetFreeWins:0;v.highestTier=0;
   const baseId=v.followed&&available(FOLLOW_FIGHTER)?FOLLOW_FIGHTER:choose(STARTER_FIGHTERS,v);
   if(baseId)v.fighterId=baseId;
@@ -122,7 +123,7 @@ function restoreLockedTier(v,beforeId,beforeClass,beforeLevel){
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
   window.__fighterArenaSelectionPolicy={...current,starters:[...STARTER_FIGHTERS],free:[...FREE_FIGHTERS],giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
-  window.__fighterArenaGiftPolicy={version:VERSION,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true};
+  window.__fighterArenaGiftPolicy={version:VERSION,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true,roseMaxHpPerUnit:1,roseHpResetsOnRejoin:true};
 }
 function install(){
   const api=window.FighterArenaBridge;
