@@ -34,6 +34,25 @@
     return String(data.userId ?? data.user?.userId ?? data.user?.id ?? `viewer:${username.toLowerCase()}`);
   }
 
+  function hasDirectIdentity(data) {
+    return Boolean(
+      data?.username || data?.uniqueId || data?.userId || data?.nickname ||
+      data?.user?.uniqueId || data?.user?.userId || data?.user?.id || data?.user?.nickname
+    );
+  }
+
+  function looksLikeJoin(eventName, data) {
+    const action = String(data.action ?? data.memberAction ?? '').toLowerCase();
+    const displayType = String(data.displayType ?? data.common?.displayType ?? '').toLowerCase();
+    const label = String(data.label ?? '').toLowerCase();
+    const actionId = Number(data.actionId ?? data.actionCode ?? 0);
+    const namedJoin = ['member', 'viewerenter', 'viewerjoin', 'memberenter', 'memberjoin', 'userjoin', 'roomenter', 'enterroom', 'enter', 'join']
+      .some(name => eventName.includes(name));
+    const payloadJoin = action === 'join' || action === 'enter' || actionId === 1 ||
+      displayType.includes('enter') || displayType.includes('joined') || label.includes(' joined');
+    return hasDirectIdentity(data) && (namedJoin || payloadJoin);
+  }
+
   function giftPayload(data, username, userId) {
     const details = data.giftDetails && typeof data.giftDetails === 'object' ? data.giftDetails : {};
     const gift = data.gift && typeof data.gift === 'object' ? data.gift : {};
@@ -87,6 +106,9 @@
     if (['viewerleave', 'memberleave', 'viewerexit', 'memberexit', 'leave', 'exit'].some(name => eventName.includes(name))) {
       return { type: 'leave', payload: base };
     }
+    if (looksLikeJoin(eventName, data)) {
+      return { type: 'join', payload: base };
+    }
     if (eventName.includes('chat') || eventName.includes('comment') || data.comment || data.message) {
       const comment = String(data.comment ?? data.message ?? data.text ?? data.commentText ?? '').trim();
       return { type: 'join', payload: { ...base, comment } };
@@ -94,15 +116,18 @@
     if (eventName.includes('like')) {
       return { type: 'like', payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.count ?? data.repeatCount ?? 1) || 1) } };
     }
-    if (eventName.includes('follow')) return { type: 'follow', payload: base };
+    if (eventName.includes('follow') || (eventName.includes('social') && String(data.action ?? '').toLowerCase().includes('follow'))) {
+      return { type: 'follow', payload: base };
+    }
     if (eventName.includes('gift')) {
       const payload = giftPayload(data, username, userId);
       return payload ? { type: 'gift', payload } : null;
     }
-    if (['member', 'viewerenter', 'enter', 'join'].some(name => eventName.includes(name))) {
-      return { type: 'join', payload: base };
-    }
     return null;
+  }
+
+  function gameReady() {
+    return window.__fighterArenaReady === true && Boolean(window.FighterArenaBridge?.emit);
   }
 
   function deliver(raw) {
@@ -113,18 +138,17 @@
     }
     const event = normalize(raw);
     if (!event) return;
-    const api = window.FighterArenaBridge;
-    if (!api?.emit) {
+    if (!gameReady()) {
       queuedEvents.push(event);
       if (queuedEvents.length > 300) queuedEvents.shift();
       return;
     }
-    api.emit(event.type, event.payload);
+    window.FighterArenaBridge.emit(event.type, event.payload);
   }
 
   function flushQueue() {
+    if (!gameReady()) return false;
     const api = window.FighterArenaBridge;
-    if (!api?.emit) return false;
     while (queuedEvents.length) {
       const event = queuedEvents.shift();
       api.emit(event.type, event.payload);
@@ -145,7 +169,7 @@
       catch (error) { console.warn('[Fighter Arena LAN] Event ignored', error); }
     };
     stream.onerror = () => status('PC bridge reconnecting…', 'reconnecting');
-    window.FighterArenaLanBridge = { stream, flushQueue, normalize, reconnect: connect };
+    window.FighterArenaLanBridge = { stream, flushQueue, normalize, reconnect: connect, pending: queuedEvents };
   }
 
   const readyTimer = setInterval(() => {
