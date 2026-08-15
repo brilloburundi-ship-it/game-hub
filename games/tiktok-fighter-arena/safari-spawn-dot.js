@@ -1,3 +1,5 @@
+import './live-member-fastpath.js?v=1.0.0';
+
 const ua=navigator.userAgent||'';
 const vendor=navigator.vendor||'';
 const ios=/iPhone|iPad|iPod/i.test(ua);
