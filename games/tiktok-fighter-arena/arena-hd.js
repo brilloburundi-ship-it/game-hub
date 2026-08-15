@@ -1,6 +1,6 @@
-const VERSION='1.9.0';
+const VERSION='1.10.0';
 const IDS=['sky_dojo','ice_crystal','arcane_ruins','desert_moon','neon_city','jungle_temple','volcanic_ring','celestial_citadel'];
-const Q82_CHUNKS={sky_dojo:11};
+const Q82_CHUNKS={sky_dojo:11,ice_crystal:10};
 const cache=new Map(),pending=new Map(),groundCache=new WeakMap();
 const valid=id=>IDS.includes(id)?id:'sky_dojo';
 const svgUrl=id=>`./assets/arenas/${valid(id)}.svg?v=${VERSION}`;
