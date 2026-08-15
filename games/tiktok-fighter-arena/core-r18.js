@@ -65,7 +65,8 @@ const spawnX=side=>S.w*(side?.84:.16);
 
 export function runtime(v,side){
   if(!isAvailable(v.fighterId)){
-    const replacement=choose(tierPool(v.highestTier||0),v.id);
+    const tier=Math.max(0,Number(v.highestTier||0));
+    const replacement=tier===0?choose(STARTER_FIGHTERS,v.id):choose(tierPool(tier),v.id);
     if(replacement)v.fighterId=replacement;
   }
   const f=cfg(v.fighterId),st=statBlock(v,f);
@@ -88,7 +89,7 @@ export function createViewer(p={}){
     if(!S.active.some(a=>a?.viewer.id===id)&&!S.queue.some(q=>q.id===id))enqueue(v);
     return v;
   }
-  const starter=choose(STARTER_FIGHTERS,id)||choose(tierPool(0),id);
+  const starter=choose(STARTER_FIGHTERS,id);
   if(!starter)return null;
   v={
     id,name,level:1,fighterId:starter,highestTier:0,wins:0,losses:0,streak:0,
