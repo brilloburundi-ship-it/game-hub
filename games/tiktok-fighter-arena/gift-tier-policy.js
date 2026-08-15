@@ -1,9 +1,9 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.5.0';
+const VERSION='2.5.1';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
-const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai_commander','medieval_warrior_3','evil_wizard_2'];
-const GIFT_TIER_3=['martial_hero','samurai','samurai_archer','wanderer_magician','lightning_mage'];
+const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','medieval_warrior_3','evil_wizard_2'];
+const GIFT_TIER_3=['martial_hero','samurai_commander','samurai_archer','wanderer_magician','lightning_mage'];
 const STARTER_FIGHTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'];
 const FREE_FIGHTERS=[...STARTER_FIGHTERS,'medieval_warrior_2'];
 const FOLLOW_FIGHTER='samurai_ronin';
