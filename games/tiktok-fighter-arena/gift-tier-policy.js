@@ -1,6 +1,6 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.4.2';
+const VERSION='2.5.0';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
 const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai_commander','medieval_warrior_3','evil_wizard_2'];
 const GIFT_TIER_3=['martial_hero','samurai','samurai_archer','wanderer_magician','lightning_mage'];
@@ -8,10 +8,11 @@ const STARTER_FIGHTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'
 const FREE_FIGHTERS=[...STARTER_FIGHTERS,'medieval_warrior_2'];
 const FOLLOW_FIGHTER='samurai_ronin';
 const ROSE_HP=10;
+const FREE_DEFENSE=0.75;
 const PROFILES={
   follow:{maxHp:600,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
-  tier1:{maxHp:800,attack:1.35,defense:1.25,combo:1,targetFreeWins:5,color:'#ffd56b'},
-  tier2:{maxHp:1800,attack:1.60,defense:1.45,combo:2,targetFreeWins:12,color:'#c489ff'},
+  tier1:{maxHp:800,attack:1.35,defense:0.90,combo:1,targetFreeWins:5,color:'#ffd56b'},
+  tier2:{maxHp:1800,attack:1.60,defense:1.10,combo:2,targetFreeWins:12,color:'#c489ff'},
   tier3:{maxHp:2800,attack:1.90,defense:14.0,combo:3,targetFreeWins:20,targetTier2Wins:10,color:'#ff6ab6'}
 };
 const POOLS={tier1:GIFT_TIER_1,tier2:GIFT_TIER_2,tier3:GIFT_TIER_3};
@@ -70,6 +71,11 @@ function baseStats(v,f){
     defense:f.stats.defense*(1+(level-1)*.045)
   };
 }
+function applyFreeDefense(r,v){
+  const f=cfg(r?.fighterId);
+  if(!r||!v||!f||!FREE_FIGHTERS.includes(r.fighterId))return;
+  r.defense=baseStats(v,f).defense*FREE_DEFENSE;
+}
 function applyProfile(r,v,{preserveRatio=true}={}){
   const profile=profileFor(v),f=cfg(r?.fighterId);
   if(!r||!v||!profile||!f)return;
@@ -126,7 +132,7 @@ function resetGiftSession(v){
   const baseId=v.followed&&available(FOLLOW_FIGHTER)?FOLLOW_FIGHTER:choose(STARTER_FIGHTERS,v);
   if(baseId)v.fighterId=baseId;
   rebuildActive(v,{preserveRatio:false});
-  const active=S.active.find(r=>r?.viewer.id===v.id);if(active&&v.rewardClass)applyProfile(active,v,{preserveRatio:false});
+  const active=S.active.find(r=>r?.viewer.id===v.id);if(active){if(v.rewardClass)applyProfile(active,v,{preserveRatio:false});else applyFreeDefense(active,v)}
 }
 function restoreLockedTier(v,beforeId,beforeClass,beforeLevel){
   if(!v||beforeLevel<=0)return;
@@ -143,7 +149,7 @@ function minorGiftPower(v){
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
   window.__fighterArenaSelectionPolicy={...current,starters:[...STARTER_FIGHTERS],free:[...FREE_FIGHTERS],giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
-  window.__fighterArenaGiftPolicy={version:VERSION,authoritative:true,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true,roseMaxHpPerUnit:ROSE_HP,roseHpResetsOnRejoin:true,tierHpIsAbsolute:true,tier3TargetTier2Wins:10,samuraiArcherDefenseBonus:1.18};
+  window.__fighterArenaGiftPolicy={version:VERSION,authoritative:true,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,freeDefense:FREE_DEFENSE,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true,roseMaxHpPerUnit:ROSE_HP,roseHpResetsOnRejoin:true,tierHpIsAbsolute:true,tier3TargetTier2Wins:10,samuraiArcherDefenseBonus:1.18};
 }
 function install(){
   const api=window.FighterArenaBridge;
@@ -193,7 +199,7 @@ function install(){
       publish();return v;
     }
     const out=base(type,p),v=viewerFromPayload(p,out);
-    if(v){normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v)}
+    if(v){normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r){const profile=profileFor(v);if(profile)applyProfile(r,v);else applyFreeDefense(r,v)}}
     publish();return out;
   };
   wrapped.__giftTierPolicy=VERSION;api.emit=wrapped;window.dispatchFighterArenaEvent=wrapped;publish();return true;
@@ -202,7 +208,7 @@ function syncPowerAndCombos(){
   for(const r of S.active){
     if(!r||!r.viewer)continue;
     const v=r.viewer;normalizeTierState(v);
-    const profile=profileFor(v);if(profile)applyProfile(r,v);
+    const profile=profileFor(v);if(profile)applyProfile(r,v);else applyFreeDefense(r,v);
     const limit=Math.max(0,Number(v.comboLimit||r.comboLimit||0));
     if(!/^attack\d+$/.test(r.state)){
       if(r.state==='idle'||r.state==='run'||r.state==='hurt'||r.dead)r.__tierComboThirdArmed=false;
