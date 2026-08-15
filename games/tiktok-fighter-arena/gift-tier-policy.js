@@ -1,10 +1,11 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.1.0';
+const VERSION='2.1.1';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
 const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander'];
-const GIFT_TIER_3=['martial_hero','medieval_warrior_2','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
+const GIFT_TIER_3=['martial_hero','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
 const STARTER_FIGHTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'];
+const FREE_FIGHTERS=[...STARTER_FIGHTERS,'medieval_warrior_2'];
 const FOLLOW_FIGHTER='samurai_ronin';
 const PROFILES={
   follow:{hp:2.0,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
@@ -120,8 +121,8 @@ function restoreLockedTier(v,beforeId,beforeClass,beforeLevel){
 }
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
-  window.__fighterArenaSelectionPolicy={...current,giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
-  window.__fighterArenaGiftPolicy={version:VERSION,tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true};
+  window.__fighterArenaSelectionPolicy={...current,starters:[...STARTER_FIGHTERS],free:[...FREE_FIGHTERS],giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
+  window.__fighterArenaGiftPolicy={version:VERSION,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true};
 }
 function install(){
   const api=window.FighterArenaBridge;
