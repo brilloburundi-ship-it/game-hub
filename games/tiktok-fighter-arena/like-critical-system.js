@@ -1,7 +1,8 @@
 import LIKE_CHARGE_TAP_AUDIO from'./assets/audio/like-charge-tap-data.js?v=1.0.0';
+import CRITICAL_READY_AUDIO from'./assets/audio/critical-ready-no-mercy-data.js?v=1.0.0';
 import{S,clamp}from'./core.js?v=1.4.0';
 
-const VERSION='1.2.0';
+const VERSION='1.3.0';
 const CHARGE_MAX=20;
 const ROSE_HEAL_PER_UNIT=25;
 const ATTACK_STATE=/^(attack\d+|special|dash)$/;
@@ -12,11 +13,28 @@ const likeAudioPool=Array.from({length:LIKE_AUDIO_VOICES},()=>{
   audio.volume=.38;
   return audio;
 });
+const criticalReadyAudioPool=Array.from({length:2},()=>{
+  const audio=new Audio(CRITICAL_READY_AUDIO);
+  audio.preload='auto';
+  audio.volume=.72;
+  return audio;
+});
 let likeAudioVoice=0;
+let criticalReadyAudioVoice=0;
 
 function playLikeChargeTap(){
   const audio=likeAudioPool[likeAudioVoice];
   likeAudioVoice=(likeAudioVoice+1)%likeAudioPool.length;
+  try{
+    audio.pause();
+    audio.currentTime=0;
+    const pending=audio.play();
+    if(pending?.catch)pending.catch(()=>{});
+  }catch(_e){}
+}
+function playCriticalReadyVoice(){
+  const audio=criticalReadyAudioPool[criticalReadyAudioVoice];
+  criticalReadyAudioVoice=(criticalReadyAudioVoice+1)%criticalReadyAudioPool.length;
   try{
     audio.pause();
     audio.currentTime=0;
@@ -44,6 +62,7 @@ function chargePercent(v){return CHARGE_MAX>0?clamp(chargeOf(v)/CHARGE_MAX*100,0
 function setCharge(v,n){if(v)v.likeCriticalCharge=clamp(Number(n||0),0,CHARGE_MAX)}
 
 function announceReady(v){
+  playCriticalReadyVoice();
   const r=runtimeFor(v);
   if(r&&!r.dead){
     r.glow=Math.max(Number(r.glow||0),.9);
@@ -54,10 +73,12 @@ function announceReady(v){
   S.fx?.toast?.(`${v.name} · CRITICAL READY`,'#6fd7ff');
 }
 function addLikeCharge(v,n){
-  if(!v)return;
+  if(!v)return false;
   const before=chargeOf(v),after=clamp(before+n,0,CHARGE_MAX);
+  const reachedReady=before<CHARGE_MAX&&after>=CHARGE_MAX;
   setCharge(v,after);
-  if(before<CHARGE_MAX&&after>=CHARGE_MAX)announceReady(v);
+  if(reachedReady)announceReady(v);
+  return reachedReady;
 }
 function applyRosePotion(v,n){
   const r=runtimeFor(v);
@@ -138,8 +159,9 @@ function installBridge(){
       // TAP/LIKE is offense-only: undo the legacy heal/potion side effect.
       if(r&&!r.dead&&Number.isFinite(beforeHp))r.hp=Math.min(r.maxHp,beforeHp);
       v.potions=Number.isFinite(beforePotions)?beforePotions:0;
-      addLikeCharge(v,likeCount(p));
-      playLikeChargeTap();
+      const reachedReady=addLikeCharge(v,likeCount(p));
+      // The final tap yields to the dedicated 100% voice instead of stacking both cues.
+      if(!reachedReady)playLikeChargeTap();
     }
     if(v&&isRose(t,p))applyRosePotion(v,roseCount(p));
     return out;
@@ -152,7 +174,7 @@ function installBridge(){
   window.__fighterArenaLikeCritical={
     version:VERSION,chargeMax:CHARGE_MAX,likesPerCritical:CHARGE_MAX,
     doubleCritical:true,rosePotionHealPerUnit:ROSE_HEAL_PER_UNIT,
-    blueBarSource:'likes-only',likeChargeAudio:true
+    blueBarSource:'likes-only',likeChargeAudio:true,criticalReadyAudio:true
   };
   return true;
 }
@@ -163,4 +185,5 @@ setTimeout(installBridge,12000);
 addEventListener('pagehide',()=>{
   clearInterval(installTimer);
   likeAudioPool.forEach(audio=>audio.pause());
+  criticalReadyAudioPool.forEach(audio=>audio.pause());
 },{once:true});
