@@ -7,7 +7,7 @@ export function startCombat(canvas){
   let particles=[],floats=[],sheetFx=[],projectiles=[];
   const metrics=new Map(),poseFeet=new Map(),framePixels=new Map(),renderWarnings=new Set();
   const footCanvas=document.createElement('canvas'),footCtx=footCanvas.getContext('2d',{willReadFrequently:true});
-  const bias={samurai:.82,medieval_king:.94,evil_wizard_2:1.20,huntress_2:.85};
+  const bias={samurai:.82,medieval_king:.94,evil_wizard_2:1.20,huntress_2:.85,samurai_commander:1.10};
   const groundY=()=>S.h*(S.w<600?.70:.75);
   const combatGap=()=>Math.max(S.w<700?132:148,S.w*(S.w<700?.34:.10));
   const FX={impact:{key:'fx:impact',frameW:64,frameH:32,frames:6,fps:22},burst:{key:'fx:burst',frameW:64,frameH:32,frames:5,fps:20},slash:{key:'fx:slash',frameW:32,frameH:32,frames:5,fps:22},spark:{key:'fx:spark',frameW:32,frameH:32,frames:5,fps:22},impactGb:{key:'fx:impactGb',frameW:64,frameH:32,frames:6,fps:22},burstGb:{key:'fx:burstGb',frameW:64,frameH:32,frames:5,fps:20},slashGb:{key:'fx:slashGb',frameW:32,frameH:32,frames:5,fps:22},sparkGb:{key:'fx:sparkGb',frameW:32,frameH:32,frames:5,fps:22}};
