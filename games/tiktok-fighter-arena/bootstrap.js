@@ -16,6 +16,7 @@ window.addEventListener('unhandledrejection',e=>{if(!window.__fighterArenaReady)
     fetch('./core.js?v=1.4.0',{cache:'reload'}),
     fetch('./combat-v14.js?v=1.4.0',{cache:'reload'}),
     fetch('./idle-wait.js?v=1.4.0',{cache:'reload'}),
+    fetch('./asset-medieval-king.js?v=1.4.0',{cache:'reload'}),
     fetch('./asset-medieval-warrior-2.js?v=1.4.0',{cache:'reload'}),
     fetch('./asset-medieval-warrior-3.js?v=1.4.0',{cache:'reload'})
   ]);
