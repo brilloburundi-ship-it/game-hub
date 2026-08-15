@@ -1,0 +1,27 @@
+import{S,cfg,clamp}from'./core.js?v=1.4.0';
+
+const DEFS={
+  dustDash:{url:'./assets/vfx/dust-dash.b64',frameW:128,frameH:128,frames:7,fps:18},
+  swordSlash:{url:'./assets/vfx/sword-slash.b64',frameW:96,frameH:96,frames:7,fps:22},
+  fireBall:{url:'./assets/vfx/fire-ball.b64',frameW:96,frameH:64,frames:12,fps:24},
+  lightningBolt:{url:'./assets/vfx/lightning-bolt.b64',frameW:128,frameH:64,frames:4,fps:24},
+  thunderUltimate:{url:'./assets/vfx/thunder-ultimate.b64',frameW:128,frameH:128,frames:6,fps:24}
+};
+const images=new Map(),effects=[],track=new WeakMap();
+const swordIds=new Set(['hero_knight','hero_knight_prime','medieval_king','fantasy_warrior','samurai_ronin','samurai','samurai_commander','medieval_warrior_2','medieval_warrior_3']);
+const magicIds=new Set(['wanderer_magician','evil_wizard','evil_wizard_2']);
+const groundY=()=>S.h*(S.w<600?.70:.75);
+const isAttack=s=>/^attack\d+$/.test(s||'')||s==='special'||s==='dash';
+const duration=r=>{const f=cfg(r?.fighterId),a=f?.animations?.[r?.state]||(r?.state==='special'&&['attack4','attack3','attack2','attack1'].map(n=>f?.animations?.[n]).find(Boolean));return a?Math.max(.24,a.frames/Math.max(1,a.fps||1)):.45};
+function img(data){return new Promise((ok,no)=>{const i=new Image();i.decoding='async';i.onload=()=>ok(i);i.onerror=no;i.src='data:image/png;base64,'+data})}
+async function preload(){await Promise.all(Object.entries(DEFS).map(async([k,d])=>{try{const r=await fetch(d.url+'?v=1.0.0',{cache:'force-cache'});if(!r.ok)throw Error(`${r.status} ${d.url}`);images.set(k,await img((await r.text()).trim()))}catch(e){console.warn('[Fighter Arena VFX] preload failed',k,e)}}));window.__fighterArenaCombatVfx={ready:true,loaded:[...images.keys()]}}
+function spawn(key,x,y,scale=1,flipX=false,extra={}){const d=DEFS[key];if(!d||!images.has(key))return;if(effects.length>36)effects.splice(0,effects.length-36);effects.push({key,x,y,scale,flipX,age:0,duration:d.frames/d.fps,...extra})}
+function projectile(key,a,b,scale=.7){if(!a||!b||!images.has(key))return;const dur=Math.max(.18,duration(a)*.54);effects.push({key,x:a.x,y:groundY()-82,scale,flipX:a.side===1,age:0,duration:dur,fromX:a.x,toX:b.x,fromY:groundY()-82,toY:groundY()-82,moving:true})}
+function attackStart(r,e){if(!e)return;const strong=r.state==='special'||r.state==='dash'||r.state==='attack3'||r.state==='attack4';if(r.fighterId==='fire_wizard'){projectile('fireBall',r,e,strong?.88:.72);S.fx?.sheet?.(strong?'burstGb':'spark',r.x,groundY()-86,strong?2.3:1.7,r.side===1)}else if(r.fighterId==='lightning_mage'){projectile('lightningBolt',r,e,strong?.76:.62);S.fx?.sheet?.(strong?'sparkGb':'spark',r.x,groundY()-88,strong?2.4:1.8,r.side===1)}else if(magicIds.has(r.fighterId)){S.fx?.sheet?.('spark',r.x,groundY()-86,strong?2.2:1.7,r.side===1)}}
+function hitFx(r,e){if(!e)return;const strong=r.state==='special'||r.state==='dash'||r.state==='attack3'||r.state==='attack4';if(r.fighterId==='fire_wizard'){S.fx?.sheet?.(strong?'burstGb':'burst',e.x,groundY()-78,strong?3:2.35,r.side===1);S.fx?.burst?.(e.x,groundY()-72,'#ff7a32',strong?18:10,strong?1.15:.75)}else if(r.fighterId==='lightning_mage'){S.fx?.sheet?.(strong?'sparkGb':'spark',e.x,groundY()-82,strong?3:2.2,r.side===1);if(strong){spawn('thunderUltimate',e.x,groundY()-112,1.05,r.side===1);S.fx?.flash?.(.2)}}else if(swordIds.has(r.fighterId)){spawn('swordSlash',e.x,groundY()-82,strong?1.45:1.12,r.side===1);if(strong)S.fx?.sheet?.('impactGb',e.x,groundY()-76,2.5,r.side===1)}else if(magicIds.has(r.fighterId)){S.fx?.sheet?.(strong?'burstGb':'spark',e.x,groundY()-82,strong?2.5:1.9,r.side===1)}}
+function dust(r,heavy=false){const behind=r.side===0?-1:1;spawn('dustDash',r.x+behind*20,groundY()-14,heavy?.72:.54,r.side===0)}
+function inspect(r,e,dt){if(!r)return;let t=track.get(r);if(!t){t={state:r.state,time:r.time||0,hit:!!r.hit,x:r.x,dustCd:0};track.set(r,t)}t.dustCd=Math.max(0,t.dustCd-dt);const restarted=r.state===t.state&&(r.time||0)+.025<t.time,changed=r.state!==t.state||restarted;if(changed){if((r.state==='run'||r.state==='dash')&&!r.dead)dust(r,r.state==='dash');if(isAttack(r.state)&&!r.dead)attackStart(r,e)}if(r.state==='dash'&&t.dustCd<=0&&Math.abs(r.x-t.x)>5){dust(r);t.dustCd=.19}if(!t.hit&&r.hit&&!r.dead)hitFx(r,e);t.state=r.state;t.time=r.time||0;t.hit=!!r.hit;t.x=r.x}
+function update(dt){const[a,b]=S.active||[];inspect(a,b,dt);inspect(b,a,dt);for(const f of effects){f.age+=dt;if(f.moving){const q=clamp(f.age/f.duration,0,1);f.x=f.fromX+(f.toX-f.fromX)*q;f.y=f.fromY+(f.toY-f.fromY)*q-Math.sin(q*Math.PI)*18}}for(let i=effects.length-1;i>=0;i--)if(effects[i].age>=effects[i].duration)effects.splice(i,1)}
+function draw(ctx){for(const f of effects){const d=DEFS[f.key],im=images.get(f.key);if(!d||!im)continue;const fr=Math.min(d.frames-1,Math.floor(f.age*d.fps)),w=d.frameW*f.scale,h=d.frameH*f.scale;ctx.save();ctx.imageSmoothingEnabled=false;if(f.flipX){ctx.translate(f.x,0);ctx.scale(-1,1);ctx.translate(-f.x,0)}ctx.drawImage(im,0,fr*d.frameH,d.frameW,d.frameH,f.x-w/2,f.y-h/2,w,h);ctx.restore()}}
+async function install(){await preload();const canvas=document.querySelector('#game');if(!canvas)return;while(!S.fx)await new Promise(r=>setTimeout(r,25));const ctx=canvas.getContext('2d');let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000||0);last=now;if(S.started){update(dt);draw(ctx)}requestAnimationFrame(loop)}requestAnimationFrame(loop)}
+install().catch(e=>console.warn('[Fighter Arena VFX] overlay disabled',e));
