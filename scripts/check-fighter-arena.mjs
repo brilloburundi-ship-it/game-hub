@@ -56,10 +56,17 @@ assert(combat.includes("from'./core.js?v=1.4.0'"),'combat-v14.js must use the sa
 assert(idle.includes("from'./core.js?v=1.4.0'"),'idle-wait.js must use the same shared v1.4 core');
 assert(game.includes('FX_ASSETS'),'Original VFX pack loader missing');
 assert((effects.match(/data:image\/png;base64,/g)||[]).length===8,'Expected eight original Effects pack spritesheets');
-assert(manifest.arenas.length===6,'Expected six Fighter Arena HD scenes');
+const expectedArenaIds=['sky_dojo','ice_crystal','arcane_ruins','desert_moon','neon_city','jungle_temple','volcanic_ring','celestial_citadel'];
+assert(manifest.arenas.length===8,'Expected eight Fighter Arena HD scenes');
 assert(new Set(manifest.arenas.map(a=>a.id)).size===manifest.arenas.length,'Arena ids must be unique');
+assert(JSON.stringify(manifest.arenas.map(a=>a.id))===JSON.stringify(expectedArenaIds),'Fighter Arena manifest must expose the exact 8-scene rotation');
 assert(arena.includes('renderArenaHD'),'Retina HD arena renderer missing');
-for(const name of ['skyDojo','neonCity','volcanic','ice','forge','dragon'])assert(arena.includes(`function ${name}`),`HD arena scene ${name} missing`);
+assert(arena.includes('preloadArenaHD'),'HD arena preload missing');
+assert(arena.includes('assets/arenas/'),'HD arena asset path wiring missing');
+for(const id of expectedArenaIds){
+  must(`assets/arenas/${id}.avif`);
+  assert(arena.includes(`'${id}'`),`HD arena renderer id ${id} missing`);
+}
 
 const rosterMatch=game.match(/const ROSTER=\{([\s\S]*?)\};\s*const ALL_ROSTER=/);
 assert(rosterMatch,'Unable to read the v1.4 fighter roster');
