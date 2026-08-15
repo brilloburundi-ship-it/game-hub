@@ -6,7 +6,7 @@ import { networkInterfaces, homedir } from 'node:os';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = Number(process.env.FIGHTER_ARENA_PORT || 8766);
+const PORT = Number(process.env.FIGHTER_ARENA_PORT || 8795);
 const HOST = '0.0.0.0';
 const TIKFINITY_URL = process.env.TIKFINITY_URL || 'ws://127.0.0.1:21213/';
 const APP_ID = 'tiktok-fighter-arena';
@@ -301,7 +301,8 @@ process.on('SIGTERM', shutdown);
 server.on('error', error => {
   if (error?.code === 'EADDRINUSE') {
     console.error(`\nLa porta dedicata ${PORT} e gia in uso.`);
-    console.error('Chiudi il vecchio server locale oppure usa AVVIA_IPHONE_TIKFINITY.bat, che libera la porta prima di avviare Fighter Arena.\n');
+    console.error('Se Fighter Arena e gia aperto, usa lo stesso URL su iPhone.');
+    console.error('Altrimenti chiudi il programma che usa la porta e riprova.\n');
   } else {
     console.error(error);
   }
