@@ -12,7 +12,7 @@
     "check:god-world": "node scripts/check-god-world.mjs",
     "check:god-world-v8-mobile": "node scripts/check-god-world-v8-mobile.mjs && node scripts/test-god-world-v801-logic.mjs && node scripts/test-kingdom-war-bridge.mjs",
     "check:kingdom-war-2": "node scripts/check-kingdom-war-2.mjs",
-    "check:fighter-arena": "node scripts/check-fighter-arena.mjs",
+    "check:fighter-arena": "node scripts/check-fighter-arena.mjs && node scripts/check-fighter-audio.mjs",
     "check:pages": "npm test && npm run check:backend && npm run check:god-world-v8-mobile && npm run check:kingdom-war-2 && npm run check:fighter-arena && npm run build",
     "check": "npm test && npm run check:backend && npm run check:world-earth && npm run check:god-world && npm run check:god-world-v8-mobile && npm run check:kingdom-war-2 && npm run check:fighter-arena && npm run build"
   },
