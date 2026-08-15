@@ -1,31 +1,28 @@
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 
-// Visual-only filter: suppresses the legacy small FIGHT! toast generated at the
-// start of a round. Imported 3-2-1 / FIGHT / K.O announcers and all other event
-// toasts (for example DOUBLE ATTACK) remain untouched.
-function isRoundStartFight(el){
-  return /^FIGHT!?$/i.test(String(el?.textContent||'').trim());
-}
-function suppress(el){
-  if(!el||!isRoundStartFight(el))return;
-  el.classList.remove('show');
-  el.setAttribute('aria-hidden','true');
-}
-function install(){
+// Visual-only filter. Do not observe class mutations here: the old observer could
+// continuously react to its own class changes and stall the main game loop.
+// We only suppress the legacy small round-start FIGHT! toast. Imported 3-2-1 /
+// FIGHT / K.O announcers and other event toasts such as DOUBLE ATTACK are untouched.
+function suppressRoundFight(){
   const el=document.querySelector('#eventToast');
-  if(!el)return false;
-  suppress(el);
-  const observer=new MutationObserver(()=>{
-    if(isRoundStartFight(el))suppress(el);
-    else el.removeAttribute('aria-hidden');
-  });
-  observer.observe(el,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class']});
-  addEventListener('pagehide',()=>observer.disconnect(),{once:true});
-  return true;
+  if(!el)return;
+  const text=String(el.textContent||'').trim();
+  if(/^FIGHT!?$/i.test(text)){
+    if(el.classList.contains('show'))el.classList.remove('show');
+    if(el.getAttribute('aria-hidden')!=='true')el.setAttribute('aria-hidden','true');
+  }else if(el.hasAttribute('aria-hidden')){
+    el.removeAttribute('aria-hidden');
+  }
 }
 
-if(!install()){
-  const timer=setInterval(()=>{if(install())clearInterval(timer)},50);
-  addEventListener('pagehide',()=>clearInterval(timer),{once:true});
-}
-window.__fighterArenaFightToastFilter={version:VERSION,duplicateFightToastHidden:true,importedAnnouncerUntouched:true};
+suppressRoundFight();
+const timer=setInterval(suppressRoundFight,25);
+addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+window.__fighterArenaFightToastFilter={
+  version:VERSION,
+  duplicateFightToastHidden:true,
+  importedAnnouncerUntouched:true,
+  mutationObserver:false,
+  mainLoopSafe:true
+};
