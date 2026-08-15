@@ -1,4 +1,4 @@
-import{renderArenaHD as baseRender,preloadArenaHD as basePreload}from'./arena-hd.js?v=1.12.0';
+import{renderArenaHD as baseRender,preloadArenaHD as basePreload}from'./arena-hd-v112-base.js?v=1.12.0';
 const VERSION='1.13.0',ID='neon_city',COUNT=32;
 let neon=null,pending=null;
 function imageFrom(src){return new Promise((resolve,reject)=>{const im=new Image();im.decoding='async';im.onload=()=>resolve(im);im.onerror=()=>reject(new Error('image decode failed'));im.src=src})}
