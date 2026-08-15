@@ -18,36 +18,47 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Download Night Ride through Piped audio proxy
+      - name: Download Night Ride through current Piped instances
         shell: bash
         run: |
           set -euo pipefail
           VIDEO_ID='6BaG-oMy8OM'
           TARGET='games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3'
           mkdir -p "$(dirname "$TARGET")"
-          rm -f /tmp/night-ride-source.* "$TARGET"
+          rm -f /tmp/night-ride-source "$TARGET"
 
           APIS=(
             'https://pipedapi.kavin.rocks'
-            'https://pipedapi.tokhmi.xyz'
-            'https://pipedapi.moomoo.me'
-            'https://pipedapi.syncpundit.io'
-            'https://api-piped.mha.fi'
-            'https://piped-api.garudalinux.org'
+            'https://pipedapi.leptons.xyz'
+            'https://pipedapi.nosebs.ru'
+            'https://pipedapi-libre.kavin.rocks'
+            'https://piped-api.privacy.com.de'
+            'https://pipedapi.adminforge.de'
+            'https://api.piped.yt'
+            'https://pipedapi.drgns.space'
+            'https://pipedapi.owo.si'
+            'https://pipedapi.ducks.party'
+            'https://piped-api.codespace.cz'
+            'https://pipedapi.reallyaweso.me'
+            'https://api.piped.private.coffee'
+            'https://pipedapi.darkness.services'
+            'https://pipedapi.orangenet.cc'
           )
 
           DOWNLOADED=''
           for API in "${APIS[@]}"; do
             echo "Trying $API"
             JSON=$(mktemp)
-            if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 40 "$API/streams/$VIDEO_ID" -o "$JSON"; then
+            if ! curl -fsSL --retry 1 --connect-timeout 8 --max-time 30 "$API/streams/$VIDEO_ID" -o "$JSON"; then
               rm -f "$JSON"
               continue
             fi
+            TITLE=$(jq -r '.title // empty' "$JSON")
+            echo "Resolved title: $TITLE"
             URL=$(jq -r '[.audioStreams[]? | select(.url != null and .url != "")] | sort_by(.bitrate // 0) | reverse | .[0].url // empty' "$JSON")
             rm -f "$JSON"
             [ -n "$URL" ] || continue
-            if curl -fL --retry 3 --connect-timeout 15 --max-time 900 "$URL" -o /tmp/night-ride-source; then
+            if curl -fL --retry 2 --connect-timeout 12 --max-time 900 "$URL" -o /tmp/night-ride-source; then
               if [ -s /tmp/night-ride-source ]; then
                 DOWNLOADED='yes'
                 break
