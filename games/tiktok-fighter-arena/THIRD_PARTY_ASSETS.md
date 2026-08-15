@@ -14,3 +14,7 @@ The fighter sprite packs supplied for this project are embedded as game assets, 
 - "Bloodsplatter FX Pack" © 2020 Mia Rosado (BlueRoseSonata), CC-BY 4.0 — adapted and optimized for in-game hit VFX.
 
 The arena background crops in this project were generated for this game and then pixel-processed for runtime use.
+
+## Music
+
+- **Night Ride — Karl Casey @ White Bat Audio** — in-game background music assembled from the official White Bat Audio tracks used by the Night Ride mix and optimized to 128 kbps MP3 for Fighter Arena. Attribution: **Music by Karl Casey @ White Bat Audio**.
