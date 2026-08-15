@@ -1,26 +1,29 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.2.0';
+const VERSION='2.3.0';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
-const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander'];
-const GIFT_TIER_3=['martial_hero','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
+const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander','medieval_warrior_3'];
+const GIFT_TIER_3=['martial_hero','evil_wizard_2','samurai_archer','wanderer_magician','lightning_mage'];
 const STARTER_FIGHTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'];
 const FREE_FIGHTERS=[...STARTER_FIGHTERS,'medieval_warrior_2'];
 const FOLLOW_FIGHTER='samurai_ronin';
+const ROSE_HP=10;
 const PROFILES={
-  follow:{hp:2.0,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
-  tier1:{hp:2.4,attack:1.35,defense:1.25,combo:1,targetFreeWins:5,color:'#ffd56b'},
-  tier2:{hp:3.4,attack:1.60,defense:1.45,combo:2,targetFreeWins:12,color:'#c489ff'},
-  tier3:{hp:4.6,attack:1.90,defense:1.70,combo:3,targetFreeWins:20,color:'#ff6ab6'}
+  follow:{maxHp:600,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
+  tier1:{maxHp:800,attack:1.35,defense:1.25,combo:1,targetFreeWins:5,color:'#ffd56b'},
+  tier2:{maxHp:1800,attack:1.60,defense:1.45,combo:2,targetFreeWins:12,color:'#c489ff'},
+  tier3:{maxHp:2800,attack:1.90,defense:1.70,combo:3,targetFreeWins:20,color:'#ff6ab6'}
 };
 const POOLS={tier1:GIFT_TIER_1,tier2:GIFT_TIER_2,tier3:GIFT_TIER_3};
 const JOIN_EVENTS=new Set(['join','enter','viewerenter','member']);
 const LEAVE_EVENTS=new Set(['leave','exit','viewerleave','memberleave','viewerexit','memberexit']);
 
 const giftValue=p=>Math.max(1,Number(p?.diamondCount||p?.value||p?.coins||1))*Math.max(1,Number(p?.repeatCount||1));
+const roseCount=p=>Math.max(1,Number(p?.repeatCount||p?.count||1));
 const giftLevel=d=>d>=500?3:d>=100?2:d>=10?1:0;
 const classForLevel=level=>level===3?'tier3':level===2?'tier2':level===1?'tier1':'';
 const classLevel=rewardClass=>/^tier[123]$/.test(String(rewardClass||''))?Number(String(rewardClass).slice(4)):0;
+const isRoseGift=p=>String(p?.giftName||p?.name||'').toLowerCase().includes('rose');
 function tierLevelForFighter(id){
   if(GIFT_TIER_3.includes(id))return 3;
   if(GIFT_TIER_2.includes(id))return 2;
@@ -63,7 +66,6 @@ function profileFor(v){return PROFILES[v?.rewardClass]||null}
 function baseStats(v,f){
   const level=Math.max(1,Number(v?.level||1));
   return{
-    hp:f.stats.hp*(1+(level-1)*.075),
     attack:f.stats.attack*(1+(level-1)*.055),
     defense:f.stats.defense*(1+(level-1)*.045)
   };
@@ -72,7 +74,7 @@ function applyProfile(r,v,{preserveRatio=true}={}){
   const profile=profileFor(v),f=cfg(r?.fighterId);
   if(!r||!v||!profile||!f)return;
   const b=baseStats(v,f),roseHp=Math.max(0,Number(v.roseHpBonus||0));
-  const desired={hp:b.hp*profile.hp+roseHp,attack:b.attack*profile.attack,defense:b.defense*profile.defense};
+  const desired={hp:profile.maxHp+roseHp,attack:b.attack*profile.attack,defense:b.defense*profile.defense};
   const key=`${v.rewardClass}|${r.fighterId}|${v.level}|rose:${roseHp}`;
   if(r.__giftProfileKey!==key){
     const ratio=preserveRatio&&r.maxHp>0?clamp(r.hp/r.maxHp,.05,1):1;
@@ -103,6 +105,19 @@ function assign(v,id,rewardClass,{announce=true}={}){
   if(announce)S.fx?.toast?.(`${v.name} · ${rewardClass==='follow'?'FOLLOW ×2':`GIFT ${rewardClass.toUpperCase()} · COMBO ×${profile.combo}`} → ${f.name}`,profile.color);
   return true;
 }
+function addRoseHp(v,count){
+  if(!v)return;
+  const roses=Math.max(1,Math.floor(Number(count||1))),bonus=roses*ROSE_HP;
+  v.roseHpBonus=Math.max(0,Number(v.roseHpBonus||0))+bonus;
+  const r=S.active.find(x=>x?.viewer.id===v.id);
+  if(r&&!r.dead){
+    r.maxHp+=bonus;
+    r.glow=1;
+    S.fx?.float?.(r.x,S.h*.53,`+${bonus} MAX HP`,'#ff78c2');
+    S.fx?.burst?.(r.x,S.h*.62,'#ff78c2',Math.min(30,8+Math.ceil(Math.sqrt(roses))),1.05);
+  }
+  S.fx?.toast?.(`${v.name} · ${roses} ROSE${roses===1?'':'S'} · +${bonus} MAX HP`,'#ff78c2');
+}
 function resetGiftSession(v){
   if(!v)return;
   v.giftSessionValue=0;v.giftTierLevel=0;v.giftTierFighterId='';v.roseHpBonus=0;v.__giftTierSessionEnded=false;
@@ -120,10 +135,14 @@ function restoreLockedTier(v,beforeId,beforeClass,beforeLevel){
   if(lockedId&&available(lockedId))assign(v,lockedId,rewardClass,{announce:false});
   else normalizeTierState(v);
 }
+function minorGiftPower(v){
+  const r=S.active.find(x=>x?.viewer.id===v.id);if(!r||r.dead)return;
+  r.shield+=20;r.energy=Math.min(100,r.energy+40);r.glow=Math.max(r.glow||0,.8);
+}
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
   window.__fighterArenaSelectionPolicy={...current,starters:[...STARTER_FIGHTERS],free:[...FREE_FIGHTERS],giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
-  window.__fighterArenaGiftPolicy={version:VERSION,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true,roseMaxHpPerUnit:1,roseHpResetsOnRejoin:true};
+  window.__fighterArenaGiftPolicy={version:VERSION,authoritative:true,free:[...FREE_FIGHTERS],starters:[...STARTER_FIGHTERS],tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true,roseMaxHpPerUnit:ROSE_HP,roseHpResetsOnRejoin:true,tierHpIsAbsolute:true};
 }
 function install(){
   const api=window.FighterArenaBridge;
@@ -137,32 +156,43 @@ function install(){
       publish();return before||null;
     }
     const rejoining=JOIN_EVENTS.has(t)&&before?.__giftTierSessionEnded===true;
-    const inferredBefore=tierLevelForFighter(beforeId),storedBefore=Math.max(0,Number(before?.giftTierLevel||0)),beforeLevel=Math.max(inferredBefore,storedBefore);
-    const beforeClass=classLevel(before?.rewardClass)>=beforeLevel?before?.rewardClass:classForLevel(beforeLevel);
-    const sessionValueBefore=Math.max(0,Number(before?.giftSessionValue||0));
-    const out=base(type,p),v=viewerFromPayload(p,out);
-    if(!v)return out;
-    if(rejoining){resetGiftSession(v);publish();return out}
+    if(JOIN_EVENTS.has(t)){
+      const out=base(type,p),v=viewerFromPayload(p,out);
+      if(v&&rejoining)resetGiftSession(v);
+      publish();return out;
+    }
     if(t==='follow'){
-      const lockedLevel=Math.max(beforeLevel,normalizeTierState(v));
-      if(lockedLevel===0){v.rewardClass='follow';v.comboLimit=2;if(v.fighterId!==FOLLOW_FIGHTER&&available(FOLLOW_FIGHTER))assign(v,FOLLOW_FIGHTER,'follow');else{const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v)}}
-      else if(beforeId&&v.fighterId!==beforeId)restoreLockedTier(v,beforeId,beforeClass,lockedLevel);
-      publish();return out;
+      const v=before||viewerFromPayload(p,base('join',p));if(!v)return null;
+      if(v.followed){publish();return v}
+      v.followed=true;
+      const lockedLevel=normalizeTierState(v);
+      if(lockedLevel===0&&available(FOLLOW_FIGHTER))assign(v,FOLLOW_FIGHTER,'follow');
+      else if(lockedLevel>0)restoreLockedTier(v,beforeId,v.rewardClass,lockedLevel);
+      publish();return v;
     }
-    if(t!=='gift'){
-      normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v);return out;
+    const directRose=t==='rose',giftEvent=t==='gift';
+    if(giftEvent||directRose){
+      const v=before||viewerFromPayload(p,base('join',p));if(!v)return null;
+      const beforeLevel=normalizeTierState(v),lockedId=v.fighterId||beforeId,lockedClass=classForLevel(beforeLevel)||v.rewardClass;
+      const roses=directRose?roseCount(p):(isRoseGift(p)?roseCount(p):0);
+      const d=directRose?roseCount(p):giftValue(p);
+      if(giftEvent)v.gifts=Math.max(0,Number(v.gifts||0))+d;
+      if(roses>0)addRoseHp(v,roses);
+      v.giftSessionValue=Math.max(0,Number(v.giftSessionValue||0))+d;
+      const level=giftLevel(v.giftSessionValue);
+      if(level>beforeLevel){
+        const rewardClass=classForLevel(level),pool=POOLS[rewardClass],id=choose(pool,v);
+        v.giftTierLevel=level;
+        if(id)assign(v,id,rewardClass);
+      }else if(beforeLevel>0){
+        restoreLockedTier(v,lockedId,lockedClass,beforeLevel);
+      }else if(level===0&&giftEvent&&!roses){
+        minorGiftPower(v);
+      }
+      publish();return v;
     }
-    const d=giftValue(p);
-    v.giftSessionValue=sessionValueBefore+d;
-    const level=giftLevel(v.giftSessionValue);
-    if(level<=beforeLevel){
-      if(beforeLevel>0)restoreLockedTier(v,beforeId,beforeClass,beforeLevel);
-      else normalizeTierState(v);
-      publish();return out;
-    }
-    const rewardClass=classForLevel(level),pool=POOLS[rewardClass],id=choose(pool,v);
-    v.giftTierLevel=level;
-    if(id)assign(v,id,rewardClass);
+    const out=base(type,p),v=viewerFromPayload(p,out);
+    if(v){normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v)}
     publish();return out;
   };
   wrapped.__giftTierPolicy=VERSION;api.emit=wrapped;window.dispatchFighterArenaEvent=wrapped;publish();return true;
