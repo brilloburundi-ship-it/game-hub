@@ -1,12 +1,14 @@
 import{renderArenaHD as baseRender,preloadArenaHD as basePreload}from'./arena-hd-v116.js?v=1.16.0';
 
-const VERSION='1.17.2';
+const VERSION='1.18.0';
+const SKY_FPS=15;
+const SKY_FRAME_MS=1000/SKY_FPS;
 
 // Global foreground-only lift. Fighters keep the exact same groundY; only the
 // imported arena artwork is raised so the walkable surface meets their feet.
 function arenaLift(w,h){
   const portrait=w<600;
-  return Math.min(portrait?52:46,h*(portrait?.054:.062));
+  return Math.min(portrait?60:56,h*(portrait?.066:.074));
 }
 
 function liftedContext(c,lift){
@@ -14,9 +16,8 @@ function liftedContext(c,lift){
     get(target,prop){
       if(prop==='drawImage'){
         return(...args)=>{
-          // All imported arena foregrounds use the 9-argument drawImage form.
-          // Procedural skies/vignettes are untouched, so lifting the platform
-          // cannot move the background or the fighters.
+          // Imported arena foregrounds use the 9-argument drawImage form.
+          // Procedural skies are painted first and stay behind the arena art.
           if(args.length===9){
             const shifted=[...args];
             shifted[6]=Number(shifted[6]||0)-lift;
@@ -32,9 +33,33 @@ function liftedContext(c,lift){
   });
 }
 
+let liveArena=null;
+let skyRaf=0;
+let lastSkyPaint=0;
+
+function paintArena(state){
+  if(!state?.c||!state.w||!state.h)return;
+  const lift=arenaLift(state.w,state.h);
+  baseRender(liftedContext(state.c,lift),state.id,state.w,state.h,state.dpr);
+}
+
+function liveSkyFrame(now){
+  if(!liveArena){skyRaf=0;return}
+  if(document.visibilityState!=='hidden'&&now-lastSkyPaint>=SKY_FRAME_MS){
+    lastSkyPaint=now;
+    // Every arena renderer already has its own moving sky (clouds, stars,
+    // particles, glow, snow, embers, etc.). Repainting only the cached arena
+    // canvas at 15 FPS activates those skies without touching fighter physics.
+    paintArena(liveArena);
+  }
+  skyRaf=requestAnimationFrame(liveSkyFrame);
+}
+function ensureLiveSky(){if(!skyRaf)skyRaf=requestAnimationFrame(liveSkyFrame)}
+
 export function renderArenaHD(c,id,w,h,dpr=1){
-  const lift=arenaLift(w,h);
-  return baseRender(liftedContext(c,lift),id,w,h,dpr);
+  liveArena={c,id,w,h,dpr};
+  paintArena(liveArena);
+  ensureLiveSky();
 }
 
 export function preloadArenaHD(){return basePreload()}
@@ -43,6 +68,10 @@ window.__fighterArenaArenaFloorAlignment={
   version:VERSION,
   foregroundOnly:true,
   fightersUntouched:true,
-  portraitMaxLift:52,
-  landscapeMaxLift:46
+  portraitMaxLift:60,
+  landscapeMaxLift:56,
+  animatedSky:true,
+  animatedSkyAllArenas:true,
+  skyFps:SKY_FPS,
+  layerOrder:'animated sky -> HD arena foreground -> fighters'
 };
