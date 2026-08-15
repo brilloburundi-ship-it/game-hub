@@ -22,8 +22,14 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Bandcamp downloader
-        run: python -m pip install --disable-pip-version-check -q yt-dlp
+      - name: Install audio tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check -q yt-dlp
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version | head -n1
 
       - name: Build Night Ride from official White Bat Audio tracks
         shell: bash
@@ -68,6 +74,7 @@ jobs:
             ffmpeg -hide_banner -loglevel error -y -i "$source" -vn \
               -ar 44100 -ac 2 -c:a pcm_s16le "$WORK/${n}.wav"
             printf "file '%s'\n" "$WORK/${n}.wav" >> "$WORK/concat.txt"
+            rm -f "$source"
           done
 
           ffmpeg -hide_banner -loglevel error -y \
