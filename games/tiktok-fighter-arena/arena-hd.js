@@ -1,9 +1,13 @@
-const VERSION='1.6.0';
+const VERSION='1.7.0';
 const IDS=['sky_dojo','ice_crystal','arcane_ruins','desert_moon','neon_city','jungle_temple','volcanic_ring','celestial_citadel'];
+const CELL={sky_dojo:[0,0],ice_crystal:[1,0],arcane_ruins:[0,1],desert_moon:[1,1],neon_city:[0,2],jungle_temple:[1,2],volcanic_ring:[0,3],celestial_citadel:[1,3]};
+const CELL_W=1280,CELL_H=720,SHEET_URL=`./assets/arenas/fighter_arenas_hd.webp?v=${VERSION}`;
 const cache=new Map(),pending=new Map(),groundCache=new WeakMap();
+let sheetImage=null,sheetPending=null;
 const valid=id=>IDS.includes(id)?id:'sky_dojo';
-const url=id=>`./assets/arenas/${valid(id)}.avif?v=${VERSION}`;
-function load(id){id=valid(id);if(cache.has(id))return Promise.resolve(cache.get(id));if(pending.has(id))return pending.get(id);const p=new Promise((resolve,reject)=>{const im=new Image();im.decoding='async';im.onload=()=>{cache.set(id,im);pending.delete(id);resolve(im)};im.onerror=()=>{pending.delete(id);reject(new Error(`Arena image failed: ${id}`))};im.src=url(id)});pending.set(id,p);return p}
+function loadSheet(){if(sheetImage)return Promise.resolve(sheetImage);if(sheetPending)return sheetPending;sheetPending=new Promise((resolve,reject)=>{const im=new Image();im.decoding='async';im.onload=()=>{sheetImage=im;sheetPending=null;resolve(im)};im.onerror=()=>{sheetPending=null;reject(new Error('HD arena sheet failed'))};im.src=SHEET_URL});return sheetPending}
+function cropArena(id,im){const cell=CELL[valid(id)]||CELL.sky_dojo,cv=document.createElement('canvas');cv.width=CELL_W;cv.height=CELL_H;const q=cv.getContext('2d');q.clearRect(0,0,CELL_W,CELL_H);q.drawImage(im,cell[0]*CELL_W,cell[1]*CELL_H,CELL_W,CELL_H,0,0,CELL_W,CELL_H);return cv}
+function load(id){id=valid(id);if(cache.has(id))return Promise.resolve(cache.get(id));if(pending.has(id))return pending.get(id);const p=loadSheet().then(im=>{const arena=cropArena(id,im);cache.set(id,arena);pending.delete(id);return arena}).catch(e=>{pending.delete(id);throw e});pending.set(id,p);return p}
 const TAU=Math.PI*2;
 function grad(c,w,h,a,b,m=.58){const g=c.createLinearGradient(0,0,0,h);g.addColorStop(0,a);g.addColorStop(m,b);g.addColorStop(1,'#08070d');c.fillStyle=g;c.fillRect(0,0,w,h)}
 function dot(c,x,y,r,color,alpha=1){c.globalAlpha=alpha;c.fillStyle=color;c.beginPath();c.arc(x,y,r,0,TAU);c.fill();c.globalAlpha=1}
