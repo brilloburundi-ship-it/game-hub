@@ -12,7 +12,7 @@ const must=name=>{const p=resolve(root,name);assert(existsSync(p),`Missing Fight
 const requiredFiles=[
   'version.json','index.html','bootstrap.js','game-v14.js','core.js','core-r18.js',
   'combat-v14.js','arena-hd.js','idle-wait.js','asset-effects.js','roster-gate-v14.js',
-  'vfx-combat-overlay.js','asset-medieval-warrior-2.js','asset-medieval-warrior-3.js',
+  'vfx-combat-overlay.js','auto-showcase.js','asset-medieval-warrior-2.js','asset-medieval-warrior-3.js',
   'fighters-0.json','fighters-1.json','fighters-2.json','manifest-core.json'
 ];
 for(const name of requiredFiles)must(name);
@@ -25,6 +25,7 @@ const coreProxy=read('core.js');
 const core=read('core-r18.js');
 const combat=read('combat-v14.js');
 const combatVfx=read('vfx-combat-overlay.js');
+const showcase=read('auto-showcase.js');
 const arena=read('arena-hd.js');
 const idle=read('idle-wait.js');
 const effects=read('asset-effects.js');
@@ -47,7 +48,8 @@ assert(index.includes('bootstrap.js?v=1.4.0'),'Fighter Arena v1.4 bootstrap is n
 assert(index.includes('lan-bridge.js'),'TikFinity/LAN bridge wiring must be preserved');
 assert(index.includes('round-announcer.js'),'3-2-1/FIGHT/KO visual announcer wiring must be preserved');
 assert(index.includes('round-audio-sync.js'),'3-2-1/FIGHT/KO audio sync wiring must be preserved');
-assert(index.includes('vfx-combat-overlay.js?v=1.0.0'),'Targeted combat VFX overlay wiring must be preserved');
+assert(index.includes('vfx-combat-overlay.js?v=1.1.0'),'Targeted combat VFX overlay wiring must be preserved');
+assert(index.includes('auto-showcase.js?v=1.1.0'),'LIVE-flow auto showcase wiring must be preserved');
 assert(bootstrap.includes("import('./idle-wait.js?v=1.4.0')"),'v1.4 idle waiting runtime is not wired through bootstrap');
 assert(bootstrap.includes("import('./roster-gate-v14.js?v=1.4.0')"),'20-fighter startup gate is not wired through bootstrap');
 assert(bootstrap.includes("import('./game-v14.js?v=1.4.0')"),'v1.4 game runtime is not wired through bootstrap');
@@ -83,6 +85,14 @@ assert(combatVfx.includes("spawn('thunderUltimate'"),'Thunder ultimate VFX missi
 assert(combatVfx.includes("spawn('dustDash'"),'Dash dust VFX missing');
 assert(combatVfx.includes('track=new WeakMap()'),'Per-fighter VFX state tracking missing');
 assert(combatVfx.includes('if(!t.hit&&r.hit'),'Hit VFX must be gated to one trigger per attack hit');
+
+assert(showcase.includes("const VERSION='1.1.0'"),'LIVE showcase must use the current cache contract');
+assert(showcase.includes("emit('join'"),'LIVE showcase must exercise the real JOIN bridge path');
+assert(showcase.includes("S.round==='finished'"),'LIVE showcase must wait for a real finished fight');
+assert(showcase.includes("S.round==='waiting'&&S.active.filter(Boolean).length===1&&S.delay===0"),'LIVE showcase must wait through death animation and winner rotation');
+assert(showcase.includes('joinHero(bout+1)'),'LIVE showcase must add the next viewer only after the previous fight completes');
+assert(showcase.includes('winner incoming')||showcase.includes('next viewer incoming'),'LIVE showcase must expose winner-stays/next-viewer cadence');
+assert(!showcase.includes('forcing real KO'),'LIVE showcase must not force scripted KO anymore');
 
 const rosterMatch=game.match(/const ROSTER=\{([\s\S]*?)\};\s*const ALL_ROSTER=/);
 assert(rosterMatch,'Unable to read the v1.4 fighter roster');
@@ -182,7 +192,7 @@ assert(mw3b64.length===9976,`medieval_warrior_3 base64 length ${mw3b64.length}/9
 validateWebP(Buffer.from(mw3b64,'base64'),'medieval_warrior_3');
 
 for(const name of [
-  'game-v14.js','core.js','core-r18.js','combat-v14.js','vfx-combat-overlay.js','arena-hd.js','idle-wait.js',
+  'game-v14.js','core.js','core-r18.js','combat-v14.js','vfx-combat-overlay.js','auto-showcase.js','arena-hd.js','idle-wait.js',
   'asset-effects.js','roster-gate-v14.js','bootstrap.js','asset-medieval-warrior-2.js',
   'asset-medieval-warrior-3.js'
 ]){
@@ -190,4 +200,4 @@ for(const name of [
   assert(r.status===0,`${name} syntax check failed: ${r.stderr||r.stdout}`);
 }
 
-console.log(`Fighter Arena ${version.version}: 20/20 roster contract, shared v1.4 core, fail-safe render loop, full KO/death gate, verified Medieval Warrior WebP payloads, ${manifest.arenas.length} Retina HD SVG arenas, targeted combat VFX and LIVE/demo isolation OK.`);
+console.log(`Fighter Arena ${version.version}: 20/20 roster contract, shared v1.4 core, fail-safe render loop, full KO/death gate, verified Medieval Warrior WebP payloads, ${manifest.arenas.length} Retina HD SVG arenas, targeted combat VFX, real-flow LIVE showcase and LIVE/demo isolation OK.`);
