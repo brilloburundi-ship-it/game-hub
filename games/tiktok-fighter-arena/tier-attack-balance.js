@@ -1,13 +1,10 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.2.0';
+const VERSION='2.3.0';
 const CLASSES=new Set(['free','follow','tier1','tier2','tier3']);
 
 // Definitive combat tuning. Fighter roster/visuals are intentionally excluded.
 const ATTACK_SCALE={free:1.00,follow:1.15,tier1:1.30,tier2:1.65,tier3:2.10};
-// Defense is intentionally light. Tier durability now comes primarily from HP
-// and matchup hierarchy, preventing long same-tier fights.
-const DAMAGE_REDUCTION={free:0,follow:.03,tier1:.04,tier2:.08,tier3:.12};
 const MATCHUP={
   free:  {free:1.00,follow:.75,tier1:.45,tier2:.20,tier3:.08},
   follow:{free:1.15,follow:1.00,tier1:.65,tier2:.28,tier3:.10},
@@ -51,23 +48,23 @@ function effectiveAttack(r){
   const raw=baseAttack(r);
   const tier=ATTACK_SCALE[aClass]||1;
   const matchup=MATCHUP[aClass]?.[dClass]??1;
-  const reduction=1-(DAMAGE_REDUCTION[dClass]??0);
-  return Math.max(1,raw*tier*matchup*reduction*stateCorrection(r)*COMBAT_TEMPO);
+  return Math.max(1,raw*tier*matchup*stateCorrection(r)*COMBAT_TEMPO);
 }
 function installLock(r){
   if(!r||r.__combatRulesVersion===VERSION)return;
   r.__combatFallbackAttack=Math.max(1,Number(r.attack||1));
-  r.__combatFallbackDefense=Math.max(0,Number(r.defense||0));
   try{
     Object.defineProperty(r,'attack',{
       configurable:true,enumerable:true,
       get(){return effectiveAttack(r)},
       set(v){r.__combatFallbackAttack=Math.max(1,Number(v||1))}
     });
+    // Defense is disabled completely. Legacy systems may still try to write it,
+    // but combat always reads zero and no damage-reduction multiplier exists.
     Object.defineProperty(r,'defense',{
       configurable:true,enumerable:true,
       get(){return 0},
-      set(v){r.__combatFallbackDefense=Math.max(0,Number(v||0))}
+      set(_v){}
     });
     r.__combatRulesVersion=VERSION;
   }catch(e){console.error('[Fighter Arena Combat Rules]',e)}
@@ -82,13 +79,14 @@ window.__fighterArenaCombatRules={
   version:VERSION,
   locked:true,
   rosterUntouched:true,
+  defenseEnabled:false,
   hp:{free:'fighter base HP',follow:600,tier1:800,tier2:1800,tier3:2800,rose:'+10 max HP each'},
   attackScale:{...ATTACK_SCALE},
-  damageReduction:{...DAMAGE_REDUCTION},
+  damageReduction:{free:0,follow:0,tier1:0,tier2:0,tier3:0},
   matchup:Object.fromEntries(Object.entries(MATCHUP).map(([k,v])=>[k,{...v}])),
   combatTempo:COMBAT_TEMPO,
   combo:{tier1:1,tier2:2,tier3:3,follow:2,secondHit:.85,thirdHit:.70},
   specialMultiplier:1.50,
-  note:'Defense is minimal; HP and matchup hierarchy define tier endurance. No fighter-specific attack or defense bonuses.'
+  note:'Defense is disabled completely. Tier endurance comes from HP and matchup hierarchy only. No fighter-specific combat bonuses.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
