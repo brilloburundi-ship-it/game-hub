@@ -1,9 +1,10 @@
 import{S,cfg,clamp,runtime}from'./core.js?v=1.4.0';
 
-const VERSION='2.0.1';
+const VERSION='2.1.0';
 const GIFT_TIER_1=['martial_champion','hero_knight_prime','huntress','evil_wizard'];
 const GIFT_TIER_2=['fantasy_warrior','street_mon','samurai','samurai_commander'];
 const GIFT_TIER_3=['martial_hero','medieval_warrior_2','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3','lightning_mage'];
+const STARTER_FIGHTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'];
 const FOLLOW_FIGHTER='samurai_ronin';
 const PROFILES={
   follow:{hp:2.0,attack:1.40,defense:1.30,combo:2,targetFreeWins:4,color:'#75ef9b'},
@@ -12,6 +13,8 @@ const PROFILES={
   tier3:{hp:4.6,attack:1.90,defense:1.70,combo:3,targetFreeWins:20,color:'#ff6ab6'}
 };
 const POOLS={tier1:GIFT_TIER_1,tier2:GIFT_TIER_2,tier3:GIFT_TIER_3};
+const JOIN_EVENTS=new Set(['join','enter','viewerenter','member']);
+const LEAVE_EVENTS=new Set(['leave','exit','viewerleave','memberleave','viewerexit','memberexit']);
 
 const giftValue=p=>Math.max(1,Number(p?.diamondCount||p?.value||p?.coins||1))*Math.max(1,Number(p?.repeatCount||1));
 const giftLevel=d=>d>=500?3:d>=100?2:d>=10?1:0;
@@ -78,9 +81,14 @@ function applyProfile(r,v,{preserveRatio=true}={}){
   r.attack=desired.attack;r.defense=desired.defense;r.comboLimit=profile.combo;
   v.comboLimit=profile.combo;v.targetFreeWins=profile.targetFreeWins;
 }
+function rebuildActive(v,{preserveRatio=true}={}){
+  const idx=S.active.findIndex(r=>r?.viewer.id===v.id);if(idx<0)return;
+  const old=S.active[idx],fresh=runtime(v,idx),ratio=preserveRatio&&old?.maxHp?clamp(old.hp/old.maxHp,.05,1):1;
+  fresh.hp=fresh.maxHp*ratio;fresh.energy=old?.energy||0;fresh.shield=old?.shield||0;fresh.x=old?.x??fresh.x;fresh.inv=Math.max(.35,old?.inv||0);
+  S.active[idx]=fresh;
+}
 function assign(v,id,rewardClass,{announce=true}={}){
   const f=cfg(id),profile=PROFILES[rewardClass];if(!v||!f||!profile||!available(id))return false;
-  const idx=S.active.findIndex(r=>r?.viewer.id===v.id);
   v.fighterId=id;v.rewardClass=rewardClass;v.comboLimit=profile.combo;v.targetFreeWins=profile.targetFreeWins;
   if(rewardClass.startsWith('tier')){
     const level=Number(rewardClass.slice(4))||0;
@@ -88,18 +96,32 @@ function assign(v,id,rewardClass,{announce=true}={}){
     if(level>0)v.giftTierFighterId=id;
   }
   v.highestTier=Math.max(v.highestTier||0,f.tier||0);
-  if(idx>=0){
-    const old=S.active[idx],fresh=runtime(v,idx),ratio=old?.maxHp?clamp(old.hp/old.maxHp,.25,1):1;
-    fresh.hp=fresh.maxHp*ratio;fresh.energy=old?.energy||0;fresh.shield=old?.shield||0;fresh.x=old?.x??fresh.x;fresh.inv=Math.max(.35,old?.inv||0);
-    S.active[idx]=fresh;applyProfile(fresh,v,{preserveRatio:true});
-  }
+  rebuildActive(v,{preserveRatio:true});
+  const active=S.active.find(r=>r?.viewer.id===v.id);if(active)applyProfile(active,v,{preserveRatio:true});
   if(announce)S.fx?.toast?.(`${v.name} · ${rewardClass==='follow'?'FOLLOW ×2':`GIFT ${rewardClass.toUpperCase()} · COMBO ×${profile.combo}`} → ${f.name}`,profile.color);
   return true;
+}
+function resetGiftSession(v){
+  if(!v)return;
+  v.giftSessionValue=0;v.giftTierLevel=0;v.giftTierFighterId='';v.__giftTierSessionEnded=false;
+  v.rewardClass=v.followed?'follow':'';v.comboLimit=v.followed?PROFILES.follow.combo:0;v.targetFreeWins=v.followed?PROFILES.follow.targetFreeWins:0;v.highestTier=0;
+  const baseId=v.followed&&available(FOLLOW_FIGHTER)?FOLLOW_FIGHTER:choose(STARTER_FIGHTERS,v);
+  if(baseId)v.fighterId=baseId;
+  rebuildActive(v,{preserveRatio:false});
+  const active=S.active.find(r=>r?.viewer.id===v.id);if(active&&v.rewardClass)applyProfile(active,v,{preserveRatio:false});
+}
+function restoreLockedTier(v,beforeId,beforeClass,beforeLevel){
+  if(!v||beforeLevel<=0)return;
+  const lockedId=beforeId||v.giftTierFighterId;
+  const rewardClass=beforeClass||classForLevel(beforeLevel);
+  v.giftTierLevel=beforeLevel;v.rewardClass=rewardClass;
+  if(lockedId&&available(lockedId))assign(v,lockedId,rewardClass,{announce:false});
+  else normalizeTierState(v);
 }
 function publish(){
   const current=window.__fighterArenaSelectionPolicy||{};
   window.__fighterArenaSelectionPolicy={...current,giftRare:[...GIFT_TIER_1],giftEpic:[...GIFT_TIER_2],giftMythic:[...GIFT_TIER_3],giftTier1:[...GIFT_TIER_1],giftTier2:[...GIFT_TIER_2],giftTier3:[...GIFT_TIER_3]};
-  window.__fighterArenaGiftPolicy={version:VERSION,tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true};
+  window.__fighterArenaGiftPolicy={version:VERSION,tier1:[...GIFT_TIER_1],tier2:[...GIFT_TIER_2],tier3:[...GIFT_TIER_3],follow:FOLLOW_FIGHTER,ranges:{tier1:[10,99],tier2:[100,499],tier3:[500,null]},profiles:PROFILES,noDowngrade:true,cumulativeGiftValue:true,allGiftNames:true,sessionResetOnLeave:true,sameTierLocked:true};
 }
 function install(){
   const api=window.FighterArenaBridge;
@@ -108,26 +130,36 @@ function install(){
   const base=api.emit.bind(api);
   const wrapped=(type,p={})=>{
     const t=String(type||'').toLowerCase(),before=viewerFromPayload(p),beforeId=before?.fighterId||'';
+    if(LEAVE_EVENTS.has(t)){
+      if(before)before.__giftTierSessionEnded=true;
+      publish();return before||null;
+    }
+    const rejoining=JOIN_EVENTS.has(t)&&before?.__giftTierSessionEnded===true;
     const inferredBefore=tierLevelForFighter(beforeId),storedBefore=Math.max(0,Number(before?.giftTierLevel||0)),beforeLevel=Math.max(inferredBefore,storedBefore);
     const beforeClass=classLevel(before?.rewardClass)>=beforeLevel?before?.rewardClass:classForLevel(beforeLevel);
+    const sessionValueBefore=Math.max(0,Number(before?.giftSessionValue||0));
     const out=base(type,p),v=viewerFromPayload(p,out);
     if(!v)return out;
+    if(rejoining){resetGiftSession(v);publish();return out}
     if(t==='follow'){
       const lockedLevel=Math.max(beforeLevel,normalizeTierState(v));
       if(lockedLevel===0){v.rewardClass='follow';v.comboLimit=2;if(v.fighterId!==FOLLOW_FIGHTER&&available(FOLLOW_FIGHTER))assign(v,FOLLOW_FIGHTER,'follow');else{const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v)}}
-      else if(beforeId&&v.fighterId!==beforeId)assign(v,beforeId,beforeClass||classForLevel(lockedLevel),{announce:false});
+      else if(beforeId&&v.fighterId!==beforeId)restoreLockedTier(v,beforeId,beforeClass,lockedLevel);
       publish();return out;
     }
-    if(t!=='gift'||String(p.giftName||p.name||'').toLowerCase().includes('rose')){normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v);return out}
-    const d=giftValue(p),level=giftLevel(d);if(level===0){normalizeTierState(v);return out}
-    if(level<beforeLevel&&beforeId){
-      v.rewardClass=beforeClass;v.giftTierLevel=beforeLevel;v.giftTierFighterId=beforeId;
-      assign(v,beforeId,beforeClass||classForLevel(beforeLevel),{announce:false});
-      S.fx?.toast?.(`${v.name} · TIER ${beforeLevel} LOCKED · LOWER GIFT IGNORED`,PROFILES[classForLevel(beforeLevel)]?.color||'#ffd56b');
+    if(t!=='gift'){
+      normalizeTierState(v);const r=S.active.find(x=>x?.viewer.id===v.id);if(r)applyProfile(r,v);return out;
+    }
+    const d=giftValue(p);
+    v.giftSessionValue=sessionValueBefore+d;
+    const level=giftLevel(v.giftSessionValue);
+    if(level<=beforeLevel){
+      if(beforeLevel>0)restoreLockedTier(v,beforeId,beforeClass,beforeLevel);
+      else normalizeTierState(v);
       publish();return out;
     }
     const rewardClass=classForLevel(level),pool=POOLS[rewardClass],id=choose(pool,v);
-    v.giftTierLevel=Math.max(beforeLevel,level);
+    v.giftTierLevel=level;
     if(id)assign(v,id,rewardClass);
     publish();return out;
   };
