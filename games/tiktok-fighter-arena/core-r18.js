@@ -1,7 +1,7 @@
 export const S={
   manifest:null,images:new Map(),viewers:new Map(),queue:[],active:[null,null],
   fightNo:0,arenaIndex:0,round:'waiting',clock:0,delay:0,started:false,
-  w:innerWidth,h:innerHeight,fx:null,availableFighters:new Set(),testStream:false
+  w:innerWidth,h:innerHeight,fx:null,availableFighters:new Set()
 };
 
 const R=[
