@@ -1,41 +1,19 @@
-import{S,cfg}from'./core.js?v=1.4.0';
+import{S}from'./core.js?v=1.4.0';
 
-const VERSION='2.4.0';
-const CLASSES=new Set(['free','follow','tier1','tier2','tier3']);
+const VERSION='2.5.0';
 
-// Definitive combat tuning. Fighter roster/visuals are intentionally excluded.
-const ATTACK_SCALE={free:1.00,follow:1.15,tier1:1.30,tier2:1.65,tier3:2.10};
-const MATCHUP={
-  free:  {free:1.00,follow:.75,tier1:.45,tier2:.20,tier3:.08},
-  follow:{free:1.15,follow:1.00,tier1:.65,tier2:.28,tier3:.10},
-  tier1: {free:1.25,follow:1.10,tier1:1.00,tier2:.30,tier3:.12},
-  tier2: {free:1.55,follow:1.45,tier1:1.35,tier2:1.00,tier3:.18},
-  tier3: {free:1.80,follow:1.70,tier1:1.60,tier2:1.45,tier3:1.00}
-};
-
-// Global tempo changes only fight duration. It does not alter roster, tier
-// membership, HP ladder, relative matchup hierarchy, animations or VFX.
+// Definitive equal-damage combat tuning.
+// Every fighter uses the same raw attack value: no fighter stat, tier or matchup
+// can reduce/increase basic damage. Higher tiers remain tougher only because of HP.
+const BASE_ATTACK=50;
 const COMBAT_TEMPO=1.45;
 
-// combat-v14 currently applies 1.45 to strong attacks and .84 to chained hits.
-// These corrections make the effective locked rules exactly 1.50 special,
-// .85 second combo hit and .70 third combo hit without touching animations.
+// combat-v14 applies 1.45 to strong attacks and .84 to chained hits.
+// Keep the previously agreed effective multipliers without changing animations.
 const STRONG_CORRECTION=1.50/1.45;
 const SECOND_COMBO_CORRECTION=.85/.84;
 const THIRD_COMBO_CORRECTION=.70/.84;
 
-function combatClass(r){
-  const reward=String(r?.viewer?.rewardClass||'');
-  if(CLASSES.has(reward))return reward;
-  const locked=window.__fighterArenaTierRoster?.classOf?.(r?.fighterId);
-  return CLASSES.has(locked)?locked:'free';
-}
-function baseAttack(r){
-  const f=cfg(r?.fighterId);if(!f)return 0;
-  const level=Math.max(1,Number(r?.viewer?.level||1));
-  return Math.max(1,Number(f.stats?.attack||1))*(1+(level-1)*.055);
-}
-function opponentOf(r){return(S.active||[]).find(x=>x&&x!==r&&!x.dead)||null}
 function stateCorrection(r){
   let mult=1;
   if(r?.state==='special'||r?.state==='attack3'||r?.state==='attack4')mult*=STRONG_CORRECTION;
@@ -43,24 +21,18 @@ function stateCorrection(r){
   return mult;
 }
 function effectiveAttack(r){
-  if(!r?.viewer||r.dead)return Math.max(1,Number(r?.__combatFallbackAttack||1));
-  const defender=opponentOf(r),aClass=combatClass(r),dClass=combatClass(defender);
-  const raw=baseAttack(r);
-  const tier=ATTACK_SCALE[aClass]||1;
-  const matchup=MATCHUP[aClass]?.[dClass]??1;
-  return Math.max(1,raw*tier*matchup*stateCorrection(r)*COMBAT_TEMPO);
+  if(!r||r.dead)return BASE_ATTACK*COMBAT_TEMPO;
+  return BASE_ATTACK*COMBAT_TEMPO*stateCorrection(r);
 }
 function installLock(r){
   if(!r||r.__combatRulesVersion===VERSION)return;
-  r.__combatFallbackAttack=Math.max(1,Number(r.attack||1));
   try{
     Object.defineProperty(r,'attack',{
       configurable:true,enumerable:true,
       get(){return effectiveAttack(r)},
-      set(v){r.__combatFallbackAttack=Math.max(1,Number(v||1))}
+      set(_v){}
     });
-    // Defense is disabled completely. Legacy systems may still try to write it,
-    // but combat always reads zero and no damage-reduction multiplier exists.
+    // Defense remains completely disabled.
     Object.defineProperty(r,'defense',{
       configurable:true,enumerable:true,
       get(){return 0},
@@ -79,14 +51,16 @@ window.__fighterArenaCombatRules={
   version:VERSION,
   locked:true,
   rosterUntouched:true,
+  equalDamage:true,
   defenseEnabled:false,
+  baseAttack:BASE_ATTACK,
   hp:{free:'fighter base HP',follow:600,tier1:800,tier2:1800,tier3:2800,rose:'+10 max HP each'},
-  attackScale:{...ATTACK_SCALE},
+  attackScale:{free:1,follow:1,tier1:1,tier2:1,tier3:1},
   damageReduction:{free:0,follow:0,tier1:0,tier2:0,tier3:0},
-  matchup:Object.fromEntries(Object.entries(MATCHUP).map(([k,v])=>[k,{...v}])),
+  matchup:'disabled — all classes deal the same damage',
   combatTempo:COMBAT_TEMPO,
   combo:{tier1:1,tier2:2,tier3:3,follow:2,secondHit:.85,thirdHit:.70},
   specialMultiplier:1.50,
-  note:'Defense is disabled completely. Global attack tempo is reduced to 1.45. Tier endurance comes from HP and matchup hierarchy only. No fighter-specific combat bonuses.'
+  note:'All fighters and tiers deal the same base damage. Defense and matchup damage penalties are disabled. Tier endurance comes from HP only.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
