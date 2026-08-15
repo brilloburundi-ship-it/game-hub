@@ -1,6 +1,6 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.7.0';
+const VERSION='2.7.1';
 const COMBAT_TEMPO=1.60;
 
 // Free and Gift Tier 1/2/3 use the same damage rules. Higher gift tiers are
@@ -69,7 +69,7 @@ window.__fighterArenaCombatRules={
   giftTierComboBonus:false,
   followCombo:2,
   specialMultiplier:1.50,
-  likeCritical:{first:LIKE_CRITICAL_FIRST,second:LIKE_CRITICAL_SECOND_TARGET,doubleHit:true},
-  note:'Tier does not modify damage. The blue bar is now Like-driven; at 100 Likes it arms a double critical attack. Defense remains disabled.'
+  likeCritical:{first:LIKE_CRITICAL_FIRST,second:LIKE_CRITICAL_SECOND_TARGET,doubleHit:true,tapsRequired:20},
+  note:'Tier does not modify damage. The blue bar is Like-driven; at 20 taps it arms a double critical attack. Defense remains disabled.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
