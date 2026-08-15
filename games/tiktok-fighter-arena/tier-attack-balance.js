@@ -1,6 +1,6 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.0.0';
+const VERSION='2.1.0';
 const CLASSES=new Set(['free','follow','tier1','tier2','tier3']);
 
 // Definitive combat tuning. Fighter roster/visuals are intentionally excluded.
@@ -13,6 +13,10 @@ const MATCHUP={
   tier2: {free:1.55,follow:1.45,tier1:1.35,tier2:1.00,tier3:.18},
   tier3: {free:1.80,follow:1.70,tier1:1.60,tier2:1.45,tier3:1.00}
 };
+
+// Global tempo changes only fight duration. It does not alter roster, tier
+// membership, HP ladder, relative matchup hierarchy, animations or VFX.
+const COMBAT_TEMPO=1.75;
 
 // combat-v14 currently applies 1.45 to strong attacks and .84 to chained hits.
 // These corrections make the effective locked rules exactly 1.50 special,
@@ -46,7 +50,7 @@ function effectiveAttack(r){
   const tier=ATTACK_SCALE[aClass]||1;
   const matchup=MATCHUP[aClass]?.[dClass]??1;
   const reduction=1-(DAMAGE_REDUCTION[dClass]??0);
-  return Math.max(1,raw*tier*matchup*reduction*stateCorrection(r));
+  return Math.max(1,raw*tier*matchup*reduction*stateCorrection(r)*COMBAT_TEMPO);
 }
 function installLock(r){
   if(!r||r.__combatRulesVersion===VERSION)return;
@@ -80,8 +84,9 @@ window.__fighterArenaCombatRules={
   attackScale:{...ATTACK_SCALE},
   damageReduction:{...DAMAGE_REDUCTION},
   matchup:Object.fromEntries(Object.entries(MATCHUP).map(([k,v])=>[k,{...v}])),
+  combatTempo:COMBAT_TEMPO,
   combo:{tier1:1,tier2:2,tier3:3,follow:2,secondHit:.85,thirdHit:.70},
   specialMultiplier:1.50,
-  note:'All combat power is tier math only. No fighter-specific attack or defense bonuses.'
+  note:'All combat power is tier math only. No fighter-specific attack or defense bonuses. Global tempo shortens fights without changing relative balance.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
