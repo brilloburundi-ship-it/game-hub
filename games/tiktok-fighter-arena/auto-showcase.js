@@ -1,11 +1,11 @@
 import{S,cfg,runtime}from'./core.js?v=1.4.0';
 
 // Legacy CI compatibility markers only: const VERSION='1.1.0' · joinHero(bout+1) · next viewer incoming · S.round==='waiting'&&S.active.filter(Boolean).length===1&&S.delay===0
-const VERSION='1.3.0';
+const VERSION='1.4.0';
 const QUEUE_TARGET=6;
 const HEROES=['street_mon','hero_knight','huntress','evil_wizard','hero_knight_prime','martial_hero','medieval_king','fantasy_warrior','huntress_2','samurai_ronin','medieval_warrior_2','martial_champion','evil_wizard_2','samurai_archer','fire_wizard','wanderer_magician','medieval_warrior_3','samurai','samurai_commander','lightning_mage'];
 const TEST_EVENTS=[
-  {label:'LIKE ×10',type:'like',payload:{count:10}},
+  {label:'TAP TAP ×20',type:'like',payload:{count:20}},
   {label:'FOLLOW',type:'follow',payload:{}},
   {label:'ROSE ×3',type:'rose',payload:{count:3}},
   {label:'GIFT 5💎 · POWER BURST',type:'gift',payload:{giftName:'showcase-small',diamondCount:5}},
@@ -79,7 +79,15 @@ async function runFightEvent(targetViewer,t){
   const target=S.active.find(r=>r?.viewer.id===targetViewer?.id&&!r.dead)||S.active.find(r=>r&&!r.dead);if(!target)return;
   if(!diag.eventsSeen.includes(step.label))diag.eventsSeen.push(step.label);
   say(`${target.viewer.name} · ${step.label}`,'#75ef9b');
-  emit(step.type,{userId:target.viewer.id,username:target.viewer.name,...step.payload});
+  if(step.type==='like'){
+    // Four small TAP bursts make the blue bar visibly fill 25% → 50% → 75% → 100%.
+    for(let i=0;i<4;i++){
+      emit('like',{userId:target.viewer.id,username:target.viewer.name,count:5});
+      if(i<3&&!(await wait(260,t)))return;
+    }
+  }else{
+    emit(step.type,{userId:target.viewer.id,username:target.viewer.name,...step.payload});
+  }
   if(await wait(2300,t))armSpecials();
 }
 async function waitForRotation(t,bout){
