@@ -88,7 +88,7 @@ export function createViewer(p={}){
     if(!S.active.some(a=>a?.viewer.id===id)&&!S.queue.some(q=>q.id===id))enqueue(v);
     return v;
   }
-  const starter=choose(STARTER_FIGHTERS,id);
+  const starter=choose(STARTER_FIGHTERS,id)||choose(tierPool(0),id);
   if(!starter)return null;
   v={
     id,name,level:1,fighterId:starter,highestTier:0,wins:0,losses:0,streak:0,
