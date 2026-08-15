@@ -18,26 +18,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install audio importer
-        run: python -m pip install --disable-pip-version-check -q yt-dlp
-
-      - name: Download Night Ride at game-friendly bitrate
+      - name: Download Night Ride through Piped audio proxy
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p games/tiktok-fighter-arena/assets/audio/music
-          yt-dlp --no-playlist --extract-audio --audio-format mp3 --audio-quality 128K \
-            --output 'games/tiktok-fighter-arena/assets/audio/music/night-ride.%(ext)s' \
-            'https://www.youtube.com/watch?v=6BaG-oMy8OM'
-          test -s games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3
-          SIZE=$(stat -c%s games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3)
+          VIDEO_ID='6BaG-oMy8OM'
+          TARGET='games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3'
+          mkdir -p "$(dirname "$TARGET")"
+          rm -f /tmp/night-ride-source.* "$TARGET"
+
+          APIS=(
+            'https://pipedapi.kavin.rocks'
+            'https://pipedapi.tokhmi.xyz'
+            'https://pipedapi.moomoo.me'
+            'https://pipedapi.syncpundit.io'
+            'https://api-piped.mha.fi'
+            'https://piped-api.garudalinux.org'
+          )
+
+          DOWNLOADED=''
+          for API in "${APIS[@]}"; do
+            echo "Trying $API"
+            JSON=$(mktemp)
+            if ! curl -fsSL --retry 2 --connect-timeout 10 --max-time 40 "$API/streams/$VIDEO_ID" -o "$JSON"; then
+              rm -f "$JSON"
+              continue
+            fi
+            URL=$(jq -r '[.audioStreams[]? | select(.url != null and .url != "")] | sort_by(.bitrate // 0) | reverse | .[0].url // empty' "$JSON")
+            rm -f "$JSON"
+            [ -n "$URL" ] || continue
+            if curl -fL --retry 3 --connect-timeout 15 --max-time 900 "$URL" -o /tmp/night-ride-source; then
+              if [ -s /tmp/night-ride-source ]; then
+                DOWNLOADED='yes'
+                break
+              fi
+            fi
+          done
+
+          test -n "$DOWNLOADED"
+          ffmpeg -hide_banner -loglevel error -y -i /tmp/night-ride-source -vn -c:a libmp3lame -b:a 128k -ar 44100 -ac 2 "$TARGET"
+          test -s "$TARGET"
+          DURATION=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$TARGET")
+          SIZE=$(stat -c%s "$TARGET")
+          echo "duration=$DURATION size=$SIZE"
+          awk -v d="$DURATION" 'BEGIN { exit !(d > 4200 && d < 4300) }'
           test "$SIZE" -lt 100000000
-          ffprobe -v error -show_entries format=duration,bit_rate -of default=noprint_wrappers=1 \
-            games/tiktok-fighter-arena/assets/audio/music/night-ride.mp3
 
       - uses: actions/setup-node@v4
         with:
