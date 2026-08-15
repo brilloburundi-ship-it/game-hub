@@ -42,7 +42,7 @@ async function rosterTour(a,b,t){diag.phase='roster';diag.heroesSeen=[];for(let 
     if(!(await wait(2150,t)))return false;armSpecial(S.active[0]);
     if(!(await wait(1450,t)))return false;
   }return true}
-async function interactionTour(a,b,t){diag.phase='interactions';diag.eventsSeen=[];S.active=[exactRuntime(a,'hero_knight',0),exactRuntime(b,'hero_knight',1,{dummy:true})];S.round='fighting';S.clock=90;S.delay=0;for(let i=0;i<TEST_EVENTS.length;i++){
+async function interactionTour(a,b,t){diag.phase='interactions';diag.eventsSeen=[];a.highestTier=0;a.followed=false;a.level=1;a.savedEnergy=0;a.potions=0;a.fighterId='hero_knight';S.active=[exactRuntime(a,'hero_knight',0),exactRuntime(b,'hero_knight',1,{dummy:true})];S.round='fighting';S.clock=90;S.delay=0;for(let i=0;i<TEST_EVENTS.length;i++){
     if(!running||t!==token)return false;
     const step=TEST_EVENTS[i];diag.eventsSeen.push(step.label);setStatus(`INTERACTIONS ${i+1}/${TEST_EVENTS.length} · ${step.label}`);say(step.label,'#75ef9b');
     emit(step.type,{userId:a.id,username:a.name,...step.payload});
