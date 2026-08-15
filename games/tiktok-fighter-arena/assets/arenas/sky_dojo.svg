@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
+<defs>
+ <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#85766e"/><stop offset=".45" stop-color="#514943"/><stop offset="1" stop-color="#242326"/></linearGradient>
+ <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a74a40"/><stop offset="1" stop-color="#3e1820"/></linearGradient>
+ <radialGradient id="pink"><stop stop-color="#ffd8ee"/><stop offset=".55" stop-color="#ff80b9"/><stop offset="1" stop-color="#9e365f"/></radialGradient>
+ <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<!-- platform body -->
+<path fill="url(#stone)" stroke="#17161a" stroke-width="10" d="M80 770 Q190 738 320 748 L1600 748 Q1730 740 1840 770 L1800 940 Q1590 988 1390 956 L530 956 Q320 988 120 940Z"/>
+<path fill="#71665f" stroke="#2e2928" stroke-width="8" d="M110 754 Q230 720 360 730 H1560 Q1690 720 1810 754 L1740 814 H180 Q145 790 110 754Z"/>
+<path fill="#3b3532" opacity=".8" d="M150 826 H1770 L1748 866 H170 L150 826Z"/>
+<path fill="none" stroke="#b79a80" stroke-width="5" opacity=".55" d="M235 777 H1685M380 742v65M620 738v70M960 734v76M1300 738v70M1540 742v65"/>
+<!-- central dojo seal -->
+<ellipse cx="960" cy="758" rx="225" ry="54" fill="#62544c" stroke="#c6a77e" stroke-width="7"/>
+<ellipse cx="960" cy="758" rx="168" ry="38" fill="none" stroke="#e9c48d" stroke-width="5" opacity=".8"/>
+<path d="M850 758h220M960 720v76" stroke="#e9c48d" stroke-width="4" opacity=".55"/>
+<!-- left/right railings -->
+<g fill="url(#wood)" stroke="#2a1116" stroke-width="7">
+ <path d="M180 676h430v42H180zM1310 676h430v42h-430z"/>
+ <path d="M210 622h38v116h-38zM340 622h38v116h-38zM470 622h38v116h-38zM1412 622h38v116h-38zM1542 622h38v116h-38zM1672 622h38v116h-38z"/>
+</g>
+<!-- torii -->
+<g fill="url(#wood)" stroke="#2a1116" stroke-width="8">
+ <path d="M185 420h55v250h-55zM430 420h55v250h-55zM150 394h370l-28 42H178zM182 455h306v34H182z"/>
+ <path d="M1435 420h55v250h-55zM1680 420h55v250h-55zM1400 394h370l-28 42h-314zM1432 455h306v34h-306z"/>
+</g>
+<!-- cherry trunks -->
+<g fill="#4c2b31" stroke="#2c1820" stroke-width="10">
+ <path d="M125 740 Q190 610 165 470 Q145 355 250 282 Q325 238 375 280 Q270 354 284 470 Q303 600 350 740Z"/>
+ <path d="M1570 740 Q1630 610 1608 468 Q1588 352 1690 282 Q1770 238 1810 282 Q1715 350 1728 470 Q1745 604 1800 740Z"/>
+</g>
+<!-- blossoms -->
+<g fill="url(#pink)" stroke="#7f2e55" stroke-width="4" filter="url(#glow)">
+ <circle cx="130" cy="320" r="82"/><circle cx="220" cy="278" r="104"/><circle cx="330" cy="300" r="96"/><circle cx="402" cy="350" r="74"/><circle cx="100" cy="402" r="62"/><circle cx="278" cy="392" r="92"/>
+ <circle cx="1518" cy="342" r="72"/><circle cx="1610" cy="286" r="98"/><circle cx="1712" cy="292" r="104"/><circle cx="1802" cy="348" r="82"/><circle cx="1570" cy="405" r="78"/><circle cx="1740" cy="402" r="88"/>
+</g>
+<!-- lanterns -->
+<g stroke="#35171a" stroke-width="7"><path d="M300 518v125M1618 518v125"/><g fill="#ffcc79" filter="url(#glow)"><rect x="272" y="548" width="56" height="74" rx="12"/><rect x="1590" y="548" width="56" height="74" rx="12"/></g></g>
+<!-- petal accents -->
+<g fill="#ffadd2" opacity=".85"><ellipse cx="520" cy="420" rx="9" ry="5"/><ellipse cx="655" cy="520" rx="8" ry="4"/><ellipse cx="760" cy="395" rx="10" ry="5"/><ellipse cx="1140" cy="410" rx="9" ry="5"/><ellipse cx="1260" cy="505" rx="8" ry="4"/><ellipse cx="1370" cy="430" rx="10" ry="5"/></g>
+</svg>
