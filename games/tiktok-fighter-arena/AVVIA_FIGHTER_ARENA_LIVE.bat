@@ -14,6 +14,8 @@ for /L %%P in (8765,1,8785) do (
 
 :port_found
 if not defined PORT set "PORT=8790"
+set "LIVE_URL=http://127.0.0.1:%PORT%/index.html"
+>"URL_FIGHTER_ARENA_LIVE.txt" echo %LIVE_URL%
 
 set "PYMODE="
 py -3 -c "import sys; print(sys.version_info[0])" >nul 2>nul
@@ -37,7 +39,7 @@ echo ============================================
 echo.
 echo TikFinity Desktop deve essere aperto sul PC.
 echo Event API: ws://localhost:21213/
-echo Fighter Arena: http://127.0.0.1:%PORT%/index.html
+echo Fighter Arena: %LIVE_URL%
 echo.
 
 if /I "%PYMODE%"=="PY" (
@@ -47,7 +49,7 @@ if /I "%PYMODE%"=="PY" (
 )
 
 for /L %%I in (1,1,12) do (
-  powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 'http://127.0.0.1:%PORT%/index.html'; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
+  powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 '%LIVE_URL%'; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
   if not errorlevel 1 goto :server_ready
   timeout /t 1 /nobreak >nul
 )
@@ -57,9 +59,10 @@ pause
 exit /b 1
 
 :server_ready
-start "" "http://127.0.0.1:%PORT%/index.html"
+start "" "%LIVE_URL%"
 echo.
 echo Connessione LIVE: browser -^> ws://localhost:21213/ -^> TikFinity
- echo Nessun passaggio Game Hub e nessun bridge 8795 in modalita PC.
+echo Nessun passaggio Game Hub e nessun bridge 8795 in modalita PC.
+echo URL salvato in URL_FIGHTER_ARENA_LIVE.txt
 echo Lascia TikFinity Desktop aperto durante la LIVE.
 exit /b 0
