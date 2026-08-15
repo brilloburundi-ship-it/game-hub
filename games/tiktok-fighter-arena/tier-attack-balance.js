@@ -1,11 +1,13 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.1.0';
+const VERSION='2.2.0';
 const CLASSES=new Set(['free','follow','tier1','tier2','tier3']);
 
 // Definitive combat tuning. Fighter roster/visuals are intentionally excluded.
 const ATTACK_SCALE={free:1.00,follow:1.15,tier1:1.30,tier2:1.65,tier3:2.10};
-const DAMAGE_REDUCTION={free:.08,follow:.12,tier1:.15,tier2:.25,tier3:.40};
+// Defense is intentionally light. Tier durability now comes primarily from HP
+// and matchup hierarchy, preventing long same-tier fights.
+const DAMAGE_REDUCTION={free:0,follow:.03,tier1:.04,tier2:.08,tier3:.12};
 const MATCHUP={
   free:  {free:1.00,follow:.75,tier1:.45,tier2:.20,tier3:.08},
   follow:{free:1.15,follow:1.00,tier1:.65,tier2:.28,tier3:.10},
@@ -87,6 +89,6 @@ window.__fighterArenaCombatRules={
   combatTempo:COMBAT_TEMPO,
   combo:{tier1:1,tier2:2,tier3:3,follow:2,secondHit:.85,thirdHit:.70},
   specialMultiplier:1.50,
-  note:'All combat power is tier math only. No fighter-specific attack or defense bonuses. Global tempo shortens fights without changing relative balance.'
+  note:'Defense is minimal; HP and matchup hierarchy define tier endurance. No fighter-specific attack or defense bonuses.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
