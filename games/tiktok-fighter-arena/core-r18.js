@@ -53,9 +53,9 @@ function choose(ids,viewerId){
 }
 
 function statBlock(v,f){
-  const g=1+(v.level-1)*.075;
+  const g=1+(v.level-1)*.075,roseHp=Math.max(0,Number(v.roseHpBonus||0));
   return{
-    hp:f.stats.hp*g,
+    hp:f.stats.hp*g+roseHp,
     attack:f.stats.attack*(1+(v.level-1)*.055),
     defense:f.stats.defense*(1+(v.level-1)*.045)
   };
@@ -93,7 +93,7 @@ export function createViewer(p={}){
   v={
     id,name,level:1,fighterId:starter,highestTier:0,wins:0,losses:0,streak:0,
     score:0,likes:0,gifts:0,followed:false,color:C[S.viewers.size%C.length],
-    savedEnergy:0,potions:0
+    savedEnergy:0,potions:0,roseHpBonus:0
   };
   S.viewers.set(id,v);
   enqueue(v);
@@ -249,8 +249,19 @@ function follow(p={}){
 }
 
 function rose(p={}){
-  const v=get(p);
-  if(v)level(v,clamp(Number(p.repeatCount||p.count||1),1,25));
+  const v=get(p);if(!v)return;
+  const n=clamp(Number(p.repeatCount||p.count||1),1,10000);
+  v.roseHpBonus=Math.max(0,Number(v.roseHpBonus||0))+n;
+  const rt=S.active.find(a=>a?.viewer.id===v.id);
+  if(rt&&!rt.dead){
+    rt.maxHp+=n;
+    rt.glow=1;
+    S.fx?.float?.(rt.x,S.h*.53,`+${n} MAX HP`,'#ff78c2');
+    burst(rt.x,S.h*.62,'#ff78c2',Math.min(28,8+Math.ceil(Math.sqrt(n))),1.05);
+    sheet('sparkGb',rt.x,S.h*.57,2.1);
+  }
+  say(`${v.name} · ROSE ×${n} → +${n} MAX HP`,'#ff78c2');
+  tone(620,.1,.025,'triangle');
 }
 
 function power(r,t){
