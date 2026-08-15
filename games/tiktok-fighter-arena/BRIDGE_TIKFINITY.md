@@ -15,20 +15,16 @@ The phone never tries to reach the PC's `localhost`. It opens the LAN URL genera
 3. If Windows blocks the phone connection, run `ABILITA_BRIDGE_WIFI.bat` once as administrator.
 4. Run `AVVIA_IPHONE_TIKFINITY.bat`.
 5. Open the URL written in `URL_IPHONE.txt` on the iPhone.
-6. In Fighter Arena's menu, `LIVE bridge: TikFinity online` confirms the full PC -> phone path.
+6. Confirm TikFinity is connected from the bridge console before starting the LIVE.
 
 Keep the bridge console and TikFinity Desktop open during the LIVE.
-
-## Smoke test without a LIVE
-
-With the phone page open through the generated URL, run `TEST_BRIDGE_JOIN.bat` on the PC. A `BridgeTest` fighter must enter the game. This verifies PC -> LAN -> phone independently from TikFinity.
 
 ## Events handled
 
 - chat/comment/member -> viewer enters the Fighter Arena queue
-- like -> potion/heal event
-- follow -> uncommon fighter unlock event
-- gift -> Rose level-up or gift tier/power using TikFinity gift metadata
+- like -> charges the viewer's double critical attack
+- follow -> Samurai Ronin unlock with combo x2
+- gift -> Rose Max HP/potion or gift tier/power using TikFinity gift metadata
 
 Gift streak updates are de-duplicated before being forwarded to the game so repeat counters are not multiplied twice.
 
@@ -37,4 +33,4 @@ Gift streak updates are de-duplicated before being forwarded to the game so repe
 - TikFinity Event API on the PC: `127.0.0.1:21213`
 - Fighter Arena LAN bridge: TCP `8795`, private network only
 
-The LAN event stream and test endpoints require a random local token stored under `%LOCALAPPDATA%\FighterArenaBridge`.
+The LAN event stream and health endpoint require a random local token stored under `%LOCALAPPDATA%\FighterArenaBridge`.
