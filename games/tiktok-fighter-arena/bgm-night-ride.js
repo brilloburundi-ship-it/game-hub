@@ -1,4 +1,4 @@
-const VERSION='1.0.0';
+const VERSION='1.0.1';
 const SOURCE='./assets/audio/music/night-ride.mp3?v=1.0.0';
 const EXPECTED_BYTES=67807191;
 const DEFAULT_VOLUME=.18;
@@ -22,27 +22,30 @@ let finalGameText='';
 let destroyed=false;
 
 function gameReady(){return window.__fighterArenaReady===true}
+function setDisabled(value){if(start&&start.disabled!==value)start.disabled=value}
+function setButtonText(value){if(start&&start.textContent!==value)start.textContent=value}
 function setGate(){
   if(!start||destroyed)return;
   if(failed){
-    start.disabled=false;
-    start.textContent='RETRY MUSIC';
+    setDisabled(false);
+    setButtonText('RETRY MUSIC');
     return;
   }
   if(!ready){
-    start.disabled=true;
-    if(gameReady())start.textContent='LOADING MUSIC…';
+    setDisabled(true);
+    if(gameReady())setButtonText('LOADING MUSIC…');
     return;
   }
   if(gameReady()){
-    start.disabled=false;
-    start.textContent='ENTER ARENA';
-  }
+    setDisabled(false);
+    setButtonText('ENTER ARENA');
+  }else setDisabled(true);
 }
 function showProgress(){
   if(!gameReady()||!loadText)return;
   if(!finalGameText)finalGameText=loadText.textContent||'Arena ready';
-  loadText.textContent=`Preloading Night Ride… ${Math.round(progress*100)}%`;
+  const text=`Preloading Night Ride… ${Math.round(progress*100)}%`;
+  if(loadText.textContent!==text)loadText.textContent=text;
   if(loadBar)loadBar.style.width=`${Math.max(0,Math.min(100,92+progress*8))}%`;
 }
 function markReady(){
@@ -117,6 +120,7 @@ async function preload(){
 }
 async function play(){
   if(!ready)return false;
+  if(started&&!audio.paused)return true;
   try{
     await audio.play();
     started=true;
@@ -130,8 +134,6 @@ async function play(){
 function stop(){audio.pause();audio.currentTime=0;started=false}
 function setVolume(value){audio.volume=Math.max(0,Math.min(1,Number(value)||0));return audio.volume}
 
-const gateObserver=start?new MutationObserver(()=>setGate()):null;
-gateObserver?.observe(start,{attributes:true,attributeFilter:['disabled']});
 const gateTimer=setInterval(()=>{
   if(destroyed)return;
   if(gameReady()&&!finalGameText&&loadText)finalGameText=loadText.textContent||'Arena ready';
@@ -158,7 +160,6 @@ document.addEventListener('visibilitychange',()=>{
 addEventListener('pagehide',()=>{
   destroyed=true;
   clearInterval(gateTimer);
-  gateObserver?.disconnect();
   audio.pause();
   audio.removeAttribute('src');
   if(objectUrl)URL.revokeObjectURL(objectUrl);
