@@ -1,10 +1,29 @@
+import LIKE_CHARGE_TAP_AUDIO from'./assets/audio/like-charge-tap-data.js?v=1.0.0';
 import{S,clamp}from'./core.js?v=1.4.0';
 
-const VERSION='1.1.0';
+const VERSION='1.2.0';
 const CHARGE_MAX=20;
 const ROSE_HEAL_PER_UNIT=25;
 const ATTACK_STATE=/^(attack\d+|special|dash)$/;
+const LIKE_AUDIO_VOICES=6;
+const likeAudioPool=Array.from({length:LIKE_AUDIO_VOICES},()=>{
+  const audio=new Audio(LIKE_CHARGE_TAP_AUDIO);
+  audio.preload='auto';
+  audio.volume=.38;
+  return audio;
+});
+let likeAudioVoice=0;
 
+function playLikeChargeTap(){
+  const audio=likeAudioPool[likeAudioVoice];
+  likeAudioVoice=(likeAudioVoice+1)%likeAudioPool.length;
+  try{
+    audio.pause();
+    audio.currentTime=0;
+    const pending=audio.play();
+    if(pending?.catch)pending.catch(()=>{});
+  }catch(_e){}
+}
 function viewerFromPayload(p={},out=null){
   if(out?.id&&S.viewers.has(out.id))return S.viewers.get(out.id);
   const raw=String(p.userId||p.id||'');
@@ -120,6 +139,7 @@ function installBridge(){
       if(r&&!r.dead&&Number.isFinite(beforeHp))r.hp=Math.min(r.maxHp,beforeHp);
       v.potions=Number.isFinite(beforePotions)?beforePotions:0;
       addLikeCharge(v,likeCount(p));
+      playLikeChargeTap();
     }
     if(v&&isRose(t,p))applyRosePotion(v,roseCount(p));
     return out;
@@ -132,7 +152,7 @@ function installBridge(){
   window.__fighterArenaLikeCritical={
     version:VERSION,chargeMax:CHARGE_MAX,likesPerCritical:CHARGE_MAX,
     doubleCritical:true,rosePotionHealPerUnit:ROSE_HEAL_PER_UNIT,
-    blueBarSource:'likes-only'
+    blueBarSource:'likes-only',likeChargeAudio:true
   };
   return true;
 }
@@ -140,4 +160,7 @@ function installBridge(){
 const installTimer=setInterval(()=>{if(installBridge())clearInterval(installTimer)},50);
 requestAnimationFrame(syncCritical);
 setTimeout(installBridge,12000);
-addEventListener('pagehide',()=>clearInterval(installTimer),{once:true});
+addEventListener('pagehide',()=>{
+  clearInterval(installTimer);
+  likeAudioPool.forEach(audio=>audio.pause());
+},{once:true});
