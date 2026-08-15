@@ -1,7 +1,7 @@
-import{startCombat as baseStartCombat}from'./combat-v14-closer.js?v=1.4.2-closer-gap';
+import{startCombat as baseStartCombat}from'./combat-v14-closer.js?v=1.4.3-unlimited-rounds';
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.0';
+const VERSION='1.0.1';
 const RANGE_SCALE=.76;
 
 function suppressOverheadNames(canvas){
