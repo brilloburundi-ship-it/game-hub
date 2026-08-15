@@ -9,7 +9,7 @@ export function startCombat(canvas){
   const footCanvas=document.createElement('canvas'),footCtx=footCanvas.getContext('2d',{willReadFrequently:true});
   const bias={samurai:.82,medieval_king:.94,evil_wizard_2:1.38,huntress_2:.85,samurai_commander:1.10};
   const groundY=()=>S.h*(S.w<600?.70:.75);
-  const combatGap=()=>Math.max(S.w<700?128:144,S.w*(S.w<700?.325:.095));
+  const combatGap=()=>Math.max(S.w<700?116:136,S.w*(S.w<700?.30:.088));
   const FX={impact:{key:'fx:impact',frameW:64,frameH:32,frames:6,fps:22},burst:{key:'fx:burst',frameW:64,frameH:32,frames:5,fps:20},slash:{key:'fx:slash',frameW:32,frameH:32,frames:5,fps:22},spark:{key:'fx:spark',frameW:32,frameH:32,frames:5,fps:22},impactGb:{key:'fx:impactGb',frameW:64,frameH:32,frames:6,fps:22},burstGb:{key:'fx:burstGb',frameW:64,frameH:32,frames:5,fps:20},slashGb:{key:'fx:slashGb',frameW:32,frameH:32,frames:5,fps:22},sparkGb:{key:'fx:sparkGb',frameW:32,frameH:32,frames:5,fps:22}};
 
   const tone=(freq=220,duration=.05,gain=.025,type='square')=>{if(!S.started)return;try{audio??=new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();const o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(gain,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+duration);o.connect(g);g.connect(audio.destination);o.start();o.stop(audio.currentTime+duration)}catch{}};
