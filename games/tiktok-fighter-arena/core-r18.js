@@ -5,12 +5,14 @@ export const S={
 };
 
 const R=[
-  ['street_mon','hero_knight'],
+  ['hero_knight','medieval_king','huntress_2','fire_wizard'],
   ['huntress','evil_wizard','hero_knight_prime'],
-  ['martial_hero','medieval_king','fantasy_warrior','huntress_2','samurai_ronin'],
-  ['martial_champion','evil_wizard_2','samurai_archer','fire_wizard','wanderer_magician'],
+  ['martial_hero','fantasy_warrior','medieval_warrior_2'],
+  ['martial_champion','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3'],
   ['samurai','samurai_commander','lightning_mage']
 ];
+const STARTER_FIGHTERS=R[0];
+const FOLLOW_FIGHTER='samurai_ronin';
 const C=['#50ddff','#ff5aa5','#ffd45f','#6fe985','#b987ff','#ff845c','#67f1cf','#8da5ff'];
 
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -86,7 +88,7 @@ export function createViewer(p={}){
     if(!S.active.some(a=>a?.viewer.id===id)&&!S.queue.some(q=>q.id===id))enqueue(v);
     return v;
   }
-  const starter=choose(tierPool(0),id);
+  const starter=choose(STARTER_FIGHTERS,id);
   if(!starter)return null;
   v={
     id,name,level:1,fighterId:starter,highestTier:0,wins:0,losses:0,streak:0,
@@ -243,7 +245,7 @@ function follow(p={}){
   const v=get(p);
   if(!v||v.followed)return;
   v.followed=true;
-  grantTier(v,Math.max(1,v.highestTier),'FOLLOW FIGHTER');
+  setFighter(v,FOLLOW_FIGHTER,'FOLLOW FIGHTER');
 }
 
 function rose(p={}){
