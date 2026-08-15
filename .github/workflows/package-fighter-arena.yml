@@ -1,0 +1,25 @@
+name: Package Fighter Arena
+
+on:
+  push:
+    paths:
+      - '.github/workflows/package-fighter-arena.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Upload Fighter Arena ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fighter-Arena-current
+          path: games/tiktok-fighter-arena
+          include-hidden-files: true
+          compression-level: 6
+          retention-days: 1
