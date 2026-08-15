@@ -1,11 +1,16 @@
 {
   "project": "tiktok-fighter-arena",
   "version": "1.4.0",
-  "marker": "fighter-arena-r20-shared-core-death-gate-2026-08-14",
+  "marker": "fighter-arena-r20-ground-lock-hysteresis-2026-08-15",
   "features": [
     "20/20 fighter roster target including the two Medieval Warrior packs",
     "all verified fighters participate in tier rotation and gift transformations",
     "idle run hit and every available attack animation are used by the combat state machine",
+    "grounded states hard-reset vertical air offset so interrupted jumps cannot leave fighters floating",
+    "random neutral jump transitions are removed from the normal attack cadence",
+    "per-frame pose-foot anchoring keeps attack hurt and idle rows on the same arena floor",
+    "run/idle hysteresis prevents animation thrashing near combat spacing",
+    "tiny residual knockback is clamped to zero to stop micro-drift between attacks",
     "native death/dead animation is played to its final frame before the next challenger can enter",
     "fighters without a native death sheet use hurt plus a procedural fall instead of disappearing",
     "countdown and combat use the same shared core state so the game cannot freeze on 3 from split module instances",
