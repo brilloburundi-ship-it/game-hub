@@ -1,6 +1,6 @@
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='2.3.0';
+const VERSION='2.4.0';
 const CLASSES=new Set(['free','follow','tier1','tier2','tier3']);
 
 // Definitive combat tuning. Fighter roster/visuals are intentionally excluded.
@@ -15,7 +15,7 @@ const MATCHUP={
 
 // Global tempo changes only fight duration. It does not alter roster, tier
 // membership, HP ladder, relative matchup hierarchy, animations or VFX.
-const COMBAT_TEMPO=1.75;
+const COMBAT_TEMPO=1.45;
 
 // combat-v14 currently applies 1.45 to strong attacks and .84 to chained hits.
 // These corrections make the effective locked rules exactly 1.50 special,
@@ -87,6 +87,6 @@ window.__fighterArenaCombatRules={
   combatTempo:COMBAT_TEMPO,
   combo:{tier1:1,tier2:2,tier3:3,follow:2,secondHit:.85,thirdHit:.70},
   specialMultiplier:1.50,
-  note:'Defense is disabled completely. Tier endurance comes from HP and matchup hierarchy only. No fighter-specific combat bonuses.'
+  note:'Defense is disabled completely. Global attack tempo is reduced to 1.45. Tier endurance comes from HP and matchup hierarchy only. No fighter-specific combat bonuses.'
 };
 window.__fighterArenaTierAttackBalance=window.__fighterArenaCombatRules;
