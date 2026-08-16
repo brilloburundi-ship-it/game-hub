@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#0a1013" />
+  <title>Frontline — Live War</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main id="game-shell">
+    <canvas id="game" aria-label="Frontline battlefield"></canvas>
+
+    <header class="hud top-hud">
+      <section class="team-panel team-blue">
+        <small>BLUE FORCE</small>
+        <strong id="blue-count">0</strong>
+        <span id="blue-kills">0 KILLS</span>
+      </section>
+      <section class="mission-panel">
+        <div class="brand">FRONTLINE <em>LIVE WAR</em></div>
+        <div id="sector-strip" class="sector-strip" aria-label="Sector control"></div>
+        <div class="round-line"><span id="mode-label">TEST MODE</span><b id="round-label">SECTOR WAR</b><span id="fps-label">-- FPS</span></div>
+      </section>
+      <section class="team-panel team-red">
+        <small>RED FORCE</small>
+        <strong id="red-count">0</strong>
+        <span id="red-kills">0 KILLS</span>
+      </section>
+    </header>
+
+    <aside id="kill-feed" class="kill-feed"></aside>
+
+    <section id="start-card" class="start-card">
+      <div class="eyebrow">FIRST PLAYABLE BUILD</div>
+      <h1>FRONTLINE<br><span>LIVE WAR</span></h1>
+      <p>Autonomous viewer soldiers fight, reload, throw grenades, capture sectors and push the frontline.</p>
+      <div class="feature-row"><span>3 CLASSES</span><span>7 SECTORS</span><span>REAL SPRITES</span></div>
+      <button id="start-test">START TEST BATTLE</button>
+      <small>LIVE mode never creates fake viewers. Demo bots only start in test/demo mode.</small>
+    </section>
+
+    <section id="winner-card" class="winner-card hidden">
+      <small>BATTLE COMPLETE</small>
+      <strong id="winner-title">BLUE FORCE WINS</strong>
+      <span id="winner-subtitle">Enemy base overrun</span>
+    </section>
+
+    <section class="bottom-hud hud">
+      <div class="viewer-banner"><b>JOIN</b> in chat to deploy a soldier <span>•</span> likes heal <span>•</span> rose = grenade</div>
+      <button id="test-toggle" class="test-toggle">TEST</button>
+    </section>
+
+    <section id="test-panel" class="test-panel hidden">
+      <div class="panel-title"><b>LIVE EVENT TESTER</b><button id="close-test">×</button></div>
+      <div class="test-grid">
+        <button data-test="join">+ JOIN VIEWER</button>
+        <button data-test="like">+ 25 LIKES</button>
+        <button data-test="rose">+ ROSE</button>
+        <button data-test="follow">+ FOLLOW</button>
+        <button data-test="reinforce">+ REINFORCEMENTS</button>
+        <button data-test="reset">RESET BATTLE</button>
+      </div>
+      <p>Bridge-ready API: <code>window.FRONTLINE_LIVE.handle(event)</code></p>
+    </section>
+
+    <div id="loading" class="loading"><b>LOADING SOLDIERS</b><span id="load-progress">0%</span></div>
+  </main>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
