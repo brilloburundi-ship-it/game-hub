@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $AppName = 'Fighter Arena WEB SAFE'
 $InstallDir = Join-Path $env:LOCALAPPDATA 'FighterArenaWebSafe'
+$StageDir = Join-Path $env:LOCALAPPDATA 'FighterArenaWebSafe.installing'
 $StartMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Fighter Arena'
 $Desktop = [Environment]::GetFolderPath('Desktop')
 $DesktopShortcut = Join-Path $Desktop 'Fighter Arena WEB SAFE.lnk'
@@ -19,6 +20,12 @@ Write-Host 'Questa installazione NON modifica TikFinity e NON modifica LIVE Stud
 Write-Host 'Installa solo il gioco web locale e il suo piccolo server HTTP.'
 Write-Host ''
 
+try {
+  $SourceDir = (Resolve-Path -LiteralPath $SourceDir).Path.TrimEnd('\')
+} catch {
+  throw "Cartella sorgente non valida: $SourceDir"
+}
+
 $Node = Get-Command node.exe -ErrorAction SilentlyContinue
 if (-not $Node) {
   $Candidates = @(
@@ -27,7 +34,7 @@ if (-not $Node) {
     'C:\Users\kevin\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
   )
   foreach ($candidate in $Candidates) {
-    if ($candidate -and (Test-Path $candidate)) { $Node = Get-Item $candidate; break }
+    if ($candidate -and (Test-Path -LiteralPath $candidate)) { $Node = Get-Item -LiteralPath $candidate; break }
   }
 }
 
@@ -43,37 +50,75 @@ if (-not $Node) {
   $Node = Get-Command node.exe -ErrorAction SilentlyContinue
   if (-not $Node) {
     $candidate = Join-Path $env:ProgramFiles 'nodejs\node.exe'
-    if (Test-Path $candidate) { $Node = Get-Item $candidate }
+    if (Test-Path -LiteralPath $candidate) { $Node = Get-Item -LiteralPath $candidate }
   }
   if (-not $Node) { throw 'Node.js risulta installato ma node.exe non e ancora raggiungibile. Riavvia Windows e rilancia l installer.' }
 }
 
 Write-Host ('[OK] Node.js: ' + $Node.Source) -ForegroundColor Green
+Write-Host '[INFO] Preparazione copia pulita dei file...' -ForegroundColor Yellow
 
-if (Test-Path $InstallDir) {
-  Write-Host '[INFO] Aggiornamento installazione esistente...' -ForegroundColor Yellow
-} else {
-  New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+# Non usiamo Robocopy: su alcune configurazioni Windows il pacchetto estratto da Downloads
+# restituiva fatal error code 16. Copiamo i file con PowerShell in una cartella staging,
+# poi sostituiamo l'installazione solo dopo aver verificato i file essenziali.
+if (Test-Path -LiteralPath $StageDir) {
+  Remove-Item -LiteralPath $StageDir -Recurse -Force
 }
+New-Item -ItemType Directory -Path $StageDir -Force | Out-Null
 
-$excludeDirs = @('.git','node_modules')
+$excludeDirs = @('.git','node_modules','bridge')
 $excludeFiles = @(
   'AVVIA_IPHONE_TIKFINITY.bat','ABILITA_BRIDGE_WIFI.bat','KILL_ALL_GAME_BRIDGES_GLOBAL.cmd',
   'URL_IPHONE.txt','_probe_note.txt','_probe2_note.txt','_probe3_note.txt','_probe4_note.txt','_probe5_note.txt','_probe6_note.txt'
 )
 
-$robocopyArgs = @($SourceDir,$InstallDir,'/E','/R:1','/W:1','/NFL','/NDL','/NJH','/NJS','/NP')
-if ($excludeDirs.Count) { $robocopyArgs += '/XD'; $robocopyArgs += $excludeDirs }
-if ($excludeFiles.Count) { $robocopyArgs += '/XF'; $robocopyArgs += $excludeFiles }
-& robocopy @robocopyArgs | Out-Null
-if ($LASTEXITCODE -gt 7) { throw "Copia file fallita. Robocopy code $LASTEXITCODE" }
+$files = Get-ChildItem -LiteralPath $SourceDir -Recurse -File -Force
+$copied = 0
+foreach ($file in $files) {
+  $relative = $file.FullName.Substring($SourceDir.Length).TrimStart('\')
+  if (-not $relative) { continue }
+  $parts = $relative -split '[\\/]'
+  if ($parts | Where-Object { $excludeDirs -contains $_ }) { continue }
+  if ($excludeFiles -contains $file.Name) { continue }
+
+  $target = Join-Path $StageDir $relative
+  $targetDir = Split-Path -Parent $target
+  if (-not (Test-Path -LiteralPath $targetDir)) {
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+  }
+  Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+  $copied++
+}
+
+if ($copied -lt 20) { throw "Copia incompleta: solo $copied file copiati." }
+
+$required = @(
+  'START_FIGHTER_ARENA_WEB_SAFE.cmd',
+  'desktop-live.html',
+  'desktop-tikfinity-safe.js',
+  'web-safe-server.mjs'
+)
+foreach ($requiredFile in $required) {
+  if (-not (Test-Path -LiteralPath (Join-Path $StageDir $requiredFile))) {
+    throw "File essenziale mancante nel pacchetto: $requiredFile"
+  }
+}
+
+Write-Host ("[OK] Copiati $copied file nel pacchetto locale.") -ForegroundColor Green
+
+# Sostituzione atomica semplice: prima rimuove l'installazione precedente/Parziale,
+# poi rinomina lo staging. In caso di file bloccati mostra un errore chiaro.
+if (Test-Path -LiteralPath $InstallDir) {
+  Write-Host '[INFO] Rimuovo installazione precedente/parziale...' -ForegroundColor Yellow
+  try {
+    Remove-Item -LiteralPath $InstallDir -Recurse -Force
+  } catch {
+    throw 'Impossibile aggiornare: chiudi eventuali finestre Fighter Arena WEB SAFE e riprova.'
+  }
+}
+Move-Item -LiteralPath $StageDir -Destination $InstallDir
 
 $Launcher = Join-Path $InstallDir 'START_FIGHTER_ARENA_WEB_SAFE.cmd'
-if (-not (Test-Path $Launcher)) { throw 'Launcher WEB SAFE mancante dopo la copia.' }
-if (-not (Test-Path (Join-Path $InstallDir 'desktop-live.html'))) { throw 'desktop-live.html mancante dopo la copia.' }
-if (-not (Test-Path (Join-Path $InstallDir 'desktop-tikfinity-safe.js'))) { throw 'desktop-tikfinity-safe.js mancante dopo la copia.' }
-if (-not (Test-Path (Join-Path $InstallDir 'web-safe-server.mjs'))) { throw 'web-safe-server.mjs mancante dopo la copia.' }
-
 New-Item -ItemType Directory -Path $StartMenuDir -Force | Out-Null
 $Shell = New-Object -ComObject WScript.Shell
 foreach ($ShortcutPath in @($DesktopShortcut,$StartShortcut)) {
