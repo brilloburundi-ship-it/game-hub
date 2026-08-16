@@ -1,0 +1,12 @@
+{
+  "name": "fighter-arena-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prepare:web": "node prepare-desktop.mjs",
+    "build": "node prepare-desktop.mjs && tauri build --bundles nsis"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  }
+}
