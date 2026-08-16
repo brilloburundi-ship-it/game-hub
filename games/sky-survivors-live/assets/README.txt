@@ -1,0 +1,1 @@
+Aircraft assets in this folder are the physical runtime sprites for Sky Survivors LIVE. The game must load these files directly; atlas.js is retained only as a temporary fallback during migration.
