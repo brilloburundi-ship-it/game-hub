@@ -1,18 +1,18 @@
 import{S}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.2';
+const VERSION='1.0.3';
 
 // Authoritative gameplay classification. Do not infer gift tiers from the
 // original asset metadata: those tier values describe the source roster and
 // are not the TikTok gift ladder.
 const ROSTER={
-  free:['hero_knight','medieval_king','huntress_2','fire_wizard','medieval_warrior_2'],
+  free:['hero_knight','medieval_king','huntress_2','evil_wizard_2','medieval_warrior_2'],
   follow:['samurai_ronin'],
   tier1:['martial_champion','hero_knight_prime','huntress','evil_wizard'],
-  tier2:['fantasy_warrior','street_mon','samurai','medieval_warrior_3','evil_wizard_2'],
-  tier3:['martial_hero','samurai_commander','samurai_archer','wanderer_magician','lightning_mage']
+  tier2:['fantasy_warrior','street_mon','samurai','medieval_warrior_3'],
+  tier3:['martial_hero','samurai_commander','samurai_archer','wanderer_magician','lightning_mage','fire_wizard']
 };
-const STARTERS=['hero_knight','medieval_king','huntress_2','fire_wizard'];
+const STARTERS=['hero_knight','medieval_king','huntress_2','evil_wizard_2'];
 const CLASS_LEVEL={free:0,follow:0,tier1:1,tier2:2,tier3:3};
 const byId=new Map();
 for(const[className,ids]of Object.entries(ROSTER))for(const id of ids){
