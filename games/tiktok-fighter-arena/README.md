@@ -14,6 +14,20 @@ Permanent Game Hub project for a TikTok LIVE 1v1 auto-fighter queue.
 ## Fighter roster
 The v1.4 runtime targets all 20 fighter entries assembled from the supplied packs, including the two Medieval Warrior additions and the multi-character Samurai/Magician packs. The combat state machine uses idle, run, hit/hurt, every available attack variant, jump/fall where present, and native death/dead animations. If a source pack has no death sheet, the fighter uses its hit animation followed by a controlled fall so it never simply disappears.
 
+## Desktop LIVE safe web app
+For TikTok LIVE Studio on the same Windows PC, use `AVVIA_FIGHTER_ARENA_LIVE.bat`. It now opens `desktop-live.html` on the dedicated local HTTP origin `127.0.0.1:8777`.
+
+Safe desktop rules:
+- TikFinity must already be connected to the TikTok LIVE before Fighter Arena is opened.
+- The launcher never starts, closes or reconnects TikFinity and never controls LIVE Studio.
+- No port `8795` LAN/iPhone bridge is used in desktop mode.
+- Fighter Arena finishes its game preload first, then opens exactly one passive Event API WebSocket to `ws://127.0.0.1:21213/`.
+- There is no automatic reconnect loop. If the Event API drops, the loading screen exposes `RECONNECT TIKFINITY` for an explicit retry.
+- Chrome Web Locks prevent a second `desktop-live.html` tab on the same local origin from opening another TikFinity Event API socket.
+- Switching windows/tabs does not trigger reconnects or socket churn.
+
+This keeps the TikFinity ↔ TikTok LIVE/LIVE Studio connection independent from the game. The game only listens to TikFinity's local Event API.
+
 ## LIVE bridge
 Use `window.FighterArenaBridge.emit(type, payload)`.
 
