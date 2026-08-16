@@ -1,20 +1,10 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title FIGHTER ARENA LIVE - TIKFINITY DIRECT
+title FIGHTER ARENA LIVE - WEB SAFE
 
-set "PORT="
-for /L %%P in (8765,1,8785) do (
-  netstat -ano 2^>nul | findstr /R /C:":%%P .*LISTENING" >nul 2>nul
-  if errorlevel 1 (
-    set "PORT=%%P"
-    goto :port_found
-  )
-)
-
-:port_found
-if not defined PORT set "PORT=8790"
-set "LIVE_URL=http://127.0.0.1:%PORT%/index.html"
+set "PORT=8777"
+set "LIVE_URL=http://127.0.0.1:%PORT%/desktop-live.html"
 >"URL_FIGHTER_ARENA_LIVE.txt" echo %LIVE_URL%
 
 set "PYMODE="
@@ -34,18 +24,34 @@ if not defined PYMODE (
 )
 
 echo ============================================
-echo   FIGHTER ARENA LIVE - DIRECT TIKFINITY
-echo ============================================
+echo   FIGHTER ARENA LIVE - WEB SAFE
+ echo ============================================
 echo.
-echo TikFinity Desktop deve essere aperto sul PC.
-echo Event API: ws://localhost:21213/
+echo Questa versione NON avvia, chiude o riconnette TikFinity.
+echo NON usa bridge 8795 e NON tocca TikTok LIVE Studio.
+echo Il gioco apre UN SOLO client Event API dopo il preload completo.
+echo Event API: ws://127.0.0.1:21213/
 echo Fighter Arena: %LIVE_URL%
 echo.
+echo Prima collega TikFinity alla LIVE e lascialo stabile.
+echo Poi usa questa finestra per aprire Fighter Arena.
+echo.
+
+powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 '%LIVE_URL%'; if($r.StatusCode -eq 200){exit 0}else{exit 1} } catch { exit 1 }" >nul 2>nul
+if not errorlevel 1 goto :server_ready
+
+netstat -ano 2^>nul | findstr /R /C:":%PORT% .*LISTENING" >nul 2>nul
+if not errorlevel 1 (
+  echo La porta %PORT% e gia occupata da un altro programma.
+  echo Chiudi il programma che usa la porta e riprova.
+  pause
+  exit /b 1
+)
 
 if /I "%PYMODE%"=="PY" (
-  start "FIGHTER ARENA LOCAL SERVER" /min py -3 -m http.server %PORT% --bind 127.0.0.1
+  start "FIGHTER ARENA WEB SAFE SERVER" /min py -3 -m http.server %PORT% --bind 127.0.0.1
 ) else (
-  start "FIGHTER ARENA LOCAL SERVER" /min python -m http.server %PORT% --bind 127.0.0.1
+  start "FIGHTER ARENA WEB SAFE SERVER" /min python -m http.server %PORT% --bind 127.0.0.1
 )
 
 for /L %%I in (1,1,12) do (
@@ -61,8 +67,9 @@ exit /b 1
 :server_ready
 start "" "%LIVE_URL%"
 echo.
-echo Connessione LIVE: browser -^> ws://localhost:21213/ -^> TikFinity
-echo Nessun passaggio Game Hub e nessun bridge 8795 in modalita PC.
+echo WEB SAFE avviata.
+echo TikFinity resta indipendente dalla LIVE Studio.
+echo Nessun reconnect automatico aggressivo: se Event API cade, usa RECONNECT TIKFINITY nella schermata del gioco.
 echo URL salvato in URL_FIGHTER_ARENA_LIVE.txt
-echo Lascia TikFinity Desktop aperto durante la LIVE.
+echo.
 exit /b 0
