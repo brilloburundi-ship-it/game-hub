@@ -1,6 +1,6 @@
 import{S}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.3';
+const VERSION='1.0.4';
 
 // Authoritative gameplay classification. Do not infer gift tiers from the
 // original asset metadata: those tier values describe the source roster and
@@ -12,7 +12,7 @@ const ROSTER={
   tier2:['fantasy_warrior','street_mon','samurai','medieval_warrior_3'],
   tier3:['martial_hero','samurai_commander','samurai_archer','wanderer_magician','lightning_mage','fire_wizard']
 };
-const STARTERS=['hero_knight','medieval_king','huntress_2','evil_wizard_2'];
+const STARTERS=['hero_knight','medieval_king','huntress_2'];
 const CLASS_LEVEL={free:0,follow:0,tier1:1,tier2:2,tier3:3};
 const byId=new Map();
 for(const[className,ids]of Object.entries(ROSTER))for(const id of ids){
