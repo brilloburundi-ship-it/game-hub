@@ -18,47 +18,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build clean WEB SAFE package v2
+      - name: Build ONE START WEB SAFE package
         shell: bash
         run: |
           set -euo pipefail
           SRC="games/tiktok-fighter-arena"
-          OUT="dist/Fighter-Arena-WEB-DESKTOP-SAFE"
-          mkdir -p "$OUT"
-          rsync -a "$SRC/" "$OUT/" \
+          OUT="dist/Fighter-Arena-WEB-DESKTOP-SAFE-ONE-START"
+          SYS="$OUT/_system"
+          mkdir -p "$SYS"
+
+          # Unico file che l'utente deve premere.
+          cp "$SRC/AVVIA_FIGHTER_ARENA_WEB_SAFE.cmd" "$OUT/AVVIA_FIGHTER_ARENA_WEB_SAFE.cmd"
+
+          # Tutto il runtime resta in una sola cartella di supporto.
+          rsync -a "$SRC/" "$SYS/" \
             --exclude '.git' \
             --exclude 'bridge/' \
+            --exclude 'AVVIA_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'AVVIA_FIGHTER_ARENA_LIVE.bat' \
             --exclude 'AVVIA_IPHONE_TIKFINITY.bat' \
             --exclude 'ABILITA_BRIDGE_WIFI.bat' \
+            --exclude 'INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'START_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'install-web-safe.ps1' \
+            --exclude 'KILL_ALL_GAME_BRIDGES_GLOBAL.cmd' \
             --exclude 'BRIDGE_CLOUD.md' \
             --exclude 'BRIDGE_TIKFINITY.md' \
             --exclude 'URL_IPHONE.txt' \
+            --exclude 'URL_FIGHTER_ARENA_LIVE.txt' \
             --exclude '_probe*.txt' \
             --exclude '_tmp_marker.txt'
-          test -f "$OUT/INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd"
-          test -f "$OUT/install-web-safe.ps1"
-          test -f "$OUT/START_FIGHTER_ARENA_WEB_SAFE.cmd"
-          test -f "$OUT/desktop-live.html"
-          test -f "$OUT/desktop-tikfinity-safe.js"
-          test -f "$OUT/web-safe-server.mjs"
-          printf '%s\n' \
-            'FIGHTER ARENA WEB DESKTOP SAFE' \
-            '' \
-            '1. Estrai tutto lo ZIP.' \
-            '2. Esegui INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd.' \
-            '3. Avvia LIVE Studio e vai LIVE.' \
-            '4. Collega TikFinity e attendi che sia stabile.' \
-            '5. Apri Fighter Arena WEB SAFE dal desktop.' \
-            '' \
-            'La web app non usa il bridge 8795 e non controlla TikFinity o LIVE Studio.' \
-            > "$OUT/LEGGIMI_PRIMA.txt"
+
+          test -f "$OUT/AVVIA_FIGHTER_ARENA_WEB_SAFE.cmd"
+          test -f "$SYS/one-start-web-safe.ps1"
+          test -f "$SYS/desktop-live.html"
+          test -f "$SYS/desktop-tikfinity-safe.js"
+          test -f "$SYS/web-safe-server.mjs"
+
           cd dist
-          zip -r -9 Fighter-Arena-WEB-DESKTOP-SAFE.zip Fighter-Arena-WEB-DESKTOP-SAFE
+          zip -r -9 Fighter-Arena-WEB-DESKTOP-SAFE-ONE-START.zip Fighter-Arena-WEB-DESKTOP-SAFE-ONE-START
 
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: Fighter-Arena-WEB-DESKTOP-SAFE
-          path: dist/Fighter-Arena-WEB-DESKTOP-SAFE.zip
+          name: Fighter-Arena-WEB-DESKTOP-SAFE-ONE-START
+          path: dist/Fighter-Arena-WEB-DESKTOP-SAFE-ONE-START.zip
           if-no-files-found: error
           retention-days: 14
