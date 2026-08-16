@@ -46,12 +46,20 @@ await writeFile(combatPath, combat, 'utf8');
 // connecting/disconnecting. The web build keeps its existing fallback behavior.
 const bridgePath = path.join(outDir, 'live-bridge.js');
 let bridge = await readFile(bridgePath, 'utf8');
-const originalFallback = `  if (forceLocal || !liveUser) {\n    loadLegacyBridge();\n    return;\n  }`;
-const cloudOnlyFallback = `  if (forceLocal) {\n    status('local bridge disabled in Fighter Arena Desktop', 'inactive');\n    return;\n  }\n\n  if (!liveUser) {\n    document.documentElement.dataset.fighterBridgeTransport = 'cloud';\n    status('cloud username not configured · TikFinity disabled', 'waiting');\n    return;\n  }`;
-if (!bridge.includes(originalFallback)) {
+const fallbackPattern = /if\s*\(forceLocal\s*\|\|\s*!liveUser\)\s*\{\s*loadLegacyBridge\(\);\s*return;\s*\}/m;
+if (!fallbackPattern.test(bridge)) {
   throw new Error('Cloud-only bridge patch target not found in live-bridge.js');
 }
-bridge = bridge.replace(originalFallback, cloudOnlyFallback);
+bridge = bridge.replace(fallbackPattern, `if (forceLocal) {
+    status('local bridge disabled in Fighter Arena Desktop', 'inactive');
+    return;
+  }
+
+  if (!liveUser) {
+    document.documentElement.dataset.fighterBridgeTransport = 'cloud';
+    status('cloud username not configured · TikFinity disabled', 'waiting');
+    return;
+  }`);
 await writeFile(bridgePath, bridge, 'utf8');
 
 console.log(`Prepared LIVE-safe Fighter Arena assets in ${outDir} (1280x720, DPR <= 1.25, cloud bridge only)`);
