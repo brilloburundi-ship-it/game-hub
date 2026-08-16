@@ -1,24 +1,25 @@
 import{renderArenaHD as baseRender,preloadArenaHD as basePreload}from'./arena-hd-v116.js?v=1.16.0';
 
-const VERSION='1.21.0';
+const VERSION='1.21.1';
 const SKY_FPS=15;
 const SKY_FRAME_MS=1000/SKY_FPS;
 const SKY_STALL_MS=1400;
 const GROUND_CACHE=new WeakMap();
+const PORTRAIT_FLOOR=.688;
 
 // Vertical arena composition only. Existing arena assets, fighter physics and fighter scale stay untouched.
 // In portrait we fit the HD foreground by WIDTH (never by height), preserve its aspect ratio,
-// let the animated sky fill the extra vertical space and anchor the detected arena floor exactly
-// to the same groundY used by combat (70% of viewport height).
+// let the animated sky fill the extra vertical space and anchor the detected arena floor slightly
+// above the previous 70% line for a cleaner vertical composition.
 const PORTRAIT_PROFILES={
-  sky_dojo:{width:1.34,x:0,floor:.70},
-  ice_crystal:{width:1.30,x:0,floor:.70},
-  arcane_ruins:{width:1.32,x:0,floor:.70},
-  desert_moon:{width:1.26,x:0,floor:.70},
-  neon_city:{width:1.30,x:0,floor:.70},
-  jungle_temple:{width:1.28,x:0,floor:.70},
-  volcanic_ring:{width:1.30,x:0,floor:.70},
-  celestial_citadel:{width:1.30,x:0,floor:.70}
+  sky_dojo:{width:1.34,x:0,floor:PORTRAIT_FLOOR},
+  ice_crystal:{width:1.30,x:0,floor:PORTRAIT_FLOOR},
+  arcane_ruins:{width:1.32,x:0,floor:PORTRAIT_FLOOR},
+  desert_moon:{width:1.26,x:0,floor:PORTRAIT_FLOOR},
+  neon_city:{width:1.30,x:0,floor:PORTRAIT_FLOOR},
+  jungle_temple:{width:1.28,x:0,floor:PORTRAIT_FLOOR},
+  volcanic_ring:{width:1.30,x:0,floor:PORTRAIT_FLOOR},
+  celestial_citadel:{width:1.30,x:0,floor:PORTRAIT_FLOOR}
 };
 
 function isPortrait(w,h){return h>w*1.16}
@@ -65,7 +66,7 @@ function composedContext(c,state){
           if(args.length===9){
             const [im,sx,sy,sw,sh,,baseDy]=args;
             if(isPortrait(state.w,state.h)){
-              const p=PORTRAIT_PROFILES[state.id]||{width:1.30,x:0,floor:.70};
+              const p=PORTRAIT_PROFILES[state.id]||{width:1.30,x:0,floor:PORTRAIT_FLOOR};
               const sourceW=Math.max(1,Number(sw)||1),sourceH=Math.max(1,Number(sh)||1);
               const dw=state.w*p.width;
               const dh=dw*(sourceH/sourceW);
@@ -144,7 +145,7 @@ export function preloadArenaHD(){return basePreload()}
 window.__fighterArenaArenaComposition={
   version:VERSION,
   portrait:'proportional-width-fit',
-  portraitGroundY:.70,
+  portraitGroundY:PORTRAIT_FLOOR,
   preserveAspectRatio:true,
   stretchX:false,
   stretchY:false,
