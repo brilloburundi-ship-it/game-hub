@@ -1,0 +1,66 @@
+name: Package Fighter Arena Vertical
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'games/tiktok-fighter-arena/**'
+      - '.github/workflows/package-fighter-arena-vertical.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build vertical package
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="games/tiktok-fighter-arena"
+          OUT="dist/Fighter-Arena-VERTICALE-9x16"
+          mkdir -p "$OUT"
+
+          rsync -a "$SRC/" "$OUT/" \
+            --exclude '.git' \
+            --exclude 'desktop-live.html' \
+            --exclude 'desktop-tikfinity-safe.js' \
+            --exclude 'web-safe-server.mjs' \
+            --exclude 'one-start-web-safe.ps1' \
+            --exclude 'AVVIA_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'AVVIA_FIGHTER_ARENA_LIVE.bat' \
+            --exclude 'INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'START_FIGHTER_ARENA_WEB_SAFE.cmd' \
+            --exclude 'install-web-safe.ps1' \
+            --exclude 'URL_FIGHTER_ARENA_LIVE.txt'
+
+          test -f "$OUT/index.html"
+          test -f "$OUT/arena-hd-v120.js"
+          test -f "$OUT/AVVIA_IPHONE_TIKFINITY.bat"
+          test -f "$OUT/bridge/server.mjs"
+
+          cat > "$OUT/LEGGIMI_VERTICALE.txt" <<'EOF'
+          FIGHTER ARENA - VERSIONE VERTICALE 9:16
+
+          Questa e la build verticale con le 8 arene esistenti ricomposte senza stretching.
+          Non contiene la nuova build PC WEB SAFE.
+
+          Per la modalita iPhone/Safari + TikFinity usa:
+          AVVIA_IPHONE_TIKFINITY.bat
+          EOF
+
+          cd dist
+          zip -r -9 Fighter-Arena-VERTICALE-9x16.zip Fighter-Arena-VERTICALE-9x16
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fighter-Arena-VERTICALE-9x16
+          path: dist/Fighter-Arena-VERTICALE-9x16.zip
+          if-no-files-found: error
+          retention-days: 14
