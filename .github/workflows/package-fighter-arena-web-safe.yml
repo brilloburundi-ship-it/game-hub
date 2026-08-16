@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build clean WEB SAFE package
+      - name: Build clean WEB SAFE package v2
         shell: bash
         run: |
           set -euo pipefail
@@ -36,6 +36,7 @@ jobs:
             --exclude '_probe*.txt' \
             --exclude '_tmp_marker.txt'
           test -f "$OUT/INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd"
+          test -f "$OUT/install-web-safe.ps1"
           test -f "$OUT/START_FIGHTER_ARENA_WEB_SAFE.cmd"
           test -f "$OUT/desktop-live.html"
           test -f "$OUT/desktop-tikfinity-safe.js"
