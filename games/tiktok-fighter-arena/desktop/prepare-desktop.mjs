@@ -40,4 +40,18 @@ if (!combat.includes(originalDpr)) {
 combat = combat.replace(originalDpr, liveSafeDpr);
 await writeFile(combatPath, combat, 'utf8');
 
-console.log(`Prepared LIVE-safe Fighter Arena assets in ${outDir} (1280x720, DPR <= 1.25)`);
+// Desktop uses the cloud bridge only. Do not silently load the local TikFinity
+// WebSocket fallback when no cloud username has been configured: that fallback
+// repeatedly opens ws://localhost:21213 and can show up in TikFinity as a client
+// connecting/disconnecting. The web build keeps its existing fallback behavior.
+const bridgePath = path.join(outDir, 'live-bridge.js');
+let bridge = await readFile(bridgePath, 'utf8');
+const originalFallback = `  if (forceLocal || !liveUser) {\n    loadLegacyBridge();\n    return;\n  }`;
+const cloudOnlyFallback = `  if (forceLocal) {\n    status('local bridge disabled in Fighter Arena Desktop', 'inactive');\n    return;\n  }\n\n  if (!liveUser) {\n    document.documentElement.dataset.fighterBridgeTransport = 'cloud';\n    status('cloud username not configured · TikFinity disabled', 'waiting');\n    return;\n  }`;
+if (!bridge.includes(originalFallback)) {
+  throw new Error('Cloud-only bridge patch target not found in live-bridge.js');
+}
+bridge = bridge.replace(originalFallback, cloudOnlyFallback);
+await writeFile(bridgePath, bridge, 'utf8');
+
+console.log(`Prepared LIVE-safe Fighter Arena assets in ${outDir} (1280x720, DPR <= 1.25, cloud bridge only)`);
