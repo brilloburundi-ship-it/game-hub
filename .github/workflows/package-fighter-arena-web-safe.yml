@@ -1,0 +1,63 @@
+name: Package Fighter Arena WEB SAFE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'games/tiktok-fighter-arena/**'
+      - '.github/workflows/package-fighter-arena-web-safe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build clean WEB SAFE package
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="games/tiktok-fighter-arena"
+          OUT="dist/Fighter-Arena-WEB-DESKTOP-SAFE"
+          mkdir -p "$OUT"
+          rsync -a "$SRC/" "$OUT/" \
+            --exclude '.git' \
+            --exclude 'bridge/' \
+            --exclude 'AVVIA_IPHONE_TIKFINITY.bat' \
+            --exclude 'ABILITA_BRIDGE_WIFI.bat' \
+            --exclude 'BRIDGE_CLOUD.md' \
+            --exclude 'BRIDGE_TIKFINITY.md' \
+            --exclude 'URL_IPHONE.txt' \
+            --exclude '_probe*.txt' \
+            --exclude '_tmp_marker.txt'
+          test -f "$OUT/INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd"
+          test -f "$OUT/START_FIGHTER_ARENA_WEB_SAFE.cmd"
+          test -f "$OUT/desktop-live.html"
+          test -f "$OUT/desktop-tikfinity-safe.js"
+          test -f "$OUT/web-safe-server.mjs"
+          printf '%s\n' \
+            'FIGHTER ARENA WEB DESKTOP SAFE' \
+            '' \
+            '1. Estrai tutto lo ZIP.' \
+            '2. Esegui INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd.' \
+            '3. Avvia LIVE Studio e vai LIVE.' \
+            '4. Collega TikFinity e attendi che sia stabile.' \
+            '5. Apri Fighter Arena WEB SAFE dal desktop.' \
+            '' \
+            'La web app non usa il bridge 8795 e non controlla TikFinity o LIVE Studio.' \
+            > "$OUT/LEGGIMI_PRIMA.txt"
+          cd dist
+          zip -r -9 Fighter-Arena-WEB-DESKTOP-SAFE.zip Fighter-Arena-WEB-DESKTOP-SAFE
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fighter-Arena-WEB-DESKTOP-SAFE
+          path: dist/Fighter-Arena-WEB-DESKTOP-SAFE.zip
+          if-no-files-found: error
+          retention-days: 14
