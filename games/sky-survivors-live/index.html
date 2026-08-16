@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#08152b" />
+  <title>Sky Survivors LIVE</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <main id="app" aria-label="Sky Survivors LIVE">
+    <canvas id="game" width="1080" height="1920"></canvas>
+
+    <header class="top-hud">
+      <div class="brand"><span class="live-dot"></span> SKY SURVIVORS <b>LIVE</b></div>
+      <div class="status-row">
+        <span id="modeBadge">LIVE</span>
+        <span>WAVE <b id="waveValue">1</b></span>
+        <span>✈ <b id="pilotValue">0</b></span>
+        <span>☠ <b id="killValue">0</b></span>
+      </div>
+    </header>
+
+    <section class="ranking" aria-label="Classifica piloti">
+      <div class="ranking-title">TOP ACES</div>
+      <div id="rankingRows"></div>
+    </section>
+
+    <div id="announcement" class="announcement" aria-live="polite"></div>
+
+    <section class="bottom-hud">
+      <div class="join-call"><strong>SCRIVI JOIN</strong> PER ENTRARE IN VOLO</div>
+      <div class="gift-strip">
+        <span>♥ LIKE = REPAIR</span>
+        <span>＋ FOLLOW = UPGRADE</span>
+        <span>🌹 ROSE = BURST</span>
+      </div>
+    </section>
+
+    <aside id="testPanel" class="test-panel" hidden>
+      <div class="test-title">TEST MODE</div>
+      <button data-test="join">+ PILOT</button>
+      <button data-test="like">LIKE ×50</button>
+      <button data-test="follow">FOLLOW</button>
+      <button data-test="rose">ROSE</button>
+      <button data-test="wave">NEXT WAVE</button>
+      <button data-test="reset">RESET</button>
+    </aside>
+  </main>
+  <script src="./atlas.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>
