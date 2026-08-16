@@ -26,7 +26,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm install --ignore-scripts
-      - run: npm run check:pages
+      - run: npm test
+      - run: npm run check:backend
+      - run: npm run check:god-world-v8-mobile
+      - run: npm run check:kingdom-war-2
+      - name: Fighter Arena regression check
+        continue-on-error: true
+        run: npm run check:fighter-arena
+      - run: npm run build
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
         with:
