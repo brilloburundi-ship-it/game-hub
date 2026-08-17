@@ -7,8 +7,10 @@ import { dirname } from 'node:path';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)));
 const PORT = Number(process.env.FIGHTER_ARENA_WEB_PORT || 8777);
 const HOST = '127.0.0.1';
-const TIKTOOL_API_KEY = String(process.env.TIKTOOL_API_KEY || 'tk_fbdb0dbd17546f878ddc86ae2ace8fbca16c1d1c31e75dae').trim();
-const TIKTOOL_AUTH_URL = 'https://api.tik.tools/authentication/jwt';
+const TIKTOOL_API_KEY = String(process.env.TIKTOOL_API_KEY || '').trim();
+const TIKTOOL_API_URL = 'https://api.tik.tools';
+const TIKTOOL_AUTH_URL = `${TIKTOOL_API_URL}/authentication/jwt`;
+const TIKTOOL_CHECK_ALIVE_URL = `${TIKTOOL_API_URL}/webcast/check_alive`;
 const TIKTOOL_WS_URL = 'wss://api.tik.tools';
 
 const MIME = {
@@ -57,14 +59,57 @@ function validCreator(value) {
   return creator;
 }
 
-async function mintTikToolToken(uniqueId) {
+function requireTikToolKey() {
   if (!TIKTOOL_API_KEY) throw new Error('TikTool API key missing');
+  return TIKTOOL_API_KEY;
+}
 
-  const response = await fetch(`${TIKTOOL_AUTH_URL}?apiKey=${encodeURIComponent(TIKTOOL_API_KEY)}`, {
+async function readJson(response) {
+  try { return await response.json(); } catch { return null; }
+}
+
+async function checkTikToolLive(uniqueId) {
+  const apiKey = requireTikToolKey();
+  const url = new URL(TIKTOOL_CHECK_ALIVE_URL);
+  url.searchParams.set('unique_id', uniqueId);
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'x-api-key': apiKey
+    },
+    signal: AbortSignal.timeout(10000)
+  });
+  const payload = await readJson(response);
+
+  if (!response.ok) {
+    const message = payload?.message || payload?.error || `TikTool live check ${response.status}`;
+    throw new Error(message);
+  }
+
+  const row = Array.isArray(payload?.data) ? payload.data[0] : payload?.data;
+  if (!row || typeof row !== 'object') {
+    return { alive: false, roomId: '', title: '', userCount: 0 };
+  }
+
+  return {
+    alive: row.alive === true || row.is_live === true,
+    roomId: String(row.room_id || row.roomId || ''),
+    title: String(row.title || ''),
+    userCount: Math.max(0, Number(row.userCount ?? row.user_count ?? 0) || 0)
+  };
+}
+
+async function mintTikToolToken(uniqueId) {
+  const apiKey = requireTikToolKey();
+
+  const response = await fetch(TIKTOOL_AUTH_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'x-api-key': apiKey
     },
     body: JSON.stringify({
       allowed_creators: [uniqueId],
@@ -74,8 +119,7 @@ async function mintTikToolToken(uniqueId) {
     signal: AbortSignal.timeout(10000)
   });
 
-  let payload = null;
-  try { payload = await response.json(); } catch {}
+  const payload = await readJson(response);
 
   if (!response.ok) {
     const message = payload?.message || payload?.error || `TikTool auth ${response.status}`;
@@ -97,7 +141,34 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (url.pathname === '/__health') {
-    sendJson(response, 200, { ok: true, app: 'fighter-arena-web-safe', liveBridge: 'tiktool' });
+    sendJson(response, 200, {
+      ok: true,
+      app: 'fighter-arena-web-safe',
+      liveBridge: 'tiktool-cloud-direct',
+      keyConfigured: Boolean(TIKTOOL_API_KEY)
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/tiktool/live-status') {
+    if (request.method !== 'GET') {
+      sendJson(response, 405, { error: 'Method not allowed' });
+      return;
+    }
+
+    const uniqueId = validCreator(url.searchParams.get('uniqueId'));
+    if (!uniqueId) {
+      sendJson(response, 400, { error: 'TikTok username non valido' });
+      return;
+    }
+
+    try {
+      const live = await checkTikToolLive(uniqueId);
+      sendJson(response, 200, { uniqueId, ...live });
+    } catch (error) {
+      console.error(`[tiktool] LIVE check error for @${uniqueId}: ${error?.message || error}`);
+      sendJson(response, 502, { error: error?.message || 'TikTool non raggiungibile' });
+    }
     return;
   }
 
@@ -118,7 +189,7 @@ const server = http.createServer(async (request, response) => {
       sendJson(response, 200, { token, wsUrl: TIKTOOL_WS_URL, uniqueId });
     } catch (error) {
       console.error(`[tiktool] JWT error for @${uniqueId}: ${error?.message || error}`);
-      sendJson(response, 502, { error: 'TikTool non raggiungibile o autenticazione rifiutata' });
+      sendJson(response, 502, { error: error?.message || 'TikTool non raggiungibile o autenticazione rifiutata' });
     }
     return;
   }
@@ -193,7 +264,8 @@ server.on('error', error => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Fighter Arena WEB APP: http://${HOST}:${PORT}/desktop-live.html`);
-  console.log('LIVE bridge: TikTool cloud WebSocket (TikFinity non necessario).');
+  console.log('LIVE: TikTool cloud direct (TikFinity e bridge eventi non necessari).');
+  console.log(`TikTool API key: ${TIKTOOL_API_KEY ? 'configurata' : 'MANCANTE'}.`);
 });
 
 function shutdown() {
