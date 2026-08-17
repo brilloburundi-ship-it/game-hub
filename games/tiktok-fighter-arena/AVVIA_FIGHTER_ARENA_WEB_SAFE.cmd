@@ -1,19 +1,14 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title FIGHTER ARENA WEB SAFE
+title FIGHTER ARENA - TIKTOOL WEB APP
 
-if not exist "%~dp0_system\one-start-web-safe.ps1" (
-  echo [ERRORE] Pacchetto incompleto: manca _system\one-start-web-safe.ps1
+if not exist "%~dp0START_FIGHTER_ARENA_WEB_SAFE.cmd" (
+  echo [ERRORE] START_FIGHTER_ARENA_WEB_SAFE.cmd non trovato.
+  echo Esegui INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd dalla build completa.
   pause
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_system\one-start-web-safe.ps1" -PackageRoot "%~dp0"
-if errorlevel 1 (
-  echo.
-  echo [ERRORE] Fighter Arena non e stato avviato.
-  pause
-  exit /b 1
-)
-exit /b 0
+call "%~dp0START_FIGHTER_ARENA_WEB_SAFE.cmd"
+exit /b %ERRORLEVEL%
