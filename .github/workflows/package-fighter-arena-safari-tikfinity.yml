@@ -1,0 +1,163 @@
+name: Package Fighter Arena Safari TikFinity
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/package-fighter-arena-safari-tikfinity.yml'
+      - 'games/tiktok-fighter-arena/**'
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Safari TikFinity package
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG='package/Fighter-Arena-Safari-TikFinity'
+          GAME="$PKG/_game"
+          mkdir -p "$GAME" "$PKG/_runtime" "$PKG/_system"
+
+          rsync -a \
+            --exclude='*.cmd' \
+            --exclude='*.bat' \
+            --exclude='_system/' \
+            --exclude='desktop-live.html' \
+            --exclude='desktop-tikfinity-safe.js' \
+            --exclude='desktop-tiktool.js' \
+            --exclude='web-safe-server.mjs' \
+            --exclude='install-web-safe.ps1' \
+            --exclude='one-start-web-safe.ps1' \
+            --exclude='BRIDGE_CLOUD.md' \
+            --exclude='BRIDGE_TIKFINITY.md' \
+            --exclude='URL_IPHONE.txt' \
+            games/tiktok-fighter-arena/ "$GAME/"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('package/Fighter-Arena-Safari-TikFinity')
+          game = root / '_game'
+
+          index = game / 'index.html'
+          text = index.read_text(encoding='utf-8')
+          patched = re.sub(
+              r'<script src="\./live-bridge\.js[^\"]*"></script>',
+              '<script src="./lan-bridge.js?v=1.0.0-safari-tikfinity"></script>',
+              text,
+              count=1,
+          )
+          if patched == text:
+              raise SystemExit('live-bridge.js marker not found in index.html')
+
+          css = '''\n    #liveBridgeState{position:fixed;z-index:99999;right:8px;top:max(8px,env(safe-area-inset-top));width:10px;height:10px;border-radius:50%;font-size:0;line-height:0;background:#ff4057;box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 8px rgba(255,64,87,.7);pointer-events:none}\n    html[data-fighter-bridge-status="online"] #liveBridgeState{background:#39e86f;box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 8px rgba(57,232,111,.75)}\n    html[data-fighter-bridge-status="waiting"] #liveBridgeState,html[data-fighter-bridge-status="connecting"] #liveBridgeState,html[data-fighter-bridge-status="reconnecting"] #liveBridgeState{background:#ffc94a;box-shadow:0 0 0 2px rgba(0,0,0,.55),0 0 8px rgba(255,201,74,.72)}\n'''
+          patched = patched.replace('</style>', css + '  </style>', 1)
+          patched = patched.replace('<body>', '<body>\n  <div id="liveBridgeState" aria-label="TikFinity bridge status">LIVE bridge: connecting</div>', 1)
+          index.write_text(patched, encoding='utf-8')
+
+          server = game / 'bridge' / 'server.mjs'
+          s = server.read_text(encoding='utf-8')
+          old = "writeFileSync(join(ROOT, 'URL_IPHONE.txt'), output, 'utf8');"
+          if old not in s:
+              raise SystemExit('URL_IPHONE.txt output marker not found in server.mjs')
+          s = s.replace(old, "writeFileSync(join(ROOT, '..', 'URL_SAFARI.txt'), output.replace('URL IPHONE', 'URL SAFARI'), 'utf8');", 1)
+          s = s.replace('FIGHTER ARENA - IPHONE + TIKFINITY BRIDGE', 'FIGHTER ARENA - SAFARI + TIKFINITY BRIDGE')
+          s = s.replace('Apri su iPhone, sulla stessa Wi-Fi:', "APRI QUESTO URL IN SAFARI SULL'IPHONE (stessa Wi-Fi):")
+          server.write_text(s, encoding='utf-8')
+          PY
+
+          cat > "$PKG/_system/ensure-firewall.ps1" <<'PS1'
+          $ErrorActionPreference = 'Stop'
+          $ruleName = 'Fighter Arena Safari TikFinity 8795'
+          try { $existing = Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue } catch { $existing = $null }
+          if ($existing) { exit 0 }
+          $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+          $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+          if (-not $isAdmin) {
+              $args = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+              $p = Start-Process powershell.exe -Verb RunAs -Wait -PassThru -ArgumentList $args
+              exit $p.ExitCode
+          }
+          New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8795 -Profile Private | Out-Null
+          exit 0
+          PS1
+
+          cat > "$PKG/AVVIA FIGHTER ARENA - SAFARI.cmd" <<'CMD'
+          @echo off
+          setlocal EnableExtensions
+          cd /d "%~dp0"
+          title Fighter Arena - Safari + TikFinity
+          echo ============================================================
+          echo   FIGHTER ARENA - SAFARI + TIKFINITY - UN SOLO AVVIA
+          echo ============================================================
+          echo.
+          echo NON apre il gioco sul computer.
+          echo Fighter Arena gira su Safari dell'iPhone.
+          echo Il PC inoltra solo gli eventi TikFinity.
+          echo.
+
+          if not exist "%~dp0_runtime\node.exe" (
+            echo [ERRORE] Runtime incluso mancante.
+            pause
+            exit /b 1
+          )
+          if not exist "%~dp0_game\bridge\server.mjs" (
+            echo [ERRORE] Bridge incluso mancante.
+            pause
+            exit /b 1
+          )
+
+          powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_system\ensure-firewall.ps1"
+          if errorlevel 1 echo [ATTENZIONE] Controlla Windows Firewall se Safari non raggiunge il gioco.
+
+          set "FIGHTER_ARENA_PORT=8795"
+          set "TIKFINITY_URL=ws://127.0.0.1:21213/"
+          set "FIGHTER_ARENA_TOKEN="
+
+          echo.
+          echo 1. Apri TikFinity Desktop e collegalo alla LIVE.
+          echo 2. Lascia aperta questa finestra durante la LIVE.
+          echo 3. Copia in Safari l'URL che comparira qui sotto.
+          echo    Verra anche salvato in URL_SAFARI.txt.
+          echo.
+
+          cd /d "%~dp0_game"
+          "%~dp0_runtime\node.exe" bridge\server.mjs
+          if errorlevel 1 (
+            echo.
+            echo [ERRORE] Il bridge si e chiuso con un errore.
+            pause
+          )
+          CMD
+
+          NODE_VERSION='22.17.1'
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-win-x64.zip"
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          grep " node-v${NODE_VERSION}-win-x64.zip$" SHASUMS256.txt | sha256sum -c -
+          unzip -q "node-v${NODE_VERSION}-win-x64.zip"
+          cp "node-v${NODE_VERSION}-win-x64/node.exe" "$PKG/_runtime/node.exe"
+
+          printf '%s\n' \
+            'FIGHTER ARENA - SAFARI + TIKFINITY' \
+            'Apri TikFinity, poi fai doppio click su AVVIA FIGHTER ARENA - SAFARI.cmd.' \
+            'Apri su Safari iPhone l URL mostrato nella finestra.' \
+            'Il gioco NON viene aperto sul PC.' \
+            > "$PKG/LEGGIMI.txt"
+
+          (cd package && zip -9 -r ../Fighter-Arena-Safari-TikFinity-ONE-START.zip Fighter-Arena-Safari-TikFinity)
+
+      - name: Upload ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fighter-Arena-Safari-TikFinity-ONE-START
+          path: Fighter-Arena-Safari-TikFinity-ONE-START.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
