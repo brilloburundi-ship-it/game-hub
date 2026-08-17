@@ -1,15 +1,19 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title FIGHTER ARENA - TIKTOOL
+title FIGHTER ARENA - TIKTOOL DIRECT
 
-if not exist "%~dp0_system\one-start-tiktool.ps1" (
-  echo [ERRORE] Pacchetto incompleto: manca _system\one-start-tiktool.ps1
+set "LAUNCHER=%~dp0one-start-tiktool.ps1"
+if not exist "%LAUNCHER%" set "LAUNCHER=%~dp0_system\one-start-tiktool.ps1"
+
+if not exist "%LAUNCHER%" (
+  echo [ERRORE] Pacchetto incompleto: manca one-start-tiktool.ps1
+  echo Usa questo ZIP completo senza spostare singoli file fuori dalla cartella.
   pause
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0_system\one-start-tiktool.ps1" -PackageRoot "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER%" -PackageRoot "%~dp0"
 if errorlevel 1 (
   echo.
   echo [ERRORE] Fighter Arena non e stato avviato.
