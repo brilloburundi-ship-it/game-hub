@@ -5,10 +5,10 @@ export const S={
 };
 
 const R=[
-  ['hero_knight','medieval_king','huntress_2','fire_wizard'],
+  ['hero_knight','medieval_king','huntress_2','evil_wizard_2'],
   ['huntress','evil_wizard','hero_knight_prime'],
   ['martial_hero','fantasy_warrior','medieval_warrior_2'],
-  ['martial_champion','evil_wizard_2','samurai_archer','wanderer_magician','medieval_warrior_3'],
+  ['martial_champion','fire_wizard','samurai_archer','wanderer_magician','medieval_warrior_3'],
   ['samurai','samurai_commander','lightning_mage']
 ];
 const STARTER_FIGHTERS=R[0];
