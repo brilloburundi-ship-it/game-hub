@@ -15,16 +15,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build ZIP
+      - name: Build clean one-start ZIP
         run: |
-          cd games
-          zip -r ../Fighter-Arena-TikTool-WebApp.zip tiktok-fighter-arena
+          set -e
+          mkdir -p package/Fighter-Arena-TikTool
+          rsync -a \
+            --exclude='*.cmd' \
+            --exclude='*.bat' \
+            --exclude='bridge/' \
+            --exclude='BRIDGE_TIKFINITY.md' \
+            --exclude='desktop-tikfinity-safe.js' \
+            --exclude='lan-bridge.js' \
+            --exclude='install-web-safe.ps1' \
+            games/tiktok-fighter-arena/ package/Fighter-Arena-TikTool/
+          cp 'games/tiktok-fighter-arena/AVVIA FIGHTER ARENA.cmd' 'package/Fighter-Arena-TikTool/AVVIA FIGHTER ARENA.cmd'
+          cd package
+          zip -r ../Fighter-Arena-TikTool-ONE-START.zip Fighter-Arena-TikTool
 
       - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: Fighter-Arena-TikTool-WebApp
-          path: Fighter-Arena-TikTool-WebApp.zip
+          name: Fighter-Arena-TikTool-ONE-START
+          path: Fighter-Arena-TikTool-ONE-START.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
