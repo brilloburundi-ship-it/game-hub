@@ -12,7 +12,7 @@
 
     replaceOnce(
       "  const assets = [\n    ['1', 'assets/soldiers/soldier_1_atlas.webp']",
-      "  const assets = [\n    ['prefabs', 'assets/prefabs/frontline_map_prefabs.webp'],\n    ['1', 'assets/soldiers/soldier_1_atlas.webp']",
+      "  const assets = [\n    ['prefab_blue_hq', 'assets/prefabs/blue_hq.webp'],\n    ['prefab_trench', 'assets/prefabs/trench.webp'],\n    ['prefab_village', 'assets/prefabs/village.webp'],\n    ['prefab_checkpoint', 'assets/prefabs/checkpoint.webp'],\n    ['prefab_bunker', 'assets/prefabs/bunker.webp'],\n    ['prefab_bridge', 'assets/prefabs/bridge.webp'],\n    ['prefab_red_hq', 'assets/prefabs/red_hq.webp'],\n    ['1', 'assets/soldiers/soldier_1_atlas.webp']",
       'asset loader'
     );
 
@@ -24,29 +24,26 @@
 
     replaceOnce(
       "  drawBase(58, 'blue'); drawBase(1222, 'red');\n  for (const c of COVER) drawCover(c, false);",
-      "  // Prefab atlas replaces procedural bases and back-layer cover props.",
-      'procedural props'
+      "  // Build 0.5: generated prefab modules replace procedural scenery.",
+      'procedural scenery'
     );
 
     const prefabRenderer = `
-const PREFAB_MAP_SLICES = [
-  { src: [2, 2, 118, 58], dst: [-12, 514, 210, 110] },
-  { src: [120, 2, 136, 37], dst: [168, 548, 218, 76] },
-  { src: [2, 62, 146, 34], dst: [348, 516, 222, 108] },
-  { src: [150, 62, 106, 36], dst: [530, 542, 212, 82] },
-  { src: [2, 100, 138, 36], dst: [708, 534, 220, 90] },
-  { src: [2, 139, 210, 26], dst: [886, 536, 236, 88] },
-  { src: [142, 100, 114, 32], dst: [1066, 512, 224, 112] }
+const PREFAB_MODULES = [
+  ['prefab_blue_hq', -12, 418, 210, 175],
+  ['prefab_trench', 170, 430, 205, 170],
+  ['prefab_village', 350, 410, 210, 182],
+  ['prefab_checkpoint', 535, 438, 205, 160],
+  ['prefab_bunker', 715, 425, 210, 170],
+  ['prefab_bridge', 895, 432, 215, 165],
+  ['prefab_red_hq', 1074, 414, 218, 182]
 ];
 function drawPrefabMap() {
-  const atlas = I.prefabs;
-  if (!atlas) return;
   x.save();
   x.imageSmoothingEnabled = false;
-  for (const piece of PREFAB_MAP_SLICES) {
-    const [sx, sy, sw, sh] = piece.src;
-    const [dx, dy, dw, dh] = piece.dst;
-    x.drawImage(atlas, sx, sy, sw, sh, dx, dy, dw, dh);
+  for (const [key, dx, dy, dw, dh] of PREFAB_MODULES) {
+    const image = I[key];
+    if (image) x.drawImage(image, dx, dy, dw, dh);
   }
   x.restore();
 }
