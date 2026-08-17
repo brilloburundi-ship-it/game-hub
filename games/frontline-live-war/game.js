@@ -24,15 +24,27 @@ const FRAMES = {
   3: { idle: 7, run: 6, shot: 4, recharge: 8, grenade: 8, hurt: 4, dead: 5 }
 };
 
-const COVER = [
-  { x: 185, lane: 0, kind: 'sandbags', w: 58 }, { x: 250, lane: 2, kind: 'trench', w: 86 },
-  { x: 370, lane: 1, kind: 'crates', w: 48 }, { x: 455, lane: 0, kind: 'trench', w: 92 },
-  { x: 545, lane: 2, kind: 'sandbags', w: 64 }, { x: 635, lane: 1, kind: 'wreck', w: 72 },
-  { x: 730, lane: 0, kind: 'sandbags', w: 64 }, { x: 820, lane: 2, kind: 'trench', w: 92 },
-  { x: 910, lane: 1, kind: 'crates', w: 48 }, { x: 1025, lane: 0, kind: 'trench', w: 86 },
-  { x: 1100, lane: 2, kind: 'sandbags', w: 58 }
+// Step 2: every sector is a different tactical space, not just a different label.
+const SECTOR_META = [
+  { name: 'BLUE HQ', short: 'HQ', type: 'base', speed: 1.06, capture: .78, defense: 1.16, tint: '#173445', lanes: [0, 1, 2] },
+  { name: 'TRENCH LINE', short: 'TRENCH', type: 'trench', speed: .84, capture: .86, defense: 1.14, tint: '#4d4632', lanes: [0, 1, 2] },
+  { name: 'RUINED VILLAGE', short: 'VILLAGE', type: 'village', speed: .91, capture: .9, defense: 1.08, tint: '#403b35', lanes: [0, 1, 2] },
+  { name: 'CHECKPOINT', short: 'CHECK', type: 'checkpoint', speed: 1.12, capture: 1.08, defense: .94, tint: '#4b4d48', lanes: [0, 1, 2] },
+  { name: 'BUNKER HILL', short: 'BUNKER', type: 'bunker', speed: .82, capture: .74, defense: 1.27, tint: '#3a4131', lanes: [0, 1, 2] },
+  { name: 'BROKEN BRIDGE', short: 'BRIDGE', type: 'bridge', speed: .72, capture: .92, defense: 1.05, tint: '#263941', lanes: [1] },
+  { name: 'RED HQ', short: 'HQ', type: 'base', speed: 1.06, capture: .78, defense: 1.16, tint: '#45262a', lanes: [0, 1, 2] }
 ];
-const CRATERS = [130, 318, 510, 688, 782, 970, 1160].map((px, i) => ({ x: px, y: LANES[i % 3] + 24, r: 20 + (i % 3) * 4 }));
+const COVER_STRENGTH = { trench: .52, bunker: .62, wreck: .42, wall: .44, sandbags: .35, crates: .31, barrier: .28 };
+const COVER = [
+  { x: 128, lane: 1, kind: 'sandbags', w: 62 },
+  { x: 205, lane: 0, kind: 'trench', w: 70 }, { x: 248, lane: 2, kind: 'trench', w: 84 }, { x: 292, lane: 1, kind: 'sandbags', w: 54 },
+  { x: 382, lane: 0, kind: 'wall', w: 54 }, { x: 424, lane: 2, kind: 'wall', w: 58 }, { x: 463, lane: 1, kind: 'crates', w: 48 },
+  { x: 565, lane: 0, kind: 'barrier', w: 58 }, { x: 615, lane: 2, kind: 'barrier', w: 58 }, { x: 650, lane: 1, kind: 'wreck', w: 66 },
+  { x: 748, lane: 0, kind: 'trench', w: 72 }, { x: 790, lane: 1, kind: 'bunker', w: 86 }, { x: 834, lane: 2, kind: 'trench', w: 72 },
+  { x: 965, lane: 1, kind: 'barrier', w: 52 }, { x: 1020, lane: 1, kind: 'sandbags', w: 52 },
+  { x: 1145, lane: 1, kind: 'sandbags', w: 62 }
+];
+const CRATERS = [150, 226, 334, 476, 590, 706, 862, 1120].map((px, i) => ({ x: px, y: LANES[i % 3] + 24, r: 18 + (i % 3) * 4 }));
 
 const I = {};
 const SOLDIERS = [];
@@ -103,6 +115,10 @@ function feed(team, text) {
 }
 
 function laneY(lane) { return LANES[Math.max(0, Math.min(2, lane))]; }
+function sectorIndexAt(px) { return Math.max(0, Math.min(6, Math.floor(px / (W.w / W.sectors)))); }
+function sectorMetaAt(px) { return SECTOR_META[sectorIndexAt(px)]; }
+function frontlineSector() { return sectorIndexAt(frontline()); }
+function allowedLanesAt(px) { return sectorMetaAt(px).lanes || [0, 1, 2]; }
 function nearestCover(soldier, direction = TEAM[soldier.team].dir) {
   let best = null;
   let score = Infinity;
@@ -117,7 +133,7 @@ function nearestCover(soldier, direction = TEAM[soldier.team].dir) {
 function inCover(soldier) {
   for (const c of COVER) {
     if (c.lane !== soldier.lane) continue;
-    if (Math.abs(c.x - soldier.x) <= c.w * .48) return c.kind === 'trench' ? .52 : c.kind === 'wreck' ? .42 : .35;
+    if (Math.abs(c.x - soldier.x) <= c.w * .48) return COVER_STRENGTH[c.kind] || .3;
   }
   return 0;
 }
@@ -176,10 +192,17 @@ class Soldier {
   }
   maybeChangeLane(dt) {
     this.laneCooldown -= dt;
+    const allowed = allowedLanesAt(this.x);
+    if (!allowed.includes(this.lane)) {
+      this.lane = allowed[Math.floor(Math.random() * allowed.length)];
+      this.laneCooldown = 1.2;
+      return;
+    }
     if (this.laneCooldown > 0) return;
     const crowd = laneCrowd(this);
     if (crowd < 2 && this.suppression < 45) return;
-    const options = [0, 1, 2].filter(l => l !== this.lane);
+    const options = allowed.filter(l => l !== this.lane);
+    if (!options.length) return;
     options.sort((a, b) => {
       const ca = SOLDIERS.filter(s => !s.dead && s.team === this.team && s.lane === a && Math.abs(s.x - this.x) < 80).length;
       const cb = SOLDIERS.filter(s => !s.dead && s.team === this.team && s.lane === b && Math.abs(s.x - this.x) < 80).length;
@@ -222,7 +245,8 @@ class Soldier {
   move(dt, enemy = null) {
     this.setState('run');
     const dir = TEAM[this.team].dir;
-    let velocity = this.cfg.speed;
+    const meta = sectorMetaAt(this.x);
+    let velocity = this.cfg.speed * meta.speed;
     const f = frontline();
     if (Math.abs(this.x - f) > 350) velocity *= 1.32;
     if (this.kind === 2 && Math.abs(this.x - f) < 220) velocity *= 1.12;
@@ -232,8 +256,9 @@ class Soldier {
     if (this.coverGoal && this.retreat <= 0 && enemy) {
       const coverAhead = (this.coverGoal.x - this.x) * dir;
       const enemyDistance = Math.abs(enemy.x - this.x);
-      if (coverAhead > 5 && coverAhead < 150 && enemyDistance < 390) {
-        if (this.coverGoal.lane !== this.lane && this.laneCooldown <= 0) this.lane = this.coverGoal.lane;
+      if (coverAhead > 5 && coverAhead < 150) {
+        const allowed = allowedLanesAt(this.x);
+        if (allowed.includes(this.coverGoal.lane) && this.coverGoal.lane !== this.lane && this.laneCooldown <= 0) this.lane = this.coverGoal.lane;
         if (Math.abs(this.coverGoal.x - this.x) < 18 && enemyDistance <= this.cfg.range * 1.15) velocity = 0;
       }
     }
@@ -365,6 +390,7 @@ function updateSectors(dt) {
   const sectorW = W.w / W.sectors;
   for (let i = 0; i < W.sectors; i++) {
     const left = i * sectorW, right = left + sectorW;
+    const meta = SECTOR_META[i];
     let blue = 0, red = 0;
     for (const s of SOLDIERS) {
       if (s.dead || s.x < left || s.x >= right) continue;
@@ -372,6 +398,8 @@ function updateSectors(dt) {
       s.team === 'blue' ? blue += weight : red += weight;
     }
     const sector = SECTORS[i];
+    if (sector.owner === 'blue') blue *= meta.defense;
+    if (sector.owner === 'red') red *= meta.defense;
     if (!blue && !red) { sector.progress = Math.max(0, sector.progress - dt * .22); sector.pushing = ''; continue; }
     if (Math.abs(blue - red) < .2) { sector.progress = Math.max(0, sector.progress - dt * .08); continue; }
     const pushing = blue > red ? 'blue' : 'red';
@@ -379,13 +407,13 @@ function updateSectors(dt) {
     if (sector.pushing !== pushing) {
       sector.progress = Math.max(0, sector.progress - dt * .75);
       if (!sector.progress) sector.pushing = pushing;
-    } else sector.progress += dt * (.12 + Math.min(4, advantage) * .05);
+    } else sector.progress += dt * (.12 + Math.min(4, advantage) * .05) * meta.capture;
 
     if (sector.progress >= 1 && sector.owner !== pushing) {
       sector.owner = pushing; sector.progress = 0; sector.pushing = '';
-      feed(pushing, `${pushing.toUpperCase()} CAPTURED SECTOR ${i + 1}`);
+      feed(pushing, `${pushing.toUpperCase()} CAPTURED ${meta.name}`);
       shake = 6; zoomKick = .025;
-      FX.push({ type: 'capture', x: left + sectorW / 2, y: 444, life: 1.2, team: pushing });
+      FX.push({ type: 'capture', x: left + sectorW / 2, y: 444, life: 1.25, team: pushing, label: meta.name });
       if ((pushing === 'blue' && i === 6) || (pushing === 'red' && i === 0)) finish(pushing);
     }
   }
@@ -431,6 +459,56 @@ function drawRuins(px, py, scale = 1) {
   x.fillStyle = '#2a3030'; x.beginPath(); x.moveTo(-58, -58); x.lineTo(-29, -88); x.lineTo(4, -58); x.fill();
   x.restore();
 }
+function drawWatchTower(px, py, team) {
+  x.fillStyle = '#242c2e'; x.fillRect(px - 17, py - 70, 34, 21); x.fillStyle = '#141a1c'; x.fillRect(px - 13, py - 66, 26, 12);
+  x.strokeStyle = '#586064'; x.lineWidth = 4; x.beginPath(); x.moveTo(px - 12, py - 49); x.lineTo(px - 23, py); x.moveTo(px + 12, py - 49); x.lineTo(px + 23, py); x.stroke();
+  x.fillStyle = TEAM[team].color; x.fillRect(px + (team === 'blue' ? -13 : 6), py - 91, 6, 23); x.fillRect(px + (team === 'blue' ? -7 : -18), py - 91, 24, 11);
+}
+function drawBunker(px, py) {
+  x.fillStyle = '#3f463a'; x.beginPath(); x.ellipse(px, py + 12, 88, 35, 0, Math.PI, Math.PI * 2); x.fill();
+  x.fillStyle = '#555b50'; x.fillRect(px - 51, py - 35, 102, 48); x.fillStyle = '#222923'; x.fillRect(px - 27, py - 20, 54, 12);
+  x.fillStyle = '#6b705f'; x.fillRect(px - 56, py - 40, 112, 8); x.fillStyle = '#1b201c'; x.fillRect(px - 12, py - 2, 24, 17);
+}
+function drawCheckpoint(px, py, width) {
+  x.fillStyle = '#4d4d47'; x.fillRect(px - width / 2, py - 8, width, 98);
+  x.fillStyle = '#b9aa72'; for (let i = -width / 2 + 8; i < width / 2; i += 28) x.fillRect(px + i, py + 60, 15, 4);
+  x.fillStyle = '#2b3030'; x.fillRect(px - 48, py - 48, 96, 8); x.fillRect(px - 45, py - 48, 5, 48); x.fillRect(px + 40, py - 48, 5, 48);
+  x.fillStyle = '#d7c15b'; x.fillRect(px - 16, py - 63, 32, 11); x.fillStyle = '#1b1d1d'; x.font = 'bold 7px system-ui'; x.textAlign = 'center'; x.fillText('CHECK', px, py - 55);
+}
+function drawBridge(left, width) {
+  x.fillStyle = '#17272d'; x.fillRect(left, 602, width, 118);
+  x.fillStyle = '#29414a'; for (let y = 614; y < 720; y += 18) x.fillRect(left, y, width, 3);
+  x.fillStyle = '#4d4b43'; x.fillRect(left - 2, 526, width + 4, 77);
+  x.fillStyle = '#272c2c'; x.fillRect(left - 2, 526, width + 4, 9); x.fillRect(left - 2, 594, width + 4, 9);
+  x.strokeStyle = '#6d7069'; x.lineWidth = 2; x.beginPath(); x.moveTo(left, 516); x.lineTo(left + width, 516); x.stroke();
+  for (let p = left + 14; p < left + width; p += 26) { x.beginPath(); x.moveTo(p, 516); x.lineTo(p, 535); x.stroke(); }
+  x.fillStyle = '#202526'; x.fillRect(left + width * .22, 603, 10, 84); x.fillRect(left + width * .76, 603, 10, 84);
+}
+function drawSectorTheme(i, left, width) {
+  const meta = SECTOR_META[i];
+  x.globalAlpha = .28; x.fillStyle = meta.tint; x.fillRect(left, 500, width, 220); x.globalAlpha = 1;
+  if (meta.type === 'base') {
+    const team = i === 0 ? 'blue' : 'red';
+    drawWatchTower(left + width * (i === 0 ? .7 : .3), 500, team);
+    x.fillStyle = '#252b29'; x.fillRect(left + 18, 626, width - 36, 7);
+  } else if (meta.type === 'trench') {
+    x.fillStyle = '#232219';
+    x.beginPath(); x.moveTo(left, 640); x.lineTo(left + 42, 616); x.lineTo(left + 84, 641); x.lineTo(left + 128, 617); x.lineTo(left + width, 638); x.lineTo(left + width, 658); x.lineTo(left, 660); x.fill();
+    drawBarbedWire(left + width * .5, 674, width * .72);
+  } else if (meta.type === 'village') {
+    drawRuins(left + width * .28, 515, .66); drawRuins(left + width * .74, 520, .58);
+    x.fillStyle = '#242421'; x.fillRect(left + width * .48, 537, 5, 81); x.fillStyle = '#827858'; x.fillRect(left + width * .48 - 2, 539, 10, 4);
+  } else if (meta.type === 'checkpoint') {
+    drawCheckpoint(left + width / 2, 526, width - 10);
+    drawBarbedWire(left + width * .18, 655, 52); drawBarbedWire(left + width * .82, 655, 52);
+  } else if (meta.type === 'bunker') {
+    drawBunker(left + width / 2, 515);
+    x.fillStyle = '#252b21'; for (let p = left + 8; p < left + width; p += 28) x.fillRect(p, 650 + Math.sin(p) * 4, 18, 4);
+  } else if (meta.type === 'bridge') {
+    drawBridge(left, width);
+    x.fillStyle = '#6f6250'; x.fillRect(left + width * .43, 544, width * .14, 52); x.fillStyle = '#25292a'; x.fillRect(left + width * .47, 541, width * .06, 55);
+  }
+}
 function drawCover(c, front = false) {
   const y = laneY(c.lane) + 5;
   if (c.kind === 'trench') {
@@ -447,16 +525,26 @@ function drawCover(c, front = false) {
     x.fillStyle = '#604b35'; x.fillRect(c.x - 22, y - 28, 22, 28); x.fillRect(c.x + 2, y - 20, 22, 20); x.strokeStyle = '#8a6c47'; x.strokeRect(c.x - 20, y - 26, 18, 24); x.strokeRect(c.x + 4, y - 18, 18, 16);
   } else if (c.kind === 'wreck') {
     x.fillStyle = '#30383a'; x.fillRect(c.x - 34, y - 20, 68, 17); x.fillRect(c.x - 12, y - 34, 35, 18); x.fillStyle = '#171c1e'; x.fillRect(c.x - 28, y - 7, 18, 10); x.fillRect(c.x + 16, y - 7, 18, 10);
+  } else if (c.kind === 'wall') {
+    x.fillStyle = '#66645b'; x.fillRect(c.x - c.w / 2, y - 28, c.w, 28); x.fillStyle = '#383936';
+    for (let p = c.x - c.w / 2 + 8; p < c.x + c.w / 2; p += 18) x.fillRect(p, y - 25, 3, 22);
+  } else if (c.kind === 'barrier') {
+    x.fillStyle = '#7b7155'; x.fillRect(c.x - c.w / 2, y - 13, c.w, 10); x.fillStyle = '#282b29'; x.fillRect(c.x - c.w / 2 + 6, y - 18, 5, 18); x.fillRect(c.x + c.w / 2 - 11, y - 18, 5, 18);
+    x.fillStyle = '#d0a951'; for (let p = c.x - c.w / 2 + 6; p < c.x + c.w / 2 - 6; p += 20) x.fillRect(p, y - 11, 9, 3);
+  } else if (c.kind === 'bunker') {
+    x.fillStyle = '#555c53'; x.fillRect(c.x - c.w / 2, y - 36, c.w, 36); x.fillStyle = '#1e2521'; x.fillRect(c.x - 24, y - 27, 48, 11); x.fillStyle = '#747a6f'; x.fillRect(c.x - c.w / 2 - 5, y - 41, c.w + 10, 8);
   }
 }
 function drawFlag(i) {
   const sw = W.w / W.sectors;
   const s = SECTORS[i];
+  const meta = SECTOR_META[i];
   const px = i * sw + sw / 2;
   const py = 468;
   x.strokeStyle = '#687274'; x.lineWidth = 2; x.beginPath(); x.moveTo(px, py + 50); x.lineTo(px, py); x.stroke();
   x.fillStyle = s.owner === 'neutral' ? '#8b9191' : TEAM[s.owner].color;
   x.beginPath(); x.moveTo(px + 2, py + 3); x.lineTo(px + 34, py + 10); x.lineTo(px + 2, py + 20); x.fill();
+  x.fillStyle = '#d5dddd'; x.font = 'bold 7px system-ui'; x.textAlign = 'center'; x.fillText(meta.short, px, py - 7);
   if (s.progress > 0) {
     x.strokeStyle = s.pushing ? TEAM[s.pushing].color : '#fff'; x.lineWidth = 3; x.beginPath(); x.arc(px, py + 53, 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, s.progress)); x.stroke();
   }
@@ -472,25 +560,23 @@ function drawBackground() {
   x.fillStyle = '#202c30'; x.beginPath(); x.moveTo(0, 410); for (let px = 0; px <= 1280; px += 80) x.lineTo(px, 330 + Math.sin(px * .013) * 28 + Math.sin(px * .029) * 14); x.lineTo(1280, 520); x.lineTo(0, 520); x.fill();
   x.fillStyle = '#293234'; x.beginPath(); x.moveTo(0, 465); for (let px = 0; px <= 1280; px += 55) x.lineTo(px, 405 + Math.sin(px * .02) * 24); x.lineTo(1280, 535); x.lineTo(0, 535); x.fill();
 
-  drawRuins(330, 520, .85); drawRuins(950, 525, 1.0);
-
   const ground = x.createLinearGradient(0, 500, 0, 720); ground.addColorStop(0, '#554c3b'); ground.addColorStop(.35, '#3f392d'); ground.addColorStop(1, '#20211b');
   x.fillStyle = ground; x.fillRect(0, 500, 1280, 220);
   x.fillStyle = '#2d2b23'; for (let px = 0; px < 1280; px += 74) x.fillRect(px + (px % 3) * 7, 620 + Math.sin(px) * 8, 42, 3);
 
-  for (const c of CRATERS) { x.fillStyle = '#24221c'; x.beginPath(); x.ellipse(c.x, c.y, c.r * 1.6, c.r * .55, 0, 0, Math.PI * 2); x.fill(); x.strokeStyle = '#655b45'; x.stroke(); }
+  const sw = W.w / W.sectors;
+  for (let i = 0; i < W.sectors; i++) drawSectorTheme(i, i * sw, sw);
+  for (const c of CRATERS) { if (sectorMetaAt(c.x).type === 'bridge') continue; x.fillStyle = '#24221c'; x.beginPath(); x.ellipse(c.x, c.y, c.r * 1.6, c.r * .55, 0, 0, Math.PI * 2); x.fill(); x.strokeStyle = '#655b45'; x.stroke(); }
 
-  const sw = 1280 / 7;
-  x.font = 'bold 9px system-ui'; x.textAlign = 'center';
-  for (let i = 0; i < 7; i++) {
-    x.strokeStyle = '#ffffff10'; x.setLineDash([4, 8]); x.beginPath(); x.moveTo(i * sw, 455); x.lineTo(i * sw, 720); x.stroke(); x.setLineDash([]);
-    x.fillStyle = '#ffffff20'; x.fillText(`SECTOR ${i + 1}`, i * sw + sw / 2, 514);
+  x.font = 'bold 8px system-ui'; x.textAlign = 'center';
+  for (let i = 0; i < W.sectors; i++) {
+    x.strokeStyle = '#ffffff12'; x.setLineDash([4, 8]); x.beginPath(); x.moveTo(i * sw, 455); x.lineTo(i * sw, 720); x.stroke(); x.setLineDash([]);
+    x.fillStyle = '#ffffff30'; x.fillText(`S${i + 1} • ${SECTOR_META[i].short}`, i * sw + sw / 2, 513);
     drawFlag(i);
   }
 
   drawBase(58, 'blue'); drawBase(1222, 'red');
   for (const c of COVER) drawCover(c, false);
-  drawBarbedWire(600, 618, 86); drawBarbedWire(865, 641, 80); drawBarbedWire(407, 642, 72);
 }
 function drawBase(px, team) {
   x.fillStyle = TEAM[team].dark; x.fillRect(px - 38, 456, 76, 92);
@@ -502,7 +588,12 @@ function drawBarbedWire(px, py, width) {
   x.strokeStyle = '#777b76'; x.lineWidth = 1.5; x.beginPath(); x.moveTo(px - width / 2, py); x.lineTo(px + width / 2, py); x.stroke();
   for (let i = -width / 2; i <= width / 2; i += 16) { x.beginPath(); x.arc(px + i, py, 8, 0, Math.PI * 2); x.stroke(); }
 }
-function drawForeground() { for (const c of COVER) drawCover(c, true); x.fillStyle = '#151712bb'; x.fillRect(0, 695, 1280, 25); }
+function drawForeground() {
+  for (const c of COVER) drawCover(c, true);
+  const bridgeLeft = (W.w / W.sectors) * 5, bridgeW = W.w / W.sectors;
+  x.strokeStyle = '#73766f'; x.lineWidth = 2; x.beginPath(); x.moveTo(bridgeLeft, 603); x.lineTo(bridgeLeft + bridgeW, 603); x.stroke();
+  x.fillStyle = '#151712bb'; x.fillRect(0, 695, 1280, 25);
+}
 
 function drawFX() {
   for (const r of TRACERS) {
@@ -514,7 +605,7 @@ function drawFX() {
     if (e.type === 'muzzle') { x.globalAlpha = Math.min(1, e.life / .07); x.fillStyle = '#ffe28d'; x.beginPath(); x.arc(e.x, e.y, 6 + Math.random() * 3, 0, Math.PI * 2); x.fill(); }
     if (e.type === 'heal' || e.type === 'follow') { x.globalAlpha = Math.min(1, e.life / .45); x.fillStyle = e.type === 'heal' ? '#74f0a8' : '#bde4ff'; x.font = 'bold 12px system-ui'; x.textAlign = 'center'; x.fillText(e.type === 'heal' ? '+HP' : 'FOLLOW +ARMOR', e.x, e.y); }
     if (e.type === 'spawn') { x.globalAlpha = Math.min(1, e.life / .35); x.strokeStyle = TEAM[e.team].color; x.lineWidth = 2; x.beginPath(); x.arc(e.x, e.y, 18 + (1 - e.life) * 22, 0, Math.PI * 2); x.stroke(); }
-    if (e.type === 'capture') { x.globalAlpha = Math.min(1, e.life / .6); x.fillStyle = TEAM[e.team].color; x.font = '900 18px system-ui'; x.textAlign = 'center'; x.fillText('SECTOR CAPTURED', e.x, e.y - (1.2 - e.life) * 16); }
+    if (e.type === 'capture') { x.globalAlpha = Math.min(1, e.life / .6); x.fillStyle = TEAM[e.team].color; x.font = '900 16px system-ui'; x.textAlign = 'center'; x.fillText(`${e.label} CAPTURED`, e.x, e.y - (1.25 - e.life) * 16); }
     if (e.type === 'dust') { e.x += (e.vx || 0) * .016; e.y += (e.vy || 0) * .016; x.globalAlpha = Math.min(.55, e.life / .3); x.fillStyle = '#b49c73'; x.fillRect(e.x, e.y, 3, 3); }
     if (e.type === 'explosion' && I.explosion) { const n = I.explosion.width / 64, p = 1 - e.life / .78, f = Math.min(n - 1, Math.floor(p * n)); x.globalAlpha = 1; x.drawImage(I.explosion, f * 64, 0, 64, 64, e.x - 68, e.y - 92, 136, 136); }
   }
@@ -563,10 +654,12 @@ function update(dt) {
 
 function hud() {
   const c = counts();
+  const fi = frontlineSector();
+  const fm = SECTOR_META[fi];
   U.blueCount.textContent = c.blue; U.redCount.textContent = c.red;
   U.blueKills.textContent = `${TEAM.blue.kills} KILLS`; U.redKills.textContent = `${TEAM.red.kills} KILLS`;
-  U.fps.textContent = `${Math.round(fps)} FPS`; U.round.textContent = `ROUND ${round} • FRONT ${Math.round(frontline())}`;
-  U.sectorStrip.innerHTML = SECTORS.map((s, i) => `<i class="sector ${s.owner} ${s.progress > .02 ? 'contested' : ''}" style="--capture:${Math.min(1, s.progress)}" title="Sector ${i + 1}"></i>`).join('');
+  U.fps.textContent = `${Math.round(fps)} FPS`; U.round.textContent = `ROUND ${round} • S${fi + 1} ${fm.name}`;
+  U.sectorStrip.innerHTML = SECTORS.map((s, i) => `<i class="sector ${s.owner} ${s.progress > .02 ? 'contested' : ''} ${i === fi ? 'active' : ''}" style="--capture:${Math.min(1, s.progress)}" title="S${i + 1} • ${SECTOR_META[i].name}"></i>`).join('');
 }
 
 function loop(now) {
@@ -617,7 +710,12 @@ window.FRONTLINE_LIVE = {
   follow: u => handle({ type: 'follow', username: u }),
   gift: (u, name = 'Rose', diamonds = 1) => handle({ type: 'gift', username: u, giftName: name, diamonds }),
   reset: () => reset(),
-  state: () => ({ soldiers: SOLDIERS.length, sectors: SECTORS.map(s => s.owner), kills: { blue: TEAM.blue.kills, red: TEAM.red.kills } })
+  state: () => ({
+    soldiers: SOLDIERS.length,
+    sectors: SECTORS.map((s, i) => ({ owner: s.owner, name: SECTOR_META[i].name, progress: s.progress })),
+    frontSector: { index: frontlineSector(), name: SECTOR_META[frontlineSector()].name },
+    kills: { blue: TEAM.blue.kills, red: TEAM.red.kills }
+  })
 };
 
 U.startButton.onclick = () => start(!live);
