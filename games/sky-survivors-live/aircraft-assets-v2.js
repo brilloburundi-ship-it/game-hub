@@ -35,17 +35,7 @@
     US_b17:{faction:'allies',country:'US',role:'bomber',bounds:[1,18,99,73],speed:105,turn:.65,hp:430,damage:16,fireRate:.50,radius:48,render:182}
   };
 
-  const PHYSICAL = new Set([
-    'GER_bf109','GER_FW190','GER_bf110','GER_Ju87','GER_He111',
-    'JAP_a6m','JAP_Ki61','JAP_Ki45','JAP_Ki51','JAP_Ki21',
-    'UK_Spitfire','UK_Beaufighter','UK_Blenheim','UK_Lancaster','UK_Veligton',
-    'USSR_La5','USSR_Lagg3','USSR_Il2',
-    'US_p40','US_p47','US_p51'
-  ]);
-
-  const embedded = window.SKY_EMBEDDED_AIRCRAFT || {};
   const images = {};
-  const objectUrls = [];
   const failures = [];
   let loaded = 0;
   const total = Object.keys(ROSTER).length;
@@ -55,19 +45,23 @@
     if (el) el.textContent = text;
   };
 
-  const blobUrlFromBase64 = b64 => {
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i=0;i<binary.length;i++) bytes[i] = binary.charCodeAt(i);
-    const url = URL.createObjectURL(new Blob([bytes], {type:'image/png'}));
-    objectUrls.push(url);
-    return url;
+  const validPhysicalImage = (id,img) => {
+    const cfg = ROSTER[id];
+    if (!cfg || img.naturalWidth !== 100 || img.naturalHeight !== 100) return false;
+    const [x,y,w,h] = cfg.bounds;
+    return x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 100 && y + h <= 100;
   };
 
   const loadOne = id => new Promise(resolve => {
     const img = new Image();
     images[id] = img;
     img.onload = () => {
+      if (!validPhysicalImage(id,img)) {
+        failures.push(id);
+        setBadge(`AIR ERROR ${id}`);
+        resolve(false);
+        return;
+      }
       loaded++;
       setBadge(`AIRCRAFT ${loaded}/${total}`);
       resolve(true);
@@ -77,20 +71,16 @@
       setBadge(`AIR ERROR ${id}`);
       resolve(false);
     };
-    if (PHYSICAL.has(id)) img.src = `./assets/${id}.png?v=016`;
-    else if (embedded[id]) img.src = blobUrlFromBase64(embedded[id]);
-    else {
-      failures.push(id);
-      resolve(false);
-    }
+    img.src = `./assets/${id}.png?v=023`;
   });
 
-  const ready = Promise.all(Object.keys(ROSTER).map(loadOne)).then(() => {
-    if (!failures.length) {
+  const ready = Promise.all(Object.keys(ROSTER).map(loadOne)).then(results => {
+    if (!failures.length && results.every(Boolean)) {
       setBadge(`AIRCRAFT ${total}/${total}`);
       setTimeout(() => setBadge('27 AIRCRAFT'), 1300);
+      return true;
     }
-    return failures.length === 0;
+    throw new Error(`Aircraft preload failed: ${failures.join(', ')}`);
   });
 
   const byFaction = faction => Object.keys(ROSTER).filter(id => ROSTER[id].faction === faction);
