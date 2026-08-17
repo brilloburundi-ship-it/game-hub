@@ -68,7 +68,7 @@ jobs:
               raise SystemExit('URL_IPHONE.txt output marker not found in server.mjs')
           s = s.replace(old, "writeFileSync(join(ROOT, '..', 'URL_SAFARI.txt'), output.replace('URL IPHONE', 'URL SAFARI'), 'utf8');", 1)
           s = s.replace('FIGHTER ARENA - IPHONE + TIKFINITY BRIDGE', 'FIGHTER ARENA - SAFARI + TIKFINITY BRIDGE')
-          s = s.replace('Apri su iPhone, sulla stessa Wi-Fi:', "APRI QUESTO URL IN SAFARI SULL'IPHONE (stessa Wi-Fi):")
+          s = s.replace('Apri su iPhone, sulla stessa Wi-Fi:', 'APRI QUESTO URL IN SAFARI SU IPHONE (stessa Wi-Fi):')
           server.write_text(s, encoding='utf-8')
           PY
 
@@ -150,6 +150,15 @@ jobs:
             'Apri su Safari iPhone l URL mostrato nella finestra.' \
             'Il gioco NON viene aperto sul PC.' \
             > "$PKG/LEGGIMI.txt"
+
+          node --check "$GAME/bridge/server.mjs"
+          node --check "$GAME/lan-bridge.js"
+          grep -q './lan-bridge.js?v=1.0.0-safari-tikfinity' "$GAME/index.html"
+          if grep -q '<script src="./live-bridge.js' "$GAME/index.html"; then
+            echo 'ERROR: cloud live bridge is still active in packaged index.html'
+            exit 1
+          fi
+          grep -q 'URL_SAFARI.txt' "$GAME/bridge/server.mjs"
 
           (cd package && zip -9 -r ../Fighter-Arena-Safari-TikFinity-ONE-START.zip Fighter-Arena-Safari-TikFinity)
 
