@@ -176,11 +176,13 @@ try {
 
   Write-Step "Account LIVE: @$LiveUser"
   Write-Step 'TikFinity e bridge eventi NON necessari.'
+  $programFiles = [Environment]::GetEnvironmentVariable('ProgramFiles')
+  $programFilesX86 = [Environment]::GetEnvironmentVariable('ProgramFiles(x86)')
   $browserCandidates = @(
-    "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe",
-    "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe",
-    "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-    "$env:ProgramFiles(x86)\Google\Chrome\Application\chrome.exe"
+    $(if ($programFilesX86) { Join-Path $programFilesX86 'Microsoft\Edge\Application\msedge.exe' }),
+    $(if ($programFiles) { Join-Path $programFiles 'Microsoft\Edge\Application\msedge.exe' }),
+    $(if ($programFiles) { Join-Path $programFiles 'Google\Chrome\Application\chrome.exe' }),
+    $(if ($programFilesX86) { Join-Path $programFilesX86 'Google\Chrome\Application\chrome.exe' })
   )
   $browser = $browserCandidates | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
   if ($browser) { Start-Process -FilePath $browser -ArgumentList @("--app=$LiveUrl", '--start-maximized') }
