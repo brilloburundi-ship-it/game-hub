@@ -8,12 +8,12 @@ if not exist "%LAUNCHER%" set "LAUNCHER=%~dp0_system\one-start-tiktool.ps1"
 
 if not exist "%LAUNCHER%" (
   echo [ERRORE] Pacchetto incompleto: manca one-start-tiktool.ps1
-  echo Usa questo ZIP completo senza spostare singoli file fuori dalla cartella.
+  echo Estrai tutto lo ZIP in una cartella e avvia questo file senza spostarlo.
   pause
   exit /b 1
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER%" -PackageRoot "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%LAUNCHER%"
 if errorlevel 1 (
   echo.
   echo [ERRORE] Fighter Arena non e stato avviato.
