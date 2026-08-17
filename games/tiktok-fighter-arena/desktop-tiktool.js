@@ -4,7 +4,10 @@
   const params = new URLSearchParams(location.search);
   const USER_STORAGE_KEY = 'fighter_arena_live_user';
   const TOKEN_ENDPOINT = './api/tiktool/token';
+  const LIVE_STATUS_ENDPOINT = './api/tiktool/live-status';
   const WS_ENDPOINT = 'wss://api.tik.tools';
+  const OFFLINE_POLL_MS = 10000;
+  const CONNECTED_POLL_MS = 30000;
   const JOIN_COMMANDS = new Set(['join', 'me', 'play', 'fight', 'entra', 'gioca', 'combatti', 'arena']);
   const giftProgress = new Map();
   const queuedEvents = [];
@@ -12,12 +15,13 @@
   let socket = null;
   let connecting = false;
   let connected = false;
-  let reconnectTimer = null;
-  let reconnectAttempt = 0;
+  let liveCheckTimer = null;
+  let liveCheckRunning = false;
   let manualStop = false;
   let liveUser = '';
   let lastRaw = null;
   let lastNormalized = null;
+  let lastLiveStatus = null;
 
   const dot = () => document.querySelector('#tiktoolStatusDot');
   const isObject = value => Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -26,14 +30,16 @@
     return String(value || '').replace(/^@/, '').trim().slice(0, 32);
   }
 
-  function setStatus(isConnected, message) {
-    connected = Boolean(isConnected);
-    document.documentElement.dataset.fighterBridgeStatus = connected ? 'online' : 'offline';
-    document.documentElement.dataset.fighterBridgeTransport = 'tiktool-cloud';
+  function setStatus(state, message) {
+    connected = state === 'connected';
+    document.documentElement.dataset.fighterBridgeStatus = state;
+    document.documentElement.dataset.fighterBridgeTransport = 'tiktool-cloud-direct';
     const el = dot();
     if (!el) return;
-    el.classList.toggle('is-connected', connected);
-    el.classList.toggle('is-disconnected', !connected);
+    el.classList.toggle('is-connected', state === 'connected');
+    el.classList.toggle('is-waiting', state === 'waiting');
+    el.classList.toggle('is-disconnected', state === 'disconnected');
+    el.style.backgroundColor = state === 'connected' ? '#2bd96b' : state === 'waiting' ? '#f4c542' : '#ff3b4f';
     el.setAttribute('aria-label', message);
     el.title = message;
   }
@@ -102,7 +108,6 @@
     const data = isObject(raw.data) ? raw.data : raw;
     const eventName = String(raw.event || raw.type || data.type || '').toLowerCase().replace(/[\s_-]+/g, '');
     if (!eventName || eventName === 'roominfo' || eventName === 'connected') return null;
-
     if (eventName.includes('roomuser') || eventName.includes('viewercount')) return null;
 
     const base = identity(data);
@@ -181,18 +186,26 @@
     if (isObject(data) || Array.isArray(data)) deliver(data);
   }
 
-  function reconnectDelay() {
-    const delays = [1200, 2200, 3500, 5000, 8000, 12000];
-    return delays[Math.min(reconnectAttempt, delays.length - 1)];
+  function clearLiveTimer() {
+    clearTimeout(liveCheckTimer);
+    liveCheckTimer = null;
   }
 
-  function scheduleReconnect() {
+  function scheduleLiveCheck(delay = OFFLINE_POLL_MS) {
     if (manualStop || !liveUser) return;
-    clearTimeout(reconnectTimer);
-    setStatus(false, `TikTool: disconnesso da @${liveUser} · riconnessione automatica`);
-    const delay = reconnectDelay();
-    reconnectAttempt += 1;
-    reconnectTimer = setTimeout(connect, delay);
+    clearLiveTimer();
+    liveCheckTimer = setTimeout(checkLiveAndConnect, delay);
+  }
+
+  async function getLiveStatus() {
+    const response = await fetch(`${LIVE_STATUS_ENDPOINT}?uniqueId=${encodeURIComponent(liveUser)}`, {
+      cache: 'no-store',
+      credentials: 'same-origin'
+    });
+    let payload = null;
+    try { payload = await response.json(); } catch {}
+    if (!response.ok) throw new Error(payload?.error || `TikTool live check ${response.status}`);
+    return payload;
   }
 
   async function getTicket() {
@@ -207,22 +220,24 @@
     return payload;
   }
 
-  async function connect() {
-    if (connecting || connected || manualStop) return;
-    if (!liveUser && !loadCreator()) {
-      setStatus(false, 'TikTool: disconnesso · clicca il pallino rosso per impostare @username');
-      return;
-    }
+  function closeSocket(reason = 'Fighter Arena reconnect') {
+    try { socket?.close(1000, reason); } catch {}
+    socket = null;
+    connecting = false;
+    connected = false;
+  }
 
+  async function openSocket() {
+    if (manualStop || connecting || connected || !liveUser) return;
     connecting = true;
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-    setStatus(false, `TikTool: connessione a @${liveUser}…`);
+    setStatus('waiting', `TikTool: LIVE trovata · collegamento a @${liveUser}…`);
 
     try {
-      try { socket?.close(); } catch {}
-      socket = null;
       const ticket = await getTicket();
+      if (manualStop) {
+        connecting = false;
+        return;
+      }
       const wsUrl = new URL(ticket.wsUrl || WS_ENDPOINT);
       wsUrl.searchParams.set('uniqueId', liveUser);
       wsUrl.searchParams.set('jwtKey', ticket.token);
@@ -230,8 +245,10 @@
 
       socket.addEventListener('open', () => {
         connecting = false;
-        reconnectAttempt = 0;
-        setStatus(true, `TikTool: connesso a @${liveUser}`);
+        const viewers = Number(lastLiveStatus?.userCount || 0);
+        const suffix = viewers > 0 ? ` · ${viewers} spettatori` : '';
+        setStatus('connected', `TikTool: LIVE connessa @${liveUser}${suffix}`);
+        scheduleLiveCheck(CONNECTED_POLL_MS);
       }, { once: true });
 
       socket.addEventListener('message', event => parseMessage(event.data));
@@ -240,59 +257,91 @@
         socket = null;
         connecting = false;
         connected = false;
-        scheduleReconnect();
+        if (!manualStop) {
+          setStatus('waiting', `TikTool: collegamento LIVE perso · controllo @${liveUser}…`);
+          scheduleLiveCheck(1500);
+        }
       }, { once: true });
 
       socket.addEventListener('error', () => {
-        setStatus(false, `TikTool: errore di connessione @${liveUser}`);
-        try { socket?.close(); } catch {
-          socket = null;
-          connecting = false;
-          connected = false;
-          scheduleReconnect();
-        }
+        setStatus('disconnected', `TikTool: errore WebSocket @${liveUser} · nuovo tentativo automatico`);
+        try { socket?.close(); } catch {}
       }, { once: true });
     } catch (error) {
       socket = null;
       connecting = false;
       connected = false;
-      setStatus(false, `TikTool: disconnesso · ${error?.message || 'errore'}`);
-      scheduleReconnect();
+      setStatus('disconnected', `TikTool: ${error?.message || 'errore di connessione'}`);
+      scheduleLiveCheck(5000);
     }
+  }
+
+  async function checkLiveAndConnect() {
+    if (manualStop || liveCheckRunning || !liveUser) return;
+    liveCheckRunning = true;
+    clearLiveTimer();
+
+    try {
+      const status = await getLiveStatus();
+      lastLiveStatus = status;
+
+      if (status.alive === true) {
+        if (connected) {
+          const viewers = Number(status.userCount || 0);
+          const suffix = viewers > 0 ? ` · ${viewers} spettatori` : '';
+          setStatus('connected', `TikTool: LIVE connessa @${liveUser}${suffix}`);
+          scheduleLiveCheck(CONNECTED_POLL_MS);
+        } else if (!connecting) {
+          await openSocket();
+        }
+        return;
+      }
+
+      if (connected || connecting) closeSocket('TikTok LIVE ended');
+      setStatus('waiting', `TikTool: @${liveUser} non è LIVE · controllo automatico ogni 10s`);
+      scheduleLiveCheck(OFFLINE_POLL_MS);
+    } catch (error) {
+      setStatus('disconnected', `TikTool/API: ${error?.message || 'non raggiungibile'} · nuovo tentativo`);
+      scheduleLiveCheck(5000);
+    } finally {
+      liveCheckRunning = false;
+    }
+  }
+
+  function connect() {
+    if (manualStop) manualStop = false;
+    if (!liveUser && !loadCreator()) {
+      setStatus('disconnected', 'TikTool: manca @username · clicca il pallino rosso');
+      return;
+    }
+    if (connected || connecting || liveCheckRunning) return;
+    setStatus('waiting', `TikTool: cerco la LIVE di @${liveUser}…`);
+    checkLiveAndConnect();
   }
 
   function disconnect() {
     manualStop = true;
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-    try { socket?.close(1000, 'Fighter Arena disconnect'); } catch {}
-    socket = null;
-    connecting = false;
-    connected = false;
-    setStatus(false, liveUser ? `TikTool: disconnesso da @${liveUser}` : 'TikTool: disconnesso');
+    clearLiveTimer();
+    closeSocket('Fighter Arena disconnect');
+    setStatus('disconnected', liveUser ? `TikTool: disconnesso da @${liveUser}` : 'TikTool: disconnesso');
   }
 
   function reconnect() {
     manualStop = false;
-    reconnectAttempt = 0;
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-    try { socket?.close(); } catch {}
-    socket = null;
-    connecting = false;
-    connected = false;
-    connect();
+    clearLiveTimer();
+    closeSocket('Fighter Arena reconnect');
+    setStatus('waiting', `TikTool: ricontrollo @${liveUser}…`);
+    checkLiveAndConnect();
   }
 
   function changeCreator() {
     if (!promptCreator()) return;
     manualStop = false;
-    reconnectAttempt = 0;
-    try { socket?.close(); } catch {}
-    socket = null;
-    connecting = false;
-    connected = false;
-    connect();
+    clearLiveTimer();
+    closeSocket('TikTok creator changed');
+    lastLiveStatus = null;
+    setStatus('waiting', `TikTool: cerco la LIVE di @${liveUser}…`);
+    checkLiveAndConnect();
   }
 
   window.FighterArenaTikTool = {
@@ -305,9 +354,10 @@
     get socket() { return socket; },
     get connected() { return connected; },
     get liveUser() { return liveUser; },
+    get liveStatus() { return lastLiveStatus; },
     get lastRaw() { return lastRaw; },
     get lastNormalized() { return lastNormalized; },
-    transport: 'tiktool-cloud'
+    transport: 'tiktool-cloud-direct'
   };
   window.FighterArenaLiveBridge = window.FighterArenaTikTool;
 
@@ -333,15 +383,15 @@
 
   loadCreator();
   if (liveUser) {
-    setStatus(false, `TikTool: connessione a @${liveUser}…`);
+    setStatus('waiting', `TikTool: cerco la LIVE di @${liveUser}…`);
     connect();
   } else {
-    setStatus(false, 'TikTool: disconnesso · clicca il pallino rosso per impostare @username');
+    setStatus('disconnected', 'TikTool: manca @username · clicca il pallino rosso');
   }
 
   window.addEventListener('beforeunload', () => {
     manualStop = true;
-    clearTimeout(reconnectTimer);
+    clearLiveTimer();
     try { socket?.close(1000, 'Fighter Arena page closed'); } catch {}
   }, { once: true });
 })();
