@@ -14,7 +14,7 @@ Permanent Game Hub project for a TikTok LIVE 1v1 auto-fighter queue.
 ## Fighter roster
 The v1.4 runtime targets all 20 fighter entries assembled from the supplied packs, including the two Medieval Warrior additions and the multi-character Samurai/Magician packs. The combat state machine uses idle, run, hit/hurt, every available attack variant, jump/fall where present, and native death/dead animations. If a source pack has no death sheet, the fighter uses its hit animation followed by a controlled fall so it never simply disappears.
 
-## Complete WEB SAFE install
+## Complete WEB APP install
 Use `INSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd` once from a complete Fighter Arena package.
 
 The installer:
@@ -24,36 +24,40 @@ The installer:
 - installs an uninstaller inside the application folder;
 - starts the installed app after setup.
 
-After installation, normal use is one click on **Fighter Arena WEB SAFE**. The launcher starts only the local static server and opens the game in Edge/Chrome app-window mode when available. TikFinity and TikTok LIVE Studio remain separate applications and are never started, stopped or controlled by Fighter Arena.
+After installation, normal use is one click on **Fighter Arena WEB SAFE**. The launcher starts the lightweight local web server and opens the game in Edge/Chrome app-window mode when available.
 
 `AVVIA_FIGHTER_ARENA_LIVE.bat` is kept as a compatibility alias and routes to `START_FIGHTER_ARENA_WEB_SAFE.cmd`.
 
-## Desktop LIVE safe web app
-For TikTok LIVE Studio on the same Windows PC, the installed launcher opens `desktop-live.html` on the dedicated local HTTP origin `127.0.0.1:8777`.
+## TikTool LIVE bridge
+The desktop web app now uses TikTool directly. TikFinity is not required.
 
-Safe desktop rules:
-- TikFinity must already be connected to the TikTok LIVE before Fighter Arena is opened.
-- The launcher never starts, closes or reconnects TikFinity and never controls LIVE Studio.
-- No port `8795` LAN/iPhone bridge is used in desktop mode.
-- Fighter Arena finishes its game preload first, then opens exactly one passive Event API WebSocket to `ws://127.0.0.1:21213/`.
-- There is no automatic reconnect loop. If the Event API drops, the loading screen exposes `RECONNECT TIKFINITY` for an explicit retry.
-- Chrome Web Locks prevent a second `desktop-live.html` tab on the same local origin from opening another TikFinity Event API socket.
-- Switching windows/tabs does not trigger reconnects or socket churn.
+Flow:
+
+`TikTok LIVE -> TikTool cloud -> short-lived JWT -> Fighter Arena WebSocket -> FighterArenaBridge`
+
+The local server keeps the TikTool API credential on the server side of the web app and mints a short-lived JWT scoped to the configured TikTok creator. The browser connects to `wss://api.tik.tools` with that JWT.
+
+Connection indicator:
+- green dot: TikTool WebSocket connected;
+- red dot: disconnected, reconnecting, or username not configured;
+- first launch: click the red dot and enter the TikTok username without `@`;
+- double-click the dot to change the saved TikTok username;
+- the username is saved locally in the browser for later launches.
 
 Recommended LIVE order:
 1. Start TikTok LIVE Studio and go LIVE.
-2. Connect TikFinity to the LIVE and wait until it is stable.
-3. Open **Fighter Arena WEB SAFE** from the desktop.
-4. Wait for game preload and one `Event API - Client connected` notification.
+2. Open **Fighter Arena WEB SAFE** from the desktop.
+3. On the first launch, click the red dot and enter the TikTok LIVE username.
+4. Wait for the dot to turn green.
 5. Enter the arena and test JOIN/like/follow/gift.
 
-This keeps the TikFinity ↔ TikTok LIVE/LIVE Studio connection independent from the game. The game only listens to TikFinity's local Event API.
-
-## LIVE bridge
+## LIVE event interface
 Use `window.FighterArenaBridge.emit(type, payload)`.
 
 Supported event types: `join`, `like`, `follow`, `rose`, `gift`.
 Useful payload fields: `userId`, `username`, `count`, `giftName`, `diamondCount`, `repeatCount`.
+
+The TikTool bridge normalizes LIVE `member`, `chat`, `like`, `follow` and `gift` events into the existing Fighter Arena event interface so the game logic does not need to know which LIVE provider is in use.
 
 The game also accepts `postMessage` events with `channel: "tiktok-live"` and `CustomEvent("fighter-arena-event")`.
 
