@@ -31,12 +31,12 @@
     images[key] = img;
     img.onload = () => { loaded++; setBadge(`AIR FILES ${loaded}/10`); };
     img.onerror = () => setBadge(`AIR FILE ERROR ${file}`);
-    img.src = `./assets/${file}?v=014`;
+    img.src = `./assets/${file}?v=015`;
   }
 
   // game.js only needs one carrier image to flip spriteReady=true. Every actual
   // aircraft draw is replaced below with the corresponding physical PNG.
-  window.AIRCRAFT_ATLAS_URL = './assets/US_p51.png?v=014-carrier';
+  window.AIRCRAFT_ATLAS_URL = './assets/US_p51.png?v=015-carrier';
 
   const nativeDrawImage = CanvasRenderingContext2D.prototype.drawImage;
   CanvasRenderingContext2D.prototype.drawImage = function(image, ...args) {
@@ -49,15 +49,15 @@
         if (sprite && box && sprite.complete && sprite.naturalWidth > 0) {
           const [bx,by,bw,bh] = box;
           const heavy = key === '4,1';
-          // About 18% smaller than the first direct-PNG pass. Fighters stay
-          // readable on phone while gaining substantially more turning room.
-          const target = heavy ? 193 : 144;
+          // More-map pass: shrink fighters and heavy aircraft again so the
+          // vertical battlefield reads larger while aircraft remain legible.
+          const target = heavy ? 158 : 118;
           const ratio = bw / bh;
           const outW = ratio >= 1 ? target : target * ratio;
           const outH = ratio >= 1 ? target / ratio : target;
           this.save();
-          this.shadowColor='rgba(0,0,0,.72)';
-          this.shadowBlur=10;
+          this.shadowColor='rgba(0,0,0,.68)';
+          this.shadowBlur=8;
           nativeDrawImage.call(this, sprite, bx,by,bw,bh, -outW/2,-outH/2,outW,outH);
           this.restore();
           return;
@@ -67,9 +67,9 @@
         this.save();
         this.fillStyle = sy === 0 ? '#d9f5ff' : '#ff9f7d';
         this.strokeStyle = 'rgba(0,0,0,.75)';
-        this.lineWidth = 5;
+        this.lineWidth = 4;
         this.beginPath();
-        this.moveTo(0,-59); this.lineTo(25,39); this.lineTo(0,25); this.lineTo(-25,39); this.closePath();
+        this.moveTo(0,-48); this.lineTo(20,32); this.lineTo(0,20); this.lineTo(-20,32); this.closePath();
         this.fill(); this.stroke();
         this.restore();
         return;
