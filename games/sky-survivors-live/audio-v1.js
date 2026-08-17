@@ -74,10 +74,11 @@
 
     async unlock(){
       if(!this.enabled || !this.ensure()) return;
+      const firstUnlock = !this.unlocked;
       try{if(this.ctx.state!=='running')await this.ctx.resume();}catch{}
       this.unlocked=this.ctx.state==='running';
       this.updateButton();
-      if(this.unlocked) this.flyby(.5);
+      if(this.unlocked && firstUnlock) this.flyby(.5);
     }
 
     installUnlock(){
