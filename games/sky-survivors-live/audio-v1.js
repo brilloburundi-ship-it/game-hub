@@ -93,7 +93,7 @@
         const b=document.createElement('button');
         b.id='skySoundToggle';b.type='button';b.setAttribute('aria-label','Audio Sky Survivors');
         Object.assign(b.style,{position:'fixed',right:'10px',top:'82px',zIndex:'40',border:'1px solid rgba(255,255,255,.2)',borderRadius:'999px',padding:'6px 9px',background:'rgba(3,11,24,.58)',color:'#eaf8ff',font:'800 11px system-ui',letterSpacing:'.04em',backdropFilter:'blur(5px)',webkitBackdropFilter:'blur(5px)',cursor:'pointer'});
-        b.addEventListener('click',e=>{e.stopPropagation();this.enabled=!this.enabled;if(this.enabled)this.unlock();this.updateButton();this.setMaster(this.enabled?.58:0);});
+        b.addEventListener('click',e=>{e.stopPropagation();this.enabled=!this.enabled;if(this.enabled)this.unlock();this.updateButton();this.setMaster(this.enabled ? .58 : 0);});
         document.body.appendChild(b);this.button=b;this.updateButton();
       };
       if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',make,{once:true});else make();
