@@ -3,10 +3,9 @@
 
   const params = new URLSearchParams(location.search);
   const USER_STORAGE_KEY = 'fighter_arena_live_user';
-  const TOKEN_ENDPOINT = './api/tiktool/token';
-  const WS_ENDPOINT = 'wss://api.tik.tools';
-  const RECONNECT_MS = 4000;
-  const ROOMINFO_TIMEOUT_MS = 12000;
+  const CONFIG_ENDPOINT = './api/tiktool/client-config';
+  const RECONNECT_MS = 3500;
+  const ROOMINFO_TIMEOUT_MS = 20000;
   const JOIN_COMMANDS = new Set(['join', 'me', 'play', 'fight', 'entra', 'gioca', 'combatti', 'arena']);
   const giftProgress = new Map();
   const queuedEvents = [];
@@ -34,7 +33,8 @@
   function setStatus(state, message) {
     connected = state === 'connected';
     document.documentElement.dataset.fighterBridgeStatus = state;
-    document.documentElement.dataset.fighterBridgeTransport = 'tiktool-cloud-direct-v2';
+    document.documentElement.dataset.fighterBridgeTransport = 'tiktool-browser-direct-v3';
+    document.documentElement.dataset.fighterBridgeEvents = String(eventsReceived);
     const el = dot();
     if (!el) return;
     el.classList.toggle('is-connected', state === 'connected');
@@ -43,6 +43,16 @@
     el.style.backgroundColor = state === 'connected' ? '#2bd96b' : state === 'waiting' ? '#f4c542' : '#ff3b4f';
     el.setAttribute('aria-label', message);
     el.title = message;
+  }
+
+  function pulseEvent() {
+    const el = dot();
+    if (!el) return;
+    el.animate?.([
+      { transform: 'scale(1)', boxShadow: '0 1px 5px rgba(0,0,0,.75)' },
+      { transform: 'scale(1.65)', boxShadow: '0 0 12px rgba(90,255,155,.95)' },
+      { transform: 'scale(1)', boxShadow: '0 1px 5px rgba(0,0,0,.75)' }
+    ], { duration: 260, easing: 'ease-out' });
   }
 
   function loadCreator() {
@@ -106,32 +116,41 @@
   function normalize(raw) {
     if (!isObject(raw)) return null;
     const data = isObject(raw.data) ? raw.data : raw;
-    const eventName = String(raw.event || raw.type || data.type || '').toLowerCase().replace(/[\s_-]+/g, '');
-    if (!eventName || eventName === 'roominfo' || eventName === 'connected') return null;
-    if (eventName.includes('roomuser') || eventName.includes('viewercount')) return null;
+    const eventName = String(raw.event || raw.type || data.type || '').trim().toLowerCase();
+    const compact = eventName.replace(/[\s_-]+/g, '');
+    if (!compact || compact === 'roominfo' || compact === 'connected') return null;
+    if (compact.includes('roomuser') || compact.includes('viewercount')) return null;
 
     const base = identity(data);
-    if (['leave', 'memberleave', 'viewerleave', 'exit'].some(name => eventName.includes(name))) {
-      return { type: 'leave', payload: base };
-    }
-    if (eventName.includes('chat') || eventName.includes('comment')) {
+
+    if (compact === 'chat' || compact.includes('comment')) {
       const comment = String(data.comment ?? data.text ?? data.content ?? '').trim();
-      return { type: 'join', payload: { ...base, comment, command: commandOf(comment), sourceEvent: eventName } };
+      const command = commandOf(comment);
+      if (!command) return null;
+      return { type: 'join', payload: { ...base, comment, command, sourceEvent: eventName } };
     }
-    if (eventName.includes('member') || eventName.includes('join') || eventName.includes('enter')) {
+
+    if (compact === 'member' || compact.includes('viewerenter') || compact === 'join' || compact === 'enter') {
       return { type: 'join', payload: base };
     }
-    if (eventName.includes('like')) {
-      return { type: 'like', payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.like_count ?? data.count ?? 1) || 1) } };
+
+    if (compact === 'like' || compact.includes('likeevent')) {
+      return {
+        type: 'like',
+        payload: { ...base, count: Math.max(1, Number(data.likeCount ?? data.like_count ?? data.count ?? 1) || 1) }
+      };
     }
-    const action = String(data?.action || '').toLowerCase();
-    if (eventName.includes('follow') || (eventName.includes('social') && action === 'follow')) {
+
+    const action = String(data?.action || '').trim().toLowerCase();
+    if (compact === 'follow' || (compact === 'social' && action === 'follow')) {
       return { type: 'follow', payload: base };
     }
-    if (eventName.includes('gift')) {
+
+    if (compact === 'gift' || compact.includes('giftevent')) {
       const payload = giftPayload(data, base);
       return payload ? { type: 'gift', payload } : null;
     }
+
     return null;
   }
 
@@ -139,7 +158,7 @@
     return window.__fighterArenaReady === true && Boolean(window.FighterArenaBridge?.emit);
   }
 
-  function deliverNormalized(event) {
+  function deliver(event) {
     if (!event) return;
     if (!gameReady()) {
       queuedEvents.push(event);
@@ -149,32 +168,48 @@
     window.FighterArenaBridge.emit(event.type, event.payload);
   }
 
+  function markLive(message) {
+    clearTimeout(roomInfoTimer);
+    roomInfoTimer = null;
+    setStatus('connected', message);
+  }
+
   function handleMessage(raw) {
     if (!isObject(raw)) return;
     lastRaw = raw;
-    const name = String(raw.event || raw.type || '').toLowerCase();
-    if (name === 'roominfo') {
-      clearTimeout(roomInfoTimer);
+    const eventName = String(raw.event || raw.type || '').trim().toLowerCase();
+
+    if (eventName === 'roominfo') {
       roomId = String(raw.roomId || raw.data?.roomId || raw.data?.room_id || '');
-      setStatus('connected', `TikTool: LIVE connessa @${liveUser}${roomId ? ` · room ${roomId}` : ''}`);
+      markLive(`TikTool: LIVE @${liveUser}${roomId ? ` · room ${roomId}` : ''} · 0 eventi`);
       return;
     }
+
+    if (eventName === 'control' && Number(raw.data?.action ?? raw.action) === 3) {
+      setStatus('waiting', `TikTool: LIVE terminata @${liveUser} · attendo riavvio`);
+      try { socket?.close(); } catch {}
+      return;
+    }
+
     const normalized = normalize(raw);
     lastNormalized = normalized;
-    if (normalized) {
-      eventsReceived += 1;
-      deliverNormalized(normalized);
-      if (connected) setStatus('connected', `TikTool: LIVE @${liveUser} · ${eventsReceived} eventi ricevuti`);
-    }
+    if (!normalized) return;
+
+    eventsReceived += 1;
+    if (!connected) markLive(`TikTool: eventi LIVE ricevuti da @${liveUser}`);
+    deliver(normalized);
+    pulseEvent();
+    setStatus('connected', `TikTool: LIVE @${liveUser} · ${eventsReceived} eventi ricevuti`);
   }
 
   function parseMessage(data) {
     if (typeof data === 'string') {
-      try { handleMessage(JSON.parse(data)); } catch {}
+      try { handleMessage(JSON.parse(data)); }
+      catch (error) { lastError = `JSON: ${error?.message || error}`; }
       return;
     }
     if (typeof Blob !== 'undefined' && data instanceof Blob) {
-      data.text().then(parseMessage).catch(() => {});
+      data.text().then(parseMessage).catch(error => { lastError = String(error?.message || error); });
       return;
     }
     if (isObject(data)) handleMessage(data);
@@ -182,18 +217,18 @@
 
   function flushQueue() {
     if (!gameReady()) return false;
-    while (queuedEvents.length) deliverNormalized(queuedEvents.shift());
+    while (queuedEvents.length) deliver(queuedEvents.shift());
     return true;
   }
 
-  async function getTicket() {
-    const response = await fetch(`${TOKEN_ENDPOINT}?uniqueId=${encodeURIComponent(liveUser)}`, {
+  async function getConfig() {
+    const response = await fetch(`${CONFIG_ENDPOINT}?uniqueId=${encodeURIComponent(liveUser)}`, {
       cache: 'no-store', credentials: 'same-origin'
     });
     let payload = null;
     try { payload = await response.json(); } catch {}
-    if (!response.ok) throw new Error(payload?.error || `TikTool auth ${response.status}`);
-    if (!payload?.token) throw new Error('TikTool token missing');
+    if (!response.ok) throw new Error(payload?.error || `TikTool config ${response.status}`);
+    if (!payload?.apiKey || !payload?.wsUrl) throw new Error('TikTool config incompleta');
     return payload;
   }
 
@@ -228,22 +263,24 @@
     clearTimers();
     connecting = true;
     lastError = '';
-    setStatus('waiting', `TikTool: autenticazione e collegamento a @${liveUser}…`);
+    roomId = '';
+    setStatus('waiting', `TikTool: collegamento diretto a @${liveUser}…`);
 
     try {
-      const ticket = await getTicket();
+      const config = await getConfig();
       if (manualStop) { connecting = false; return; }
-      const wsUrl = new URL(ticket.wsUrl || WS_ENDPOINT);
+      const wsUrl = new URL(config.wsUrl);
       wsUrl.searchParams.set('uniqueId', liveUser);
-      wsUrl.searchParams.set('jwtKey', ticket.token);
+      wsUrl.searchParams.set('apiKey', config.apiKey);
       socket = new WebSocket(wsUrl.toString());
 
       socket.addEventListener('open', () => {
         connecting = false;
-        setStatus('waiting', `TikTool: WebSocket aperto · attendo la LIVE @${liveUser}…`);
+        setStatus('waiting', `TikTool: socket aperto · aggancio LIVE @${liveUser}…`);
         roomInfoTimer = setTimeout(() => {
           if (!connected && socket) {
-            setStatus('waiting', `TikTool: @${liveUser} non ancora agganciata · nuovo tentativo`);
+            lastError = 'roomInfo timeout';
+            setStatus('waiting', `TikTool: LIVE non agganciata · nuovo tentativo @${liveUser}`);
             try { socket.close(); } catch {}
           }
         }, ROOMINFO_TIMEOUT_MS);
@@ -259,21 +296,22 @@
         connected = false;
         if (manualStop) return;
         const reason = String(event.reason || '').trim();
-        setStatus('waiting', reason ? `TikTool: ${reason} · ritento @${liveUser}` : `TikTool: LIVE non agganciata · ritento @${liveUser}`);
+        lastError = reason || `WebSocket closed (${event.code || 0})`;
+        setStatus('waiting', reason ? `TikTool: ${reason} · ritento` : `TikTool: riconnessione LIVE @${liveUser}…`);
         scheduleReconnect();
       }, { once: true });
 
       socket.addEventListener('error', () => {
         lastError = 'WebSocket error';
-        setStatus('disconnected', `TikTool: errore WebSocket · ritento automaticamente`);
+        setStatus('disconnected', `TikTool: errore socket · ritento automaticamente`);
       });
     } catch (error) {
       socket = null;
       connecting = false;
       connected = false;
-      lastError = error?.message || 'TikTool authentication error';
+      lastError = error?.message || 'TikTool connection error';
       setStatus('disconnected', `TikTool: ${lastError} · ritento automaticamente`);
-      scheduleReconnect(6000);
+      scheduleReconnect(5000);
     }
   }
 
@@ -307,7 +345,7 @@
     get lastRaw() { return lastRaw; },
     get lastNormalized() { return lastNormalized; },
     get lastError() { return lastError; },
-    transport: 'tiktool-cloud-direct-v2'
+    transport: 'tiktool-browser-direct-v3'
   };
   window.FighterArenaLiveBridge = window.FighterArenaTikTool;
 
@@ -329,7 +367,7 @@
 
   loadCreator();
   if (liveUser) {
-    setStatus('waiting', `TikTool: collegamento diretto a @${liveUser}…`);
+    setStatus('waiting', `TikTool: connessione diretta a @${liveUser}…`);
     connect();
   } else {
     setStatus('disconnected', 'TikTool: manca @username · clicca il pallino rosso');

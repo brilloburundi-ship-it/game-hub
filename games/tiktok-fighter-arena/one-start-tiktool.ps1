@@ -112,7 +112,7 @@ function Stop-OldRuntime {
 
 function Test-FighterServer {
   $json = Get-FighterHealth
-  return ($json -and $json.ok -eq $true -and $json.liveBridge -eq 'tiktool-cloud-direct-v2' -and $json.keyConfigured -eq $true)
+  return ($json -and $json.ok -eq $true -and $json.liveBridge -eq 'tiktool-browser-direct-v3' -and $json.keyConfigured -eq $true)
 }
 
 function Get-NodeExecutable {
@@ -164,7 +164,7 @@ try {
   $NodeExe = Get-NodeExecutable
   Stop-OldRuntime
 
-  Write-Step 'Avvio il server leggero locale e TikTool diretto...'
+  Write-Step 'Avvio Fighter Arena con TikTool browser-direct...'
   Start-Process -FilePath $NodeExe -ArgumentList @('web-safe-server.mjs') -WorkingDirectory $PackageRoot -WindowStyle Hidden
 
   $ready = $false
@@ -191,7 +191,7 @@ try {
   Write-Host ''
   Write-Host '[OK] Fighter Arena TikTool DIRECT avviata.' -ForegroundColor Green
   Write-Host '[INFO] GIALLO = connessione in corso / LIVE non ancora agganciata.' -ForegroundColor Yellow
-  Write-Host '[INFO] VERDE = room LIVE agganciata e eventi reali in arrivo.' -ForegroundColor Green
+  Write-Host '[INFO] VERDE = LIVE agganciata. Il pallino pulsa a ogni interazione ricevuta.' -ForegroundColor Green
   Write-Host '[INFO] ROSSO = errore API/rete/autenticazione.' -ForegroundColor Red
   exit 0
 } catch {

@@ -1,8 +1,8 @@
 import{startCombat as baseStartCombat}from'./combat-v14-layout-tune.js?v=1.0.1-unlimited-rounds';
 import{S,cfg}from'./core.js?v=1.4.0';
 
-const VERSION='1.0.0';
-const PORTRAIT_SCALE=.84;
+const VERSION='1.1.0-half';
+const PORTRAIT_SCALE=.42;
 const PORTRAIT_RATIO=1.16;
 
 function isPortrait(){return innerHeight>innerWidth*PORTRAIT_RATIO}
