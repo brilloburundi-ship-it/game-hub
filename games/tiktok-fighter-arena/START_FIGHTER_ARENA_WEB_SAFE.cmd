@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions
 cd /d "%~dp0"
-title FIGHTER ARENA - WEB DESKTOP SAFE
+title FIGHTER ARENA - TIKTOOL WEB APP
 
 set "PORT=8777"
 set "LIVE_URL=http://127.0.0.1:%PORT%/desktop-live.html"
@@ -14,6 +14,11 @@ if not exist "%~dp0desktop-live.html" (
 )
 if not exist "%~dp0web-safe-server.mjs" (
   echo [ERRORE] web-safe-server.mjs non trovato.
+  pause
+  exit /b 1
+)
+if not exist "%~dp0desktop-tiktool.js" (
+  echo [ERRORE] desktop-tiktool.js non trovato.
   pause
   exit /b 1
 )
@@ -40,7 +45,7 @@ if errorlevel 1 (
     pause
     exit /b 1
   )
-  start "FIGHTER ARENA WEB SAFE SERVER" /min "%NODE_EXE%" "%~dp0web-safe-server.mjs"
+  start "FIGHTER ARENA TIKTOOL SERVER" /min "%NODE_EXE%" "%~dp0web-safe-server.mjs"
 )
 
 for /L %%I in (1,1,20) do (
@@ -49,7 +54,7 @@ for /L %%I in (1,1,20) do (
   timeout /t 1 /nobreak >nul
 )
 
-echo [ERRORE] Il server locale WEB SAFE non risponde.
+echo [ERRORE] Il server locale Fighter Arena non risponde.
 pause
 exit /b 1
 
@@ -68,8 +73,10 @@ if defined BROWSER_EXE (
 
 >"%~dp0URL_FIGHTER_ARENA_LIVE.txt" echo %LIVE_URL%
 echo.
-echo [OK] Fighter Arena WEB SAFE avviata.
-echo [OK] TikFinity e LIVE Studio non vengono avviati, chiusi o controllati.
-echo [OK] Un solo client Event API viene aperto dal gioco dopo il preload.
+echo [OK] Fighter Arena WEB APP avviata.
+echo [OK] Bridge LIVE: TikTool cloud.
+echo [OK] TikFinity non e necessario e non viene avviato o controllato.
+echo [OK] Pallino verde = connesso, rosso = disconnesso.
+echo [INFO] Al primo avvio clicca il pallino rosso e inserisci il tuo username TikTok.
 echo.
 exit /b 0
