@@ -15,9 +15,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate TikTool runtime
+        run: |
+          set -euo pipefail
+          node --check games/tiktok-fighter-arena/web-safe-server.mjs
+          node --check games/tiktok-fighter-arena/desktop-tiktool.js
+          test -f games/tiktok-fighter-arena/one-start-tiktool.ps1
+          test -f games/tiktok-fighter-arena/desktop-live.html
+          test -f games/tiktok-fighter-arena/combat-v14-portrait-scale.js
+
       - name: Build clean one-start ZIP
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p package/Fighter-Arena-TikTool
           rsync -a \
             --exclude='*.cmd' \
@@ -29,6 +38,10 @@ jobs:
             --exclude='install-web-safe.ps1' \
             games/tiktok-fighter-arena/ package/Fighter-Arena-TikTool/
           cp 'games/tiktok-fighter-arena/AVVIA FIGHTER ARENA.cmd' 'package/Fighter-Arena-TikTool/AVVIA FIGHTER ARENA.cmd'
+          test -f package/Fighter-Arena-TikTool/AVVIA\ FIGHTER\ ARENA.cmd
+          test -f package/Fighter-Arena-TikTool/one-start-tiktool.ps1
+          test -f package/Fighter-Arena-TikTool/web-safe-server.mjs
+          test -f package/Fighter-Arena-TikTool/desktop-tiktool.js
           cd package
           zip -r ../Fighter-Arena-TikTool-ONE-START.zip Fighter-Arena-TikTool
 
