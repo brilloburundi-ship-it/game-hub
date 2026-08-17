@@ -13,11 +13,11 @@ $StartShortcut = Join-Path $StartMenuDir 'Fighter Arena WEB SAFE.lnk'
 
 Write-Host ''
 Write-Host '=============================================================' -ForegroundColor Cyan
-Write-Host ' FIGHTER ARENA - WEB DESKTOP SAFE - INSTALLAZIONE COMPLETA' -ForegroundColor Cyan
+Write-Host ' FIGHTER ARENA - TIKTOOL WEB APP - INSTALLAZIONE COMPLETA' -ForegroundColor Cyan
 Write-Host '=============================================================' -ForegroundColor Cyan
 Write-Host ''
-Write-Host 'Questa installazione NON modifica TikFinity e NON modifica LIVE Studio.'
-Write-Host 'Installa solo il gioco web locale e il suo piccolo server HTTP.'
+Write-Host 'Questa versione usa TikTool cloud e NON richiede TikFinity.'
+Write-Host 'Installa il gioco web locale e il piccolo server HTTP/TikTool.'
 Write-Host ''
 
 try {
@@ -58,9 +58,6 @@ if (-not $Node) {
 Write-Host ('[OK] Node.js: ' + $Node.Source) -ForegroundColor Green
 Write-Host '[INFO] Preparazione copia pulita dei file...' -ForegroundColor Yellow
 
-# Non usiamo Robocopy: su alcune configurazioni Windows il pacchetto estratto da Downloads
-# restituiva fatal error code 16. Copiamo i file con PowerShell in una cartella staging,
-# poi sostituiamo l'installazione solo dopo aver verificato i file essenziali.
 if (Test-Path -LiteralPath $StageDir) {
   Remove-Item -LiteralPath $StageDir -Recurse -Force
 }
@@ -95,7 +92,7 @@ if ($copied -lt 20) { throw "Copia incompleta: solo $copied file copiati." }
 $required = @(
   'START_FIGHTER_ARENA_WEB_SAFE.cmd',
   'desktop-live.html',
-  'desktop-tikfinity-safe.js',
+  'desktop-tiktool.js',
   'web-safe-server.mjs'
 )
 foreach ($requiredFile in $required) {
@@ -106,8 +103,6 @@ foreach ($requiredFile in $required) {
 
 Write-Host ("[OK] Copiati $copied file nel pacchetto locale.") -ForegroundColor Green
 
-# Sostituzione atomica semplice: prima rimuove l'installazione precedente/Parziale,
-# poi rinomina lo staging. In caso di file bloccati mostra un errore chiaro.
 if (Test-Path -LiteralPath $InstallDir) {
   Write-Host '[INFO] Rimuovo installazione precedente/parziale...' -ForegroundColor Yellow
   try {
@@ -125,7 +120,7 @@ foreach ($ShortcutPath in @($DesktopShortcut,$StartShortcut)) {
   $Shortcut = $Shell.CreateShortcut($ShortcutPath)
   $Shortcut.TargetPath = $Launcher
   $Shortcut.WorkingDirectory = $InstallDir
-  $Shortcut.Description = 'Fighter Arena WEB SAFE - TikFinity Event API isolata da TikTok LIVE Studio'
+  $Shortcut.Description = 'Fighter Arena WEB APP - bridge TikTool cloud integrato'
   $Shortcut.WindowStyle = 7
   $Shortcut.Save()
 }
@@ -144,13 +139,14 @@ exit /b 0
 Set-Content -LiteralPath (Join-Path $InstallDir 'DISINSTALLA_FIGHTER_ARENA_WEB_SAFE.cmd') -Value $Uninstall -Encoding ASCII
 
 @"
-Fighter Arena WEB SAFE
+Fighter Arena WEB APP
 Installato: $(Get-Date -Format s)
 Percorso: $InstallDir
 Modalita: desktop web app locale
-TikFinity: solo Event API ws://127.0.0.1:21213 dopo il preload
-Bridge 8795: NON usato
+LIVE bridge: TikTool cloud WebSocket
+TikFinity: NON richiesto
 LIVE Studio: NON controllato
+Indicatore: verde connesso / rosso disconnesso
 "@ | Set-Content -LiteralPath (Join-Path $InstallDir 'WEB_SAFE_INSTALL.txt') -Encoding UTF8
 
 Write-Host ''
@@ -159,9 +155,10 @@ Write-Host ('[OK] Cartella: ' + $InstallDir) -ForegroundColor Green
 Write-Host '[OK] Collegamento creato sul Desktop e nel menu Start.' -ForegroundColor Green
 Write-Host ''
 Write-Host 'Sequenza LIVE consigliata:' -ForegroundColor Cyan
-Write-Host '  1. Avvia LIVE Studio e vai LIVE.'
-Write-Host '  2. Collega TikFinity e verifica che sia stabile.'
-Write-Host '  3. Avvia Fighter Arena WEB SAFE dal Desktop.'
+Write-Host '  1. Avvia TikTok LIVE Studio e vai LIVE.'
+Write-Host '  2. Avvia Fighter Arena WEB SAFE dal Desktop.'
+Write-Host '  3. Al primo avvio clicca il pallino rosso e inserisci il tuo @ TikTok.'
+Write-Host '  4. Quando il pallino diventa verde il bridge TikTool e collegato.'
 Write-Host ''
 Write-Host 'Avvio Fighter Arena...' -ForegroundColor Cyan
 Start-Process -FilePath $Launcher -WorkingDirectory $InstallDir
