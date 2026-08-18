@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <meta name="theme-color" content="#071019" />
 <title>Satellite Signal Receiver</title>
-<link rel="stylesheet" href="./styles.css?v=20260818-1312" />
+<link rel="stylesheet" href="./styles.css?v=20260818-1326" />
 </head>
 <body>
 <div class="shell">
@@ -14,7 +14,7 @@
       <div class="brand-mark">🛰️</div>
       <div class="brand-copy">
         <strong>Satellite Signal Receiver</strong>
-        <small>AUTO RX remoto · ricezioni concluse e già disponibili · solo RX</small>
+        <small>AUTO RX remoto · voce, immagini e dati · solo RX</small>
       </div>
     </div>
     <div class="status-pill"><span id="statusDot" class="dot"></span><span id="statusText">In attesa</span></div>
@@ -23,24 +23,24 @@
   <section class="hero">
     <div class="hero-card">
       <span class="eyebrow">AUTO RX · Remote Antennas · SatNOGS</span>
-      <h1>Trova automaticamente<br>una ricezione già pronta.</h1>
-      <p>L’app scarta i passaggi futuri e quelli ancora in attesa. Seleziona solo osservazioni concluse con audio, waterfall o dati realmente disponibili e li mostra direttamente qui.</p>
+      <h1>Trova automaticamente<br>contenuto satellitare utile.</h1>
+      <p>L’app scarta i passaggi futuri e distingue automaticamente tra voce, immagini e telemetria. I segnali digitali non vengono più riprodotti come rumore audio.</p>
       <div class="cta-row">
         <button class="btn primary" id="heroScan">AUTO RX</button>
         <button class="btn secondary" id="switchLocal">Ricevitore locale PC</button>
       </div>
       <div class="hero-metrics">
         <div class="metric"><span>Selezione</span><b>Automatica</b></div>
-        <div class="metric"><span>Passaggi futuri</span><b>Esclusi</b></div>
+        <div class="metric"><span>Contenuto</span><b>Voice / Image / Data</b></div>
         <div class="metric"><span>Sicurezza</span><b>RX only</b></div>
       </div>
     </div>
     <aside class="side-card">
       <h3>Come funziona</h3>
       <div class="info-list">
-        <div class="info"><strong>1. Cerca</strong><small>Analizza automaticamente le ground station remote con ricezioni già completate.</small></div>
-        <div class="info"><strong>2. Sceglie</strong><small>Preferisce audio, waterfall e modalità interessanti come FM/APT/SSTV.</small></div>
-        <div class="info"><strong>3. Mostra</strong><small>Waterfall e audio vengono caricati nella nostra app senza aprire pagine “Waiting”.</small></div>
+        <div class="info"><strong>1. Analizza</strong><small>Controlla automaticamente le ricezioni concluse delle migliori ground station.</small></div>
+        <div class="info"><strong>2. Classifica</strong><small>Riconosce VOCE, IMMAGINE e DATI dai metadati del downlink.</small></div>
+        <div class="info"><strong>3. Mostra</strong><small>Riproduce audio solo per la voce; per segnali digitali mostra waterfall o dati.</small></div>
       </div>
     </aside>
   </section>
@@ -54,48 +54,25 @@
     <div class="layout">
       <div class="panel">
         <div class="panel-head">
-          <div>
-            <h2>Ground station con media pronto</h2>
-            <small>Solo osservazioni concluse con artefatti disponibili</small>
-          </div>
+          <div><h2>Ground station con contenuti pronti</h2><small>Voce, immagini e dati già disponibili</small></div>
         </div>
         <div class="panel-body">
           <div id="remoteNotice" class="notice"><strong>AUTO RX.</strong> Caricamento in corso…</div>
           <div class="grid-2">
-            <div class="field">
-              <label>Banda</label>
-              <select id="remoteBand">
-                <option value="all">Tutte le bande</option>
-                <option value="weather">Weather 137 MHz</option>
-                <option value="vhf">Amatoriale VHF 145.8–146 MHz</option>
-                <option value="uhf">Amatoriale UHF 435–438 MHz</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>Azione</label>
-              <button class="btn primary" id="scanRemote">Riscansiona</button>
-            </div>
+            <div class="field"><label>Banda</label><select id="remoteBand"><option value="all">Tutte le bande</option><option value="weather">Weather 137 MHz</option><option value="vhf">Amatoriale VHF 145.8–146 MHz</option><option value="uhf">Amatoriale UHF 435–438 MHz</option></select></div>
+            <div class="field"><label>Azione</label><button class="btn primary" id="scanRemote">Riscansiona</button></div>
           </div>
-          <div class="footer-note">AUTO RX non apre più automaticamente le pagine SatNOGS: usa direttamente i file audio e waterfall già pubblicati.</div>
-          <div id="stations" class="stations" style="margin-top:14px">
-            <div class="empty">Ricerca automatica delle ricezioni già pronte…</div>
-          </div>
+          <div class="footer-note">AUTO RX evita di riprodurre GFSK/FSK/GMSK e altri segnali digitali come se fossero voce.</div>
+          <div id="stations" class="stations" style="margin-top:14px"><div class="empty">Analisi automatica in corso…</div></div>
         </div>
       </div>
 
       <div class="panel">
-        <div class="panel-head">
-          <div>
-            <h2 id="stationName">AUTO RX</h2>
-            <small>Ricezione reale selezionata</small>
-          </div>
-        </div>
+        <div class="panel-head"><div><h2 id="stationName">AUTO RX</h2><small>Contenuto reale selezionato</small></div></div>
         <div class="panel-body">
           <div id="remoteInfo" class="notice warn"><strong>Ricerca in corso.</strong></div>
           <audio id="remoteAudio" class="audio-card" controls preload="metadata"></audio>
-          <div id="observations" class="observations">
-            <div class="empty">Qui appariranno audio e waterfall già disponibili.</div>
-          </div>
+          <div id="observations" class="observations"><div class="empty">Qui appariranno voce, waterfall e dati già disponibili.</div></div>
         </div>
       </div>
     </div>
@@ -104,45 +81,22 @@
   <section id="view-local" class="view">
     <div class="layout">
       <div class="panel">
-        <div class="panel-head">
-          <div><h2>Ricevitore locale RTL‑SDR</h2><small>Solo PC con dongle e bridge locale</small></div>
-        </div>
+        <div class="panel-head"><div><h2>Ricevitore locale RTL‑SDR</h2><small>Solo PC con dongle e bridge locale</small></div></div>
         <div class="panel-body">
           <div id="localNotice" class="notice"><strong>Modalità locale:</strong> collega RTL‑SDR + antenna al PC e avvia il bridge.</div>
-          <div class="inline-form">
-            <div class="field"><label>Frequenza (MHz)</label><input id="freqInput" type="number" min="137" max="438" step="0.001" value="137.620" /></div>
-            <button class="btn secondary" id="tuneBtn" style="align-self:end">Sintonizza</button>
-          </div>
+          <div class="inline-form"><div class="field"><label>Frequenza (MHz)</label><input id="freqInput" type="number" min="137" max="438" step="0.001" value="137.620" /></div><button class="btn secondary" id="tuneBtn" style="align-self:end">Sintonizza</button></div>
           <div class="action-grid" style="margin-top:10px"><button class="btn good" id="connectBtn">Connetti RTL‑SDR</button><button class="btn danger" id="disconnectBtn">Disconnetti</button></div>
-          <div class="preset-grid">
-            <button class="preset" data-f="137.100"><strong>Weather RX 137.100</strong><small>NOAA / meteo 137 MHz</small></button>
-            <button class="preset" data-f="137.620"><strong>Weather RX 137.620</strong><small>NOAA / meteo 137 MHz</small></button>
-            <button class="preset" data-f="145.825"><strong>Amateur 145.825</strong><small>VHF satellite</small></button>
-            <button class="preset" data-f="436.800"><strong>Amateur 436.800</strong><small>UHF satellite</small></button>
-          </div>
+          <div class="preset-grid"><button class="preset" data-f="137.100"><strong>Weather RX 137.100</strong><small>NOAA / meteo 137 MHz</small></button><button class="preset" data-f="137.620"><strong>Weather RX 137.620</strong><small>NOAA / meteo 137 MHz</small></button><button class="preset" data-f="145.825"><strong>Amateur 145.825</strong><small>VHF satellite</small></button><button class="preset" data-f="436.800"><strong>Amateur 436.800</strong><small>UHF satellite</small></button></div>
           <div class="cta-row" style="margin-top:12px"><button class="btn secondary" id="demoBtn">Demo interfaccia</button><button class="btn ghost" id="localBtn">Apri bridge locale</button></div>
           <div class="tags" style="margin-top:12px"><span class="tag">137–138 MHz</span><span class="tag">145.8–146 MHz</span><span class="tag">435–438 MHz</span><span class="tag">No TX</span></div>
         </div>
       </div>
-
-      <div class="panel">
-        <div class="panel-head"><div><h2>Log rapido</h2><small>Eventi del bridge</small></div></div>
-        <div class="panel-body"><div id="log" class="log"></div><p class="helper">Da iPhone usa AUTO RX remoto. Il bridge locale è pensato per il PC con RTL‑SDR collegato.</p></div>
-      </div>
+      <div class="panel"><div class="panel-head"><div><h2>Log rapido</h2><small>Eventi del bridge</small></div></div><div class="panel-body"><div id="log" class="log"></div><p class="helper">Da iPhone usa AUTO RX remoto. Il bridge locale è pensato per il PC con RTL‑SDR collegato.</p></div></div>
     </div>
-
-    <div class="panel" style="margin-top:14px">
-      <div class="panel-head"><div><h2>Spettro live</h2><small id="freqCaption">137.620 MHz</small></div><div class="tag" id="audioState">Audio spento</div></div>
-      <div class="panel-body">
-        <div class="scope-box"><div class="scope-head"><div class="freq-big"><span id="freqDisplay">137.620</span> <span>MHz</span></div><div class="cta-row" style="margin:0"><button class="btn secondary" id="audioBtn">Attiva audio</button></div></div><canvas id="scope" width="1024" height="280"></canvas></div>
-        <div class="field" style="margin-top:12px"><label>Volume FM</label><input id="volume" type="range" min="0" max="1" step="0.01" value="0.35" /></div>
-        <div class="metrics-grid"><div class="metric"><span>Peak</span><b id="peak">— dB</b></div><div class="metric"><span>Noise</span><b id="noise">— dB</b></div><div class="metric"><span>SNR stimato</span><b id="snr">— dB</b></div><div class="metric"><span>Modalità</span><b id="modeMetric">Standby</b></div></div>
-      </div>
-    </div>
-
+    <div class="panel" style="margin-top:14px"><div class="panel-head"><div><h2>Spettro live</h2><small id="freqCaption">137.620 MHz</small></div><div class="tag" id="audioState">Audio spento</div></div><div class="panel-body"><div class="scope-box"><div class="scope-head"><div class="freq-big"><span id="freqDisplay">137.620</span> <span>MHz</span></div><div class="cta-row" style="margin:0"><button class="btn secondary" id="audioBtn">Attiva audio</button></div></div><canvas id="scope" width="1024" height="280"></canvas></div><div class="field" style="margin-top:12px"><label>Volume FM</label><input id="volume" type="range" min="0" max="1" step="0.01" value="0.35" /></div><div class="metrics-grid"><div class="metric"><span>Peak</span><b id="peak">— dB</b></div><div class="metric"><span>Noise</span><b id="noise">— dB</b></div><div class="metric"><span>SNR stimato</span><b id="snr">— dB</b></div><div class="metric"><span>Modalità</span><b id="modeMetric">Standby</b></div></div></div></div>
     <div class="panel" style="margin-top:14px"><div class="panel-head"><div><h2>Waterfall</h2><small id="fps">0 fps</small></div></div><div class="panel-body"><div class="scope-box"><canvas id="waterfall" width="1024" height="260"></canvas></div></div></div>
   </section>
 </div>
-<script src="./app.js?v=20260818-1312"></script>
+<script src="./app.js?v=20260818-1326"></script>
 </body>
 </html>
