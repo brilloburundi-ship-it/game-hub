@@ -3,7 +3,7 @@ name: Sync SatNOGS receiver cache
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   push:
     paths:
       - 'scripts/sync_satnogs_receiver.py'
@@ -38,6 +38,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No cache changes"
           else
-            git commit -m "Refresh SatNOGS receiver cache"
+            git commit -m "Refresh SatNOGS AUTO RX cache"
             git push
           fi
