@@ -33,9 +33,11 @@ function prepareLocalUI(){
 function antennas(st){return st?.antenna||st?.antennas||[]}
 function bandMatch(st,band){if(band==='all')return true;const data=JSON.stringify(antennas(st)).toLowerCase();if(band==='weather')return data.includes('137')||data.includes('weather')||data.includes('qfh')||data.includes('quadrafilar')||data.includes('quadrifilar');if(band==='vhf')return data.includes('145')||data.includes('146')||data.includes('vhf');if(band==='uhf')return data.includes('435')||data.includes('436')||data.includes('437')||data.includes('438')||data.includes('uhf');return true}
 function antennaLabel(st){const a=antennas(st);if(!a.length)return 'antenna non dichiarata';return a.map(x=>`${x.band||''} ${x.antenna_type_name||x.antenna_type||'antenna'}`.trim()).join(' · ')}
-function stationScore(st,band='all'){let score=Number(st.score||0);if(Array.isArray(st.observations)&&st.observations.length)score+=35;if(Number(st.future_passes||0)>0)score+=Math.min(20,Number(st.future_passes));if(band!=='all'&&bandMatch(st,band))score+=25;return score}
-function observationScore(o){let s=0;if(o.payload)s+=50;if(o.waterfall)s+=30;const mode=String(o.transmitter_mode||'').toLowerCase();if(/fm|apt|sstv/.test(mode))s+=15;const status=String(o.vetted_status||o.status||'').toLowerCase();if(/good|success|complete/.test(status))s+=15;const t=Date.parse(o.start||'');if(Number.isFinite(t)){const days=(Date.now()-t)/864e5;if(days<1)s+=30;else if(days<7)s+=20;else if(days<30)s+=10}return s}
-function sortObservations(obs){return [...obs].sort((a,b)=>{const ds=observationScore(b)-observationScore(a);if(ds)return ds;return Date.parse(b.start||0)-Date.parse(a.start||0)})}
+function observationTimes(o){const raw=String(o.timeframe_text||'');const matches=raw.match(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/g)||[];const start=Date.parse(o.start||'')||(matches[0]?Date.parse(matches[0].replace(' ','T')+'Z'):NaN);const end=Date.parse(o.end||'')||(matches[1]?Date.parse(matches[1].replace(' ','T')+'Z'):start);return {start,end}}
+function isCompletedObservation(o){const {end}=observationTimes(o);return !Number.isFinite(end)||end<=Date.now()+120000}
+function stationScore(st,band='all'){let score=Number(st.score||0);const obs=Array.isArray(st.observations)?st.observations:[];if(obs.some(isCompletedObservation))score+=35;else if(obs.length)score+=5;if(Number(st.future_passes||0)>0)score+=Math.min(20,Number(st.future_passes));if(band!=='all'&&bandMatch(st,band))score+=25;return score}
+function observationScore(o){let s=isCompletedObservation(o)?100:-1000;if(o.payload)s+=50;if(o.waterfall)s+=30;const mode=String(o.transmitter_mode||'').toLowerCase();if(/fm|apt|sstv/.test(mode))s+=15;const status=String(o.vetted_status||o.status||'').toLowerCase();if(/good|success|complete/.test(status))s+=15;const {start}=observationTimes(o);if(Number.isFinite(start)&&start<=Date.now()){const days=(Date.now()-start)/864e5;if(days<1)s+=30;else if(days<7)s+=20;else if(days<30)s+=10}return s}
+function sortObservations(obs){return [...obs].sort((a,b)=>{const ds=observationScore(b)-observationScore(a);if(ds)return ds;return (observationTimes(b).start||0)-(observationTimes(a).start||0)})}
 async function loadCache(){const r=await fetch(`${CACHE}?t=${Date.now()}`,{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);return r.json()}
 
 async function scanRemote({manual=false}={}){
@@ -51,7 +53,7 @@ async function scanRemote({manual=false}={}){
     if(!data.length)throw new Error('nessuna stazione compatibile nella banda scelta');
     currentStations=data;
     renderStations(data,band);
-    const best=data.find(s=>Array.isArray(s.observations)&&s.observations.length)||data[0];
+    const best=data.find(s=>Array.isArray(s.observations)&&s.observations.some(isCompletedObservation))||data.find(s=>Array.isArray(s.observations)&&s.observations.length)||data[0];
     const node=$(`[data-station-id="${best.id}"]`);
     selectStation(best,node,{auto:true});
     const updated=cache.updated_at?new Date(cache.updated_at).toLocaleString():'n/d';
@@ -86,7 +88,7 @@ function selectStation(st,node,{auto=false}={}){
   $$('.station').forEach(n=>{n.classList.remove('selected');const badge=n.querySelector('.selected-badge');if(badge)badge.remove()});
   if(node){node.classList.add('selected');const badge=document.createElement('div');badge.className='selected-badge';badge.style.cssText='margin-top:10px;font-size:12px;font-weight:800;color:#7ee8ff';badge.textContent=auto?'AUTO RX · SCELTA':'SELEZIONATA';node.appendChild(badge)}
   $('#stationName').textContent=st.name||`Station ${st.id}`;
-  const obs=sortObservations(Array.isArray(st.observations)?st.observations:[]);
+  const allObs=sortObservations(Array.isArray(st.observations)?st.observations:[]);const completed=allObs.filter(isCompletedObservation);const obs=completed.length?completed:allObs;
   const box=$('#observations');box.innerHTML='';
   if(obs.length){
     selectedObservation=obs[0];
@@ -111,7 +113,7 @@ function renderObs(o,isAuto=false){
   const el=document.createElement('article');el.className='obs';
   if(isAuto)el.style.borderColor='#5fd9ff';
   const when=o.start?new Date(o.start).toLocaleString():(o.timeframe_text||'data n/d');
-  const status=o.status||o.vetted_status||'public';
+  const status=isCompletedObservation(o)?(o.status||o.vetted_status||'ricevuta'):'programmato';
   el.innerHTML=`<div class="obs-top"><div><b>${isAuto?'⚡ AUTO · ':''}${escapeHtml(observationTitle(o))}</b><div class="muted">${escapeHtml(when)}</div></div><span class="tag">${escapeHtml(String(status).toUpperCase())}</span></div><div class="obs-actions"></div>`;
   const a=el.querySelector('.obs-actions');
   if(o.payload){const b=document.createElement('button');b.textContent=isAuto?'▶ ASCOLTA AUTO':'▶ Ascolta';b.addEventListener('click',()=>{userActivated=true;selectedObservation=o;playRemote(o.payload)});a.appendChild(b)}
