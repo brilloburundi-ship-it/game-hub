@@ -131,13 +131,31 @@ def compact_api_observation(o):
     }
 
 
+def _parse_iso(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+
 def fetch_api_observations(station_id, limit=8):
     try:
         r = SESSION.get(f"{API}/observations/", params={"ground_station": station_id, "format": "json"}, timeout=30)
         r.raise_for_status()
         data = r.json()
         rows = data if isinstance(data, list) else data.get("results", [])
-        out = [compact_api_observation(x) for x in rows if x.get("id")]
+        now = datetime.now(timezone.utc)
+        out = []
+        for x in rows:
+            if not x.get('id'):
+                continue
+            end = _parse_iso(x.get('end'))
+            start = _parse_iso(x.get('start'))
+            if (end and end > now) or (not end and start and start > now):
+                continue
+            out.append(compact_api_observation(x))
         out.sort(key=lambda x: x.get("start") or "", reverse=True)
         return out[:limit]
     except Exception as exc:
@@ -167,12 +185,22 @@ def fetch_html_observations(station, limit=8):
             if not m: continue
             obs_id = int(m.group(1))
             texts = [c.get_text(" ", strip=True) for c in cells]
+            timeframe = texts[4] if len(texts) > 4 else ""
+            stamps = re.findall(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}', timeframe)
+            if stamps:
+                try:
+                    end_text = stamps[1] if len(stamps) > 1 else stamps[0]
+                    end_dt = datetime.strptime(end_text, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                    if end_dt > datetime.now(timezone.utc):
+                        continue
+                except Exception:
+                    pass
             out.append({
                 "id": obs_id,
                 "satellite": texts[1] if len(texts) > 1 else "Satellite",
                 "frequency_text": texts[2] if len(texts) > 2 else "",
                 "transmitter_mode": texts[3] if len(texts) > 3 else "",
-                "timeframe_text": texts[4] if len(texts) > 4 else "",
+                "timeframe_text": timeframe,
                 "observation_url": f"{NETWORK}/observations/{obs_id}/",
                 "payload": None,
                 "waterfall": None,
