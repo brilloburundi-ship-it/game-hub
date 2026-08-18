@@ -3,97 +3,198 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<meta name="theme-color" content="#05090d" />
+<meta name="theme-color" content="#071019" />
 <title>Satellite Signal Receiver</title>
-<style>
-:root{--bg:#05090d;--panel:#0a1219;--line:#1b3442;--txt:#e3f7ff;--muted:#78a0b0;--cyan:#56d8ff;--green:#50f0a5;--yellow:#ffd166;--red:#ff6578}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% -20%,#17364a 0,#071018 36%,#03070a 75%);color:var(--txt);font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}button,select,input{font:inherit}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:#05090ddd;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}.brand strong{display:block;letter-spacing:.08em}.brand small{color:var(--muted)}.status{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 12px currentColor}.dot.on{background:var(--green)}.dot.remote{background:var(--cyan)}
-nav{max-width:1300px;margin:12px auto 0;padding:0 14px;display:flex;gap:8px}.tab{flex:1;border:1px solid #23495d;background:#08131b;color:#9bc9da;padding:11px;border-radius:10px;cursor:pointer}.tab.active{background:#12394b;color:#fff;border-color:#46a8ce}
-main{max-width:1300px;margin:auto;padding:12px 14px 20px;display:grid;grid-template-columns:1.25fr .75fr;gap:12px}.card{background:linear-gradient(180deg,#0b151e,#081017);border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:0 12px 40px #0007}.head{padding:10px 13px;border-bottom:1px solid #17303d;color:#aaddf0;font-size:12px;letter-spacing:.08em;display:flex;justify-content:space-between;gap:8px}.body{padding:12px}.hidden{display:none!important}
-.notice{padding:10px;border-left:3px solid var(--cyan);background:#07131a;border-radius:8px;color:#b6dcea;line-height:1.45;margin-bottom:10px}.notice.warn{border-color:var(--yellow);background:#171407;color:#e9dca6}.notice.ok{border-color:var(--green);background:#071611;color:#bdebd7}.notice strong{color:white}
-.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.btn{border:1px solid #2b6178;background:#12394b;color:var(--txt);padding:10px 12px;border-radius:9px;cursor:pointer}.btn.primary{background:#0e5e58;border-color:#2b9d85}.btn.red{background:#431923;border-color:#8b3f4e}.btn:disabled{opacity:.45;cursor:not-allowed}.field{display:flex;flex-direction:column;gap:5px;flex:1}.field label{color:var(--muted);font-size:11px}.field input,.field select{width:100%;background:#040a0f;border:1px solid #24495d;color:var(--txt);padding:11px;border-radius:9px}.tag{border:1px solid #295066;padding:4px 7px;border-radius:999px;color:#93c4d8;font-size:10px}.tags{display:flex;gap:5px;flex-wrap:wrap}.muted{color:var(--muted);font-size:11px}.good{color:var(--green)}.warnc{color:var(--yellow)}
-.station-list,.obs-list{display:grid;gap:8px}.station{width:100%;text-align:left;background:#071018;border:1px solid #183948;border-radius:10px;padding:10px;color:var(--txt);cursor:pointer}.station.selected{border-color:#4fd7ff;background:#0b202b}.station-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.station b{font-size:13px}.station small{display:block;color:var(--muted);margin-top:4px;line-height:1.35}.score{font-weight:900;color:var(--green);white-space:nowrap}.obs{background:#061018;border:1px solid #173643;border-radius:10px;padding:10px}.obs-top{display:flex;justify-content:space-between;gap:8px}.obs-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.obs-actions a,.obs-actions button{border:1px solid #28556a;background:#102d3c;color:#dff7ff;text-decoration:none;padding:7px 9px;border-radius:8px;cursor:pointer}.empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed #254553;border-radius:10px}
-.scope{position:relative;background:#020609;border-radius:10px;border:1px solid #183341;overflow:hidden}.scope canvas{display:block;width:100%;height:230px}.freqbig{font-size:clamp(28px,6vw,52px);font-weight:900;letter-spacing:-.04em}.freqbig small{font-size:.32em;color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.metric{padding:9px;background:#071018;border:1px solid #17303d;border-radius:9px}.metric span{display:block;color:var(--muted);font-size:10px}.metric b{display:block;margin-top:4px;font-size:15px}.log{height:120px;overflow:auto;background:#020609;border:1px solid #17303d;border-radius:9px;padding:8px;color:#88b7c8;font-size:11px;white-space:pre-wrap}.footer{font-size:10px;color:#638695;padding:10px 12px;border-top:1px solid #17303d}.mode-panel{display:contents}
-@media(max-width:860px){main{grid-template-columns:1fr}.scope canvas{height:200px}.metrics{grid-template-columns:repeat(3,1fr)}header{padding-top:max(12px,env(safe-area-inset-top))}}
-</style>
+<link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-<header><div class="brand"><strong>SATELLITE SIGNAL RECEIVER</strong><small>Remote ground stations + local RTL-SDR · RX only</small></div><div class="status"><span id="dot" class="dot remote"></span><span id="statusText">REMOTE READY</span></div></header>
-<nav><button class="tab active" data-mode="remote">🌐 REMOTE ANTENNAS</button><button class="tab" data-mode="local">📡 LOCAL SDR</button></nav>
-<main>
-<section class="card remote-panel">
-  <div class="head"><span>REMOTE GROUND STATIONS</span><span>SATNOGS NETWORK</span></div>
-  <div class="body">
-    <div class="notice ok"><strong>Ricezione reale via Internet.</strong> Queste sono ground station fisiche della rete SatNOGS. L'app privilegia stazioni online con antenne direttive VHF/UHF e mostra osservazioni realmente ricevute.</div>
-    <div class="row">
-      <div class="field"><label>BANDA</label><select id="remoteBand"><option value="all">Tutte le bande satellitari</option><option value="137">Weather 137 MHz</option><option value="146">VHF 145.8–146 MHz</option><option value="436">UHF 435–438 MHz</option></select></div>
-      <button id="scanRemote" class="btn primary" style="align-self:end">SCANSIONA RETE</button>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">🛰️</div>
+      <div class="brand-copy">
+        <strong>Satellite Signal Receiver</strong>
+        <small>Ricezione satellitare moderna · remoto + locale · solo RX</small>
+      </div>
     </div>
-    <div class="tags" style="margin:10px 0"><span class="tag">REAL STATIONS</span><span class="tag">YAGI / CROSS-YAGI PRIORITY</span><span class="tag">NO TX</span></div>
-    <div id="stations" class="station-list"><div class="empty">Premi <b>SCANSIONA RETE</b> per cercare le stazioni disponibili.</div></div>
-  </div>
-</section>
-<section class="card remote-panel">
-  <div class="head"><span>REAL OBSERVATIONS</span><span id="stationName">NESSUNA STAZIONE</span></div>
-  <div class="body">
-    <div id="remoteInfo" class="notice"><strong>Come funziona:</strong> scegli una stazione. L'app carica i passaggi registrati dalla sua antenna; quando SatNOGS pubblica l'audio o il waterfall puoi aprirli direttamente.</div>
-    <audio id="remoteAudio" controls style="width:100%;display:none;margin-bottom:10px"></audio>
-    <div id="observations" class="obs-list"><div class="empty">Seleziona una ground station.</div></div>
-  </div>
-  <div class="footer">Dati SatNOGS Network / DB, CC BY-SA. Non è un collegamento di comando: usiamo esclusivamente dati e registrazioni di downlink pubblici.</div>
-</section>
+    <div class="status-pill"><span id="statusDot" class="dot"></span><span id="statusText">In attesa</span></div>
+  </header>
 
-<section class="card local-panel hidden">
-  <div class="head"><span>LIVE LOCAL SPECTRUM</span><span>RTL-SDR</span></div>
-  <div class="body">
-    <div class="freqbig"><span id="freqDisplay">137.620</span> <small>MHz</small></div>
-    <div class="scope"><canvas id="scope" width="1024" height="280"></canvas></div>
-    <div class="metrics"><div class="metric"><span>PEAK</span><b id="peak">— dB</b></div><div class="metric"><span>NOISE</span><b id="noise">— dB</b></div><div class="metric"><span>SNR</span><b id="snr">— dB</b></div></div>
-  </div>
-</section>
-<section class="card local-panel hidden">
-  <div class="head"><span>LOCAL RECEIVER</span><span>RX ONLY</span></div>
-  <div class="body">
-    <div id="localNotice" class="notice warn"><strong>Hardware locale:</strong> collega RTL-SDR + antenna al PC e avvia <code>AVVIA_RICEVITORE.bat</code>.</div>
-    <div class="row"><div class="field"><label>FREQUENZA MHz</label><input id="freqInput" type="number" value="137.620" step="0.001"></div><button id="tuneBtn" class="btn" style="align-self:end">TUNE</button></div>
-    <div class="row"><button id="connectBtn" class="btn primary">Connetti RTL-SDR</button><button id="disconnectBtn" class="btn red">Disconnetti</button><button id="demoBtn" class="btn">Demo</button></div>
-    <div id="log" class="log" style="margin-top:10px"></div>
-  </div>
-</section>
-</main>
-<script>
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-const NETWORK='https://network.satnogs.org/api';
-const localOrigin='http://127.0.0.1:8765';
-let selectedStation=null,ws=null,demo=false;
-const scope=$('#scope'),ctx=scope.getContext('2d');
-function setStatus(cls,text){$('#dot').className='dot '+cls;$('#statusText').textContent=text}
-function log(s){const n=$('#log');n.textContent+=`[${new Date().toLocaleTimeString()}] ${s}\n`;n.scrollTop=n.scrollHeight}
-function showMode(mode){$$('.tab').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));$$('.remote-panel').forEach(n=>n.classList.toggle('hidden',mode!=='remote'));$$('.local-panel').forEach(n=>n.classList.toggle('hidden',mode!=='local'));setStatus(mode==='remote'?'remote':'',''+(mode==='remote'?'REMOTE READY':'LOCAL BRIDGE'))}
-$$('.tab').forEach(b=>b.onclick=()=>showMode(b.dataset.mode));
-function unwrap(j){return Array.isArray(j)?j:(j.results||[])}
-async function getJSON(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
-async function pages(base,max=4){let out=[],url=base;for(let i=0;i<max&&url;i++){const j=await getJSON(url);out.push(...unwrap(j));url=j.next||null}return out}
-function antennas(st){let a=st.antenna||[];if(typeof a==='string'){try{a=JSON.parse(a)}catch{a=[]}}return Array.isArray(a)?a:[]}
-function bandMatch(st,band){if(band==='all')return true;const f=+band*1e6;return antennas(st).some(a=>{const lo=+(a.frequency||0),hi=+(a.frequency_max||lo);return lo<=f&&hi>=f})}
-function antennaLabel(st){const a=antennas(st);if(!a.length)return 'antenna non dichiarata';return a.map(x=>`${x.band||''} ${x.antenna_type_name||x.antenna_type||'antenna'}`.trim()).join(' · ')}
-function stationScore(st,band){let s=0,status=String(st.status||'').toLowerCase();if(status.includes('online'))s+=35;if(status.includes('testing'))s+=15;for(const a of antennas(st)){const t=String(a.antenna_type_name||a.antenna_type||'').toLowerCase();if(t.includes('cross')&&t.includes('yagi'))s+=32;else if(t.includes('yagi'))s+=25;else if(t.includes('helical'))s+=20;else if(t.includes('qfh')||t.includes('quadrifilar'))s+=17;else if(t.includes('turnstile'))s+=13;else if(t.includes('dipole'))s+=7;if(band!=='all'&&bandMatch(st,band))s+=25}if(st.last_seen){const age=(Date.now()-new Date(st.last_seen))/36e5;if(age<2)s+=20;else if(age<24)s+=10}return s}
-async function scanRemote(){const box=$('#stations');box.innerHTML='<div class="empty">Scansione delle ground station…</div>';$('#scanRemote').disabled=true;try{const band=$('#remoteBand').value;let data=await pages(`${NETWORK}/stations/?format=json`,5);data=data.filter(s=>bandMatch(s,band)).sort((a,b)=>stationScore(b,band)-stationScore(a,band)).slice(0,12);if(!data.length)throw new Error('Nessuna stazione compatibile trovata');box.innerHTML='';data.forEach((s,i)=>{const el=document.createElement('button');el.className='station';el.innerHTML=`<div class="station-top"><div><b>${escapeHtml(s.name||'Station '+s.id)}</b><small>#${s.id} · ${escapeHtml(String(s.status||'unknown'))}<br>${escapeHtml(antennaLabel(s))}</small></div><span class="score">${stationScore(s,band)}</span></div>`;el.onclick=()=>selectStation(s,el);box.appendChild(el);if(i===0)el.click()});setStatus('remote','REMOTE STATIONS ONLINE')}catch(e){box.innerHTML=`<div class="empty">Impossibile leggere la rete SatNOGS: ${escapeHtml(e.message)}.<br><br><a style="color:#56d8ff" href="https://network.satnogs.org/stations/" target="_blank">Apri SatNOGS Network</a></div>`;setStatus('','REMOTE API ERROR')}finally{$('#scanRemote').disabled=false}}
-function escapeHtml(v=''){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function selectStation(st,el){selectedStation=st;$$('.station').forEach(n=>n.classList.remove('selected'));el.classList.add('selected');$('#stationName').textContent=st.name||`STATION ${st.id}`;$('#remoteInfo').innerHTML=`<strong>Station #${st.id}</strong> · ${escapeHtml(antennaLabel(st))}. Carico le osservazioni reali più recenti…`;const box=$('#observations');box.innerHTML='<div class="empty">Caricamento osservazioni…</div>';try{let obs=await pages(`${NETWORK}/observations/?ground_station=${encodeURIComponent(st.id)}&format=json`,3);obs=obs.filter(o=>o.payload||o.waterfall||o.demoddata?.length).slice(0,12);if(!obs.length){box.innerHTML='<div class="empty">Nessuna registrazione pubblicata nelle osservazioni recenti di questa stazione.</div>';return}box.innerHTML='';obs.forEach(o=>box.appendChild(renderObs(o)));$('#remoteInfo').className='notice ok';$('#remoteInfo').innerHTML=`<strong>${obs.length} ricezioni trovate.</strong> Sono osservazioni fisiche registrate dalla ground station selezionata.`}catch(e){box.innerHTML=`<div class="empty">Errore osservazioni: ${escapeHtml(e.message)}.<br><br><a style="color:#56d8ff" target="_blank" href="https://network.satnogs.org/stations/${st.id}/">Apri pagina stazione</a></div>`}}
-function renderObs(o){const el=document.createElement('article');el.className='obs';const f=o.transmitter_downlink_low||o.transmitter_downlink_high;const mhz=f?(f/1e6).toFixed(3)+' MHz':'frequenza n/d';const when=o.start?new Date(o.start).toLocaleString():'data n/d';const status=o.status||o.vetted_status||'unknown';el.innerHTML=`<div class="obs-top"><div><b>NORAD ${escapeHtml(o.norad_cat_id||'—')}</b><div class="muted">${escapeHtml(o.transmitter_description||o.transmitter_mode||'Satellite downlink')}</div></div><span class="tag">${escapeHtml(String(status).toUpperCase())}</span></div><div class="tags" style="margin-top:8px"><span class="tag">${escapeHtml(mhz)}</span><span class="tag">${escapeHtml(o.transmitter_mode||'mode n/d')}</span><span class="tag">MAX EL ${Math.round(o.max_altitude||0)}°</span></div><div class="muted" style="margin-top:8px">${escapeHtml(when)}</div><div class="obs-actions"></div>`;const a=el.querySelector('.obs-actions');if(o.payload){const b=document.createElement('button');b.textContent='▶ Ascolta audio';b.onclick=()=>playRemote(o.payload);a.appendChild(b)}if(o.waterfall){const l=document.createElement('a');l.textContent='▥ Waterfall';l.href=o.waterfall;l.target='_blank';l.rel='noreferrer';a.appendChild(l)}const page=document.createElement('a');page.textContent='Dettagli ↗';page.href=`https://network.satnogs.org/observations/${o.id}/`;page.target='_blank';page.rel='noreferrer';a.appendChild(page);return el}
-function playRemote(url){const a=$('#remoteAudio');a.src=url;a.style.display='block';a.play().catch(()=>{});a.scrollIntoView({behavior:'smooth',block:'center'})}
+  <section class="hero">
+    <div class="hero-card">
+      <span class="eyebrow">Remote Antennas · SatNOGS</span>
+      <h1>Usa vere antenne remote<br>in modo semplice.</h1>
+      <p>L’app ti mostra prima le ground station più interessanti, poi le ricezioni reali disponibili con audio, waterfall e dettagli. Se vuoi, puoi anche collegare il tuo RTL‑SDR locale.</p>
+      <div class="cta-row">
+        <button class="btn primary" id="heroScan">Trova le migliori antenne</button>
+        <button class="btn secondary" id="switchLocal">Apri ricevitore locale</button>
+      </div>
+      <div class="hero-metrics">
+        <div class="metric"><span>Modalità consigliata</span><b>Remote</b></div>
+        <div class="metric"><span>Serve antenna tua?</span><b>No</b></div>
+        <div class="metric"><span>Sicurezza</span><b>RX only</b></div>
+      </div>
+    </div>
+    <aside class="side-card">
+      <h3>Come funziona</h3>
+      <div class="info-list">
+        <div class="info"><strong>1. Scansiona</strong><small>Cerca ground station con antenne VHF/UHF dichiarate e stato recente.</small></div>
+        <div class="info"><strong>2. Seleziona</strong><small>Apri una stazione e guarda le sue osservazioni satellitari pubbliche.</small></div>
+        <div class="info"><strong>3. Ascolta</strong><small>Riproduci audio e waterfall quando la registrazione è disponibile.</small></div>
+      </div>
+    </aside>
+  </section>
 
-function drawSpectrum(b){const W=scope.width,H=scope.height;ctx.fillStyle='#020609';ctx.fillRect(0,0,W,H);ctx.strokeStyle='#102834';for(let i=1;i<8;i++){let y=i*H/8;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}ctx.strokeStyle='#56d8ff';ctx.lineWidth=2;ctx.beginPath();b.forEach((v,i)=>{const x=i/(b.length-1)*W,y=H-Math.max(0,Math.min(1,(v+110)/70))*H;i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()}
-function metrics(m){$('#peak').textContent=`${m.power_db.toFixed(1)} dB`;$('#noise').textContent=`${m.noise_db.toFixed(1)} dB`;$('#snr').textContent=`${(m.power_db-m.noise_db).toFixed(1)} dB`;$('#freqDisplay').textContent=(m.frequency/1e6).toFixed(3)}
-async function api(path,body){const r=await fetch(localOrigin+path,{method:'POST',headers:{'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const j=await r.json();if(!r.ok)throw new Error(j.error||'bridge error');return j}
-async function connectLocal(){demo=false;try{await api('/api/connect');setStatus('on','RTL-SDR CONNECTED');$('#localNotice').className='notice ok';$('#localNotice').innerHTML='<strong>Ricevitore locale attivo.</strong> Lo spettro arriva dal dongle RTL-SDR.';openWS();log('RTL-SDR connected')}catch(e){setStatus('','LOCAL SDR ERROR');log(e.message)}}
-function openWS(){if(ws)ws.close();ws=new WebSocket('ws://127.0.0.1:8765/ws');ws.onmessage=e=>{if(typeof e.data==='string'){const m=JSON.parse(e.data);if(m.type==='spectrum'){drawSpectrum(m.bins);metrics(m)}}};ws.onerror=()=>log('WebSocket error')}
-async function disconnectLocal(){try{await api('/api/disconnect')}catch{}if(ws)ws.close();setStatus('','LOCAL BRIDGE');log('Disconnected')}
-async function tune(f){try{await api('/api/tune',{frequency:Math.round(f*1e6)});$('#freqDisplay').textContent=f.toFixed(3);log('Tuned '+f.toFixed(3)+' MHz')}catch(e){log('Tune rejected: '+e.message)}}
-function startDemo(){demo=true;if(ws)ws.close();setStatus('','LOCAL DEMO');function tick(){if(!demo)return;const n=512,t=performance.now()/1000,b=[];for(let i=0;i<n;i++){let v=-94+Math.random()*5;v+=30*Math.exp(-Math.pow((i-255-22*Math.sin(t*.5))/10,2));b.push(v)}drawSpectrum(b);metrics({power_db:Math.max(...b),noise_db:-93,frequency:+$('#freqInput').value*1e6});requestAnimationFrame(tick)}tick()}
-$('#scanRemote').onclick=scanRemote;$('#remoteBand').onchange=scanRemote;$('#connectBtn').onclick=connectLocal;$('#disconnectBtn').onclick=disconnectLocal;$('#tuneBtn').onclick=()=>tune(+#freqInput.value);$('#demoBtn').onclick=startDemo;log('Receiver ready');
-</script>
+  <div class="tabbar">
+    <button class="tab active" data-view="remote">🌐 Remote antennas</button>
+    <button class="tab" data-view="local">📡 Ricevitore locale</button>
+  </div>
+
+  <section id="view-remote" class="view active">
+    <div class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Ground station remote</h2>
+            <small>Ranking intuitivo basato su stato, banda e tipo di antenna dichiarato</small>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="remoteNotice" class="notice"><strong>Modalità remota attiva.</strong> Questa sezione usa stazioni fisiche della rete SatNOGS. Il punteggio serve solo a portarti più velocemente verso le antenne più promettenti.</div>
+          <div class="grid-2">
+            <div class="field">
+              <label>Banda</label>
+              <select id="remoteBand">
+                <option value="all">Tutte le bande</option>
+                <option value="weather">Weather 137 MHz</option>
+                <option value="vhf">Amatoriale VHF 145.8–146 MHz</option>
+                <option value="uhf">Amatoriale UHF 435–438 MHz</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Azione</label>
+              <button class="btn primary" id="scanRemote">Scansiona stazioni</button>
+            </div>
+          </div>
+          <div class="footer-note">Suggerimento: parti da <strong>Weather</strong> per cercare ricezioni APT a 137 MHz, oppure usa <strong>VHF/UHF</strong> per downlink radioamatoriali.</div>
+          <div id="stations" class="stations" style="margin-top:14px">
+            <div class="empty">Premi <strong>Scansiona stazioni</strong> per trovare antenne remote utilizzabili.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="stationName">Nessuna stazione selezionata</h2>
+            <small>Osservazioni reali disponibili</small>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="remoteInfo" class="notice warn"><strong>Nessuna stazione scelta.</strong> Seleziona una ground station dall’elenco a sinistra.</div>
+          <audio id="remoteAudio" class="audio-card" controls></audio>
+          <div id="observations" class="observations">
+            <div class="empty">Qui compariranno le ricezioni reali con audio, waterfall e link ai dettagli.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-local" class="view">
+    <div class="layout">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Ricevitore locale RTL‑SDR</h2>
+            <small>Per segnali veri dal tuo hardware collegato al PC</small>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="localNotice" class="notice"><strong>Per la ricezione reale locale:</strong> collega RTL‑SDR + antenna, poi avvia il bridge locale sul PC. Da qui puoi sintonizzare e vedere spettro e waterfall.</div>
+          <div class="inline-form">
+            <div class="field">
+              <label>Frequenza (MHz)</label>
+              <input id="freqInput" type="number" min="137" max="438" step="0.001" value="137.620" />
+            </div>
+            <button class="btn secondary" id="tuneBtn" style="align-self:end">Sintonizza</button>
+          </div>
+          <div class="action-grid" style="margin-top:10px">
+            <button class="btn good" id="connectBtn">Connetti RTL‑SDR</button>
+            <button class="btn danger" id="disconnectBtn">Disconnetti</button>
+          </div>
+          <div class="preset-grid">
+            <button class="preset" data-f="137.100"><strong>Weather RX 137.100</strong><small>NOAA / meteo 137 MHz</small></button>
+            <button class="preset" data-f="137.620"><strong>Weather RX 137.620</strong><small>NOAA / meteo 137 MHz</small></button>
+            <button class="preset" data-f="145.825"><strong>Amateur 145.825</strong><small>VHF satellite</small></button>
+            <button class="preset" data-f="436.800"><strong>Amateur 436.800</strong><small>UHF satellite</small></button>
+          </div>
+          <div class="cta-row" style="margin-top:12px">
+            <button class="btn secondary" id="demoBtn">Demo interfaccia</button>
+            <button class="btn ghost" id="localBtn">Apri bridge locale</button>
+          </div>
+          <div class="tags" style="margin-top:12px"><span class="tag">137–138 MHz</span><span class="tag">145.8–146 MHz</span><span class="tag">435–438 MHz</span><span class="tag">No TX</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Log rapido</h2>
+            <small>Eventi del bridge e della UI</small>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div id="log" class="log"></div>
+          <p class="helper">Se apri la pagina da Game Hub / GitHub Pages, il ricevitore locale continua a funzionare: i dati vengono letti dal bridge su <code>127.0.0.1:8765</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <div class="panel-head">
+        <div>
+          <h2>Spettro live</h2>
+          <small id="freqCaption">137.620 MHz</small>
+        </div>
+        <div class="tag" id="audioState">Audio spento</div>
+      </div>
+      <div class="panel-body">
+        <div class="scope-box">
+          <div class="scope-head">
+            <div class="freq-big"><span id="freqDisplay">137.620</span> <span>MHz</span></div>
+            <div class="cta-row" style="margin:0">
+              <button class="btn secondary" id="audioBtn">Attiva audio</button>
+            </div>
+          </div>
+          <canvas id="scope" width="1024" height="280"></canvas>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Volume FM</label>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.35" />
+        </div>
+        <div class="metrics-grid">
+          <div class="metric"><span>Peak</span><b id="peak">— dB</b></div>
+          <div class="metric"><span>Noise</span><b id="noise">— dB</b></div>
+          <div class="metric"><span>SNR stimato</span><b id="snr">— dB</b></div>
+          <div class="metric"><span>Modalità</span><b id="modeMetric">Standby</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <div class="panel-head">
+        <div>
+          <h2>Waterfall</h2>
+          <small id="fps">0 fps</small>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="scope-box"><canvas id="waterfall" width="1024" height="260"></canvas></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script src="./app.js"></script>
 </body>
 </html>
