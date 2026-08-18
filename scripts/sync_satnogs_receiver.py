@@ -10,13 +10,17 @@ NETWORK = "https://network.satnogs.org"
 API = NETWORK + "/api"
 OUT = Path("games/satellite-signal-receiver/data/remote.json")
 SESSION = requests.Session()
-SESSION.headers.update({"User-Agent": "GameHub-SatelliteReceiver/1.0"})
+SESSION.headers.update({"User-Agent": "GameHub-SatelliteReceiver/1.0", "Accept": "application/json"})
 
 
 def fetch_pages(endpoint: str, max_pages: int):
     out = []
-    for page in range(1, max_pages + 1):
-        url = f"{API}/{endpoint}/?page={page}&format=json"
+    url = f"{API}/{endpoint}/?format=json"
+    seen = set()
+    for _ in range(max_pages):
+        if not url or url in seen:
+            break
+        seen.add(url)
         r = SESSION.get(url, timeout=30)
         if r.status_code in (400, 404):
             break
@@ -24,15 +28,17 @@ def fetch_pages(endpoint: str, max_pages: int):
         data = r.json()
         if isinstance(data, list):
             rows = data
-            next_url = None
         else:
             rows = data.get("results", [])
-            next_url = data.get("next")
         if not rows:
             break
         out.extend(rows)
-        if isinstance(data, dict) and not next_url:
-            break
+
+        # SatNOGS Network uses cursor pagination exposed in the HTTP Link header.
+        next_url = (r.links.get("next") or {}).get("url")
+        if not next_url and isinstance(data, dict):
+            next_url = data.get("next")
+        url = next_url
     return out
 
 
@@ -61,7 +67,7 @@ def station_score(st):
             score += 28
         elif "helical" in kind:
             score += 22
-        elif "qfh" in kind or "quadrifilar" in kind:
+        elif "qfh" in kind or "quadrafilar" in kind or "quadrifilar" in kind:
             score += 20
         elif "turnstile" in kind:
             score += 15
@@ -99,7 +105,7 @@ def compact_observation(o):
 
 def main():
     stations = fetch_pages("stations", 12)
-    observations = fetch_pages("observations", 10)
+    observations = fetch_pages("observations", 12)
 
     by_station = {}
     for raw in observations:
@@ -140,6 +146,7 @@ def main():
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"Fetched {len(stations)} stations and {len(observations)} observations")
     print(f"Wrote {len(selected)} stations to {OUT}")
 
 
