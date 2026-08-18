@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Satellite Red Team Lab</title>
+<style>
+:root{--bg:#071018;--panel:#0e1b26;--panel2:#122536;--txt:#d7f7ff;--muted:#7fa7b5;--ok:#44f0a1;--warn:#ffd166;--bad:#ff5d73;--accent:#59c8ff}
+*{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 20% 10%,#123044 0,#071018 38%,#03070b 100%);color:var(--txt);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-height:100vh}
+header{padding:18px 20px;border-bottom:1px solid #1c3947;background:#071018cc;position:sticky;top:0;backdrop-filter:blur(8px);z-index:2}.title{font-weight:800;letter-spacing:.08em}.sub{color:var(--muted);font-size:12px;margin-top:4px}
+main{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;padding:14px;max-width:1400px;margin:auto}.card{background:linear-gradient(180deg,#0f202d,#0b1720);border:1px solid #204052;border-radius:14px;box-shadow:0 10px 30px #0007;overflow:hidden}.card h2{font-size:14px;margin:0;padding:12px 14px;border-bottom:1px solid #1a3747;color:#aee9ff}.body{padding:14px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.metric{background:#09141c;border:1px solid #19394a;border-radius:10px;padding:10px}.metric b{display:block;font-size:18px;margin-top:5px}.muted{color:var(--muted);font-size:12px}.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}.accent{color:var(--accent)}
+#orbit{height:230px;position:relative;background:radial-gradient(circle at 50% 100%,#14394f 0,#08131b 45%,#020508 100%);overflow:hidden}.earth{position:absolute;width:260px;height:260px;border-radius:50%;left:50%;bottom:-180px;transform:translateX(-50%);background:radial-gradient(circle at 35% 30%,#2a91c8,#0b4269 50%,#062a42);box-shadow:0 0 60px #2cb8ff55}.sat{position:absolute;left:50%;top:44px;transform:translateX(-50%);font-size:34px;filter:drop-shadow(0 0 8px #7ddfff)}.beam{position:absolute;left:50%;top:82px;width:2px;height:110px;background:linear-gradient(#61d6ffbb,transparent);transform:translateX(-50%)}
+.console{background:#02070b;border:1px solid #19394a;border-radius:10px;height:290px;overflow:auto;padding:10px;font-size:12px;line-height:1.45;white-space:pre-wrap}.row{display:flex;gap:8px;margin-top:10px}.row input,.row select{flex:1;background:#061019;color:var(--txt);border:1px solid #285168;border-radius:8px;padding:10px}.btn{background:#12374a;color:#dff8ff;border:1px solid #2b6580;border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}.btn:hover{background:#194a62}.btn.red{border-color:#703544;background:#391722}.btn.green{border-color:#2c6b52;background:#123a2b}.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.chip{font-size:11px;padding:5px 8px;border:1px solid #2a4a5c;border-radius:999px;color:#9ed7ea}.mission{padding:9px 10px;border-left:3px solid #2d718f;background:#08131b;margin:8px 0;border-radius:6px}.progress{height:8px;background:#061018;border-radius:99px;overflow:hidden;border:1px solid #1b3948}.bar{height:100%;background:linear-gradient(90deg,#28b5ff,#55efad);width:0%}.footer{padding:10px 14px;color:#6e98a8;font-size:11px;border-top:1px solid #1a3747}
+@media(max-width:900px){main{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<header><div class="title">SATELLITE RED TEAM LAB</div><div class="sub">Ambiente didattico locale · nessun collegamento radio o rete reale</div></header>
+<main>
+<section class="card">
+<h2>ORBITAL / TELEMETRIA SIMULATA</h2>
+<div id="orbit"><div class="sat">🛰️</div><div class="beam"></div><div class="earth"></div></div>
+<div class="body">
+<div class="grid">
+<div class="metric"><span class="muted">SATELLITE</span><b>ORION-SIM-7</b></div>
+<div class="metric"><span class="muted">LINK</span><b id="link" class="ok">LOCKED</b></div>
+<div class="metric"><span class="muted">MODE</span><b id="mode" class="accent">NOMINAL</b></div>
+<div class="metric"><span class="muted">BATTERIA</span><b id="battery">82%</b></div>
+<div class="metric"><span class="muted">ATTITUDE</span><b id="attitude">STABLE</b></div>
+<div class="metric"><span class="muted">AUTH</span><b id="auth" class="warn">GUEST</b></div>
+</div>
+<div class="chips"><span class="chip">SIM-CMD/1</span><span class="chip">No RF</span><span class="chip">No TLE reale</span><span class="chip">Sandbox</span></div>
+</div>
+</section>
+
+<section class="card">
+<h2>MISSIONE RED TEAM</h2>
+<div class="body">
+<div class="mission"><b>Obiettivo 1</b><div class="muted">Individua una credenziale debole nel terminale di training.</div></div>
+<div class="mission"><b>Obiettivo 2</b><div class="muted">Ottieni il ruolo OPERATIONS sfruttando solo le vulnerabilità della simulazione.</div></div>
+<div class="mission"><b>Obiettivo 3</b><div class="muted">Metti ORION-SIM-7 in SAFE MODE e poi ripristinalo.</div></div>
+<div class="muted" style="margin:12px 0 6px">Progresso</div><div class="progress"><div id="progress" class="bar"></div></div>
+<div style="margin-top:12px"><button class="btn" id="reset">Reset laboratorio</button></div>
+</div>
+<div class="footer">Le vulnerabilità sono intenzionali e non corrispondono a un satellite reale.</div>
+</section>
+
+<section class="card">
+<h2>GROUND TERMINAL</h2>
+<div class="body">
+<div id="console" class="console"></div>
+<div class="row"><input id="cmd" autocomplete="off" placeholder="digita: help"/><button class="btn green" id="send">INVIA</button></div>
+</div>
+</section>
+
+<section class="card">
+<h2>COMMAND PANEL</h2>
+<div class="body">
+<div class="muted">Comandi simulati autorizzati dal ruolo corrente.</div>
+<div class="row"><select id="quick"><option value="status">status</option><option value="whoami">whoami</option><option value="telemetry">telemetry</option><option value="safe on">safe on</option><option value="safe off">safe off</option><option value="reboot avionics">reboot avionics</option></select><button class="btn" id="runquick">Esegui</button></div>
+<div style="margin-top:14px" class="muted">Eventi</div><div id="events" class="console" style="height:170px"></div>
+</div>
+</section>
+</main>
+<script>
+const con=document.getElementById('console'), ev=document.getElementById('events'), cmd=document.getElementById('cmd');
+let state={role:'GUEST',mode:'NOMINAL',battery:82,step:0,clue:false,ops:false,safe:false};
+function ts(){return new Date().toLocaleTimeString('it-IT',{hour12:false})}
+function log(s,c=''){const d=document.createElement('div');d.textContent=`[${ts()}] ${s}`;if(c)d.className=c;con.appendChild(d);con.scrollTop=con.scrollHeight}
+function event(s){const d=document.createElement('div');d.textContent=`[${ts()}] ${s}`;ev.appendChild(d);ev.scrollTop=ev.scrollHeight}
+function ui(){document.getElementById('mode').textContent=state.mode;document.getElementById('mode').className=state.mode==='SAFE'?'warn':'accent';document.getElementById('auth').textContent=state.role;document.getElementById('auth').className=state.role==='OPERATIONS'?'ok':'warn';document.getElementById('battery').textContent=Math.round(state.battery)+'%';document.getElementById('progress').style.width=(state.step*33.33)+'%'}
+function help(){log('Comandi: help, status, telemetry, whoami, docs, login <user> <pass>, safe on, safe off, reboot avionics, clear');}
+function run(raw){const s=raw.trim();if(!s)return;log('> '+s,'accent');const p=s.split(/\s+/),base=p[0].toLowerCase();
+if(base==='help') return help();
+if(base==='clear'){con.innerHTML='';return}
+if(base==='status'){log(`ORION-SIM-7 | LINK LOCKED | MODE ${state.mode} | ROLE ${state.role}`);return}
+if(base==='telemetry'){state.battery=Math.max(40,state.battery-(Math.random()*.5));log(`EPS batt=${state.battery.toFixed(1)}% bus=28.1V | ADCS=STABLE | temp=21.8C | payload=STANDBY`);ui();return}
+if(base==='whoami'){log(`session role: ${state.role}`);return}
+if(base==='docs'){log('Training memo: il profilo legacy "ops-demo" non è stato migrato. Password hint: nome satellite in minuscolo + anno simulazione (2026).');state.clue=true;if(state.step<1)state.step=1;ui();event('Vulnerability clue discovered');return}
+if(base==='login'){
+ const u=p[1]||'',pw=p[2]||'';
+ if(u==='ops-demo'&&pw==='orion-sim-7-2026'){state.role='OPERATIONS';state.ops=true;if(state.step<2)state.step=2;log('AUTH OK — ruolo OPERATIONS assegnato','ok');event('Privilege escalation completed in sandbox');ui();}
+ else log('AUTH FAIL','bad');return;
+}
+if(base==='safe'){
+ if(state.role!=='OPERATIONS'){log('DENIED: richiede OPERATIONS','bad');return}
+ if(p[1]==='on'){state.mode='SAFE';state.safe=true;if(state.step<3)state.step=3;log('SAFE MODE engaged','warn');event('Satellite entered SAFE MODE');ui();return}
+ if(p[1]==='off'){state.mode='NOMINAL';log('SAFE MODE cleared, NOMINAL restored','ok');event('Nominal mode restored');ui();return}
+}
+if(base==='reboot'&&p.slice(1).join(' ')==='avionics'){
+ if(state.role!=='OPERATIONS'){log('DENIED: richiede OPERATIONS','bad');return}
+ log('Avionics reboot sequence simulated...');event('Avionics reboot (simulated)');setTimeout(()=>log('Avionics online. ADCS stable.','ok'),500);return;
+}
+log('Comando sconosciuto. Digita help.','bad')}
+document.getElementById('send').onclick=()=>{run(cmd.value);cmd.value='';cmd.focus()};cmd.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click()});
+document.getElementById('runquick').onclick=()=>run(document.getElementById('quick').value);
+document.getElementById('reset').onclick=()=>{state={role:'GUEST',mode:'NOMINAL',battery:82,step:0,clue:false,ops:false,safe:false};con.innerHTML='';ev.innerHTML='';boot();ui()};
+function boot(){log('Ground station emulator online.');log('Target: ORION-SIM-7 (LOCAL SIMULATION ONLY)');log('Digita help per iniziare.');event('Simulation initialized')}
+setInterval(()=>{state.battery=Math.min(96,state.battery+.03);ui()},2500);boot();ui();
+</script>
+</body>
+</html>
