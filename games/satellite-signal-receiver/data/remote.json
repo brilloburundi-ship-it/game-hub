@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-19T15:48:11.825279+00:00",
+  "updated_at": "2026-08-19T16:31:55.269054+00:00",
   "source": "SatNOGS public ground-station directory + observations API",
   "station_count": 80,
   "auto_rx": true,
@@ -2540,8 +2540,8 @@
           "norad_cat_id": 98272,
           "start": "2026-08-19T15:19:51Z",
           "end": "2026-08-19T15:27:16Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
+          "status": "failed",
+          "vetted_status": "failed",
           "max_altitude": 37.0,
           "transmitter_mode": "CW",
           "transmitter_description": "VHF CW TLM",
@@ -3315,6 +3315,49 @@
         }
       ],
       "score": 110
+    },
+    {
+      "id": 3794,
+      "name": "SPUTNIX-VHF/UHF-Murmansk",
+      "status": "directory",
+      "location": "KP68mw\n                    \n                    @203m",
+      "total_observations": 14635,
+      "future_passes": 24,
+      "antenna": [
+        {
+          "band": "VHF",
+          "antenna_type_name": "Quadrafilar"
+        },
+        {
+          "band": "UHF",
+          "antenna_type_name": "Quadrafilar"
+        }
+      ],
+      "station_url": "https://network.satnogs.org/stations/3794/",
+      "observations_url": "https://network.satnogs.org/observations/?station=3794",
+      "observations": [
+        {
+          "id": 14827500,
+          "satellite": "0 OBJECT J",
+          "sat_id": "RGSZ-0920-6709-0781-6800",
+          "norad_cat_id": 61743,
+          "start": "2026-08-19T16:04:40Z",
+          "end": "2026-08-19T16:16:54Z",
+          "status": "unknown",
+          "vetted_status": "unknown",
+          "max_altitude": 28.0,
+          "transmitter_mode": "GMSK USP",
+          "transmitter_description": "Mode U - GMSK2k4 - USP",
+          "transmitter_downlink_low": 401015000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 401010000,
+          "observation_url": "https://network.satnogs.org/observations/14827500/",
+          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/16/14827500/satnogs_14827500_2026-08-19T16-04-40.ogg",
+          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/16/14827500/waterfall_14827500_2026-08-19T16-04-40.png",
+          "demoddata": []
+        }
+      ],
+      "score": 109
     },
     {
       "id": 2097,
@@ -4243,229 +4286,6 @@
       "score": 107
     },
     {
-      "id": 3794,
-      "name": "SPUTNIX-VHF/UHF-Murmansk",
-      "status": "directory",
-      "location": "KP68mw\n                    \n                    @203m",
-      "total_observations": 14635,
-      "future_passes": 21,
-      "antenna": [
-        {
-          "band": "VHF",
-          "antenna_type_name": "Quadrafilar"
-        },
-        {
-          "band": "UHF",
-          "antenna_type_name": "Quadrafilar"
-        }
-      ],
-      "station_url": "https://network.satnogs.org/stations/3794/",
-      "observations_url": "https://network.satnogs.org/observations/?station=3794",
-      "observations": [
-        {
-          "id": 14826647,
-          "satellite": "0 OBJECT B",
-          "sat_id": "YHZN-0134-4646-7875-1396",
-          "norad_cat_id": 59774,
-          "start": "2026-08-19T14:08:37Z",
-          "end": "2026-08-19T14:20:02Z",
-          "status": "good",
-          "vetted_status": "good",
-          "max_altitude": 47.0,
-          "transmitter_mode": "GMSK USP",
-          "transmitter_description": "Main telemetry transmitter",
-          "transmitter_downlink_low": 401005000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 401005000,
-          "observation_url": "https://network.satnogs.org/observations/14826647/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/14/14826647/satnogs_14826647_2026-08-19T14-08-37.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/waterfall_14826647_2026-08-19T14-08-37.png",
-          "demoddata": [
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-15-40_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-14-25_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-14-10_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-14-07_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-14-03_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-13-58_g1"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-13-58_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14826647/data_14826647_2026-08-19T14-13-25_g0"
-            }
-          ]
-        },
-        {
-          "id": 14826365,
-          "satellite": "0 OBJECT C",
-          "sat_id": "CXEH-2179-3370-4324-5788",
-          "norad_cat_id": 59775,
-          "start": "2026-08-19T12:58:28Z",
-          "end": "2026-08-19T13:10:01Z",
-          "status": "good",
-          "vetted_status": "good",
-          "max_altitude": 56.0,
-          "transmitter_mode": "GMSK USP",
-          "transmitter_description": "Main telemetry transmitter",
-          "transmitter_downlink_low": 401035000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 401035000,
-          "observation_url": "https://network.satnogs.org/observations/14826365/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/12/14826365/satnogs_14826365_2026-08-19T12-58-28.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/waterfall_14826365_2026-08-19T12-58-28.png",
-          "demoddata": [
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-52_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-32_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-31_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-30_g1"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-30_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-28_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-26_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-25_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-24_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-23_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-22_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-20_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-19_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-18_g1"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-18_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-16_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-15_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-14_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-13_g1"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-13_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-12_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-10_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-09_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-08_g1"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-08_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-07_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-05_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-04_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-04-00_g0"
-            },
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826365/data_14826365_2026-08-19T13-03-52_g0"
-            }
-          ]
-        },
-        {
-          "id": 14826364,
-          "satellite": "0 OBJECT B",
-          "sat_id": "YHZN-0134-4646-7875-1396",
-          "norad_cat_id": 59774,
-          "start": "2026-08-19T12:35:14Z",
-          "end": "2026-08-19T12:46:44Z",
-          "status": "good",
-          "vetted_status": "good",
-          "max_altitude": 45.0,
-          "transmitter_mode": "GMSK USP",
-          "transmitter_description": "Main telemetry transmitter",
-          "transmitter_downlink_low": 401005000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 401005000,
-          "observation_url": "https://network.satnogs.org/observations/14826364/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/12/14826364/satnogs_14826364_2026-08-19T12-35-14.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826364/waterfall_14826364_2026-08-19T12-35-14.png",
-          "demoddata": [
-            {
-              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/12/14826364/data_14826364_2026-08-19T12-46-46_g0"
-            }
-          ]
-        },
-        {
-          "id": 14820967,
-          "satellite": "0 AEPEX",
-          "sat_id": "ROGL-5396-9562-5275-1160",
-          "norad_cat_id": 68506,
-          "start": "2026-08-19T11:46:43Z",
-          "end": "2026-08-19T11:54:04Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
-          "max_altitude": 53.0,
-          "transmitter_mode": "GFSK",
-          "transmitter_description": "Mode U - GFSK9k6 - AX.25 G3RUH",
-          "transmitter_downlink_low": 437325000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 437325000,
-          "observation_url": "https://network.satnogs.org/observations/14820967/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/11/14820967/satnogs_14820967_2026-08-19T11-46-43.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/11/14820967/waterfall_14820967_2026-08-19T11-46-43.png",
-          "demoddata": []
-        }
-      ],
-      "score": 106
-    },
-    {
       "id": 1145,
       "name": "VK4SMC #1",
       "status": "directory",
@@ -4857,7 +4677,7 @@
       "status": "directory",
       "location": "JN03rn\n                    \n                    @180m",
       "total_observations": 20477,
-      "future_passes": 18,
+      "future_passes": 19,
       "antenna": [
         {
           "band": "UHF",
@@ -4868,14 +4688,74 @@
       "observations_url": "https://network.satnogs.org/observations/?station=4188",
       "observations": [
         {
+          "id": 14827415,
+          "satellite": "0 SONATE-2",
+          "sat_id": "PBTZ-3525-0189-2410-5216",
+          "norad_cat_id": 59112,
+          "start": "2026-08-19T16:20:28Z",
+          "end": "2026-08-19T16:30:35Z",
+          "status": "unknown",
+          "vetted_status": "unknown",
+          "max_altitude": 62.0,
+          "transmitter_mode": "GMSK",
+          "transmitter_description": "Mode U - GMSK9k6 - AX.25 G3RUH - Telemetry",
+          "transmitter_downlink_low": 437025000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 437025000,
+          "observation_url": "https://network.satnogs.org/observations/14827415/",
+          "payload": null,
+          "waterfall": null,
+          "demoddata": []
+        },
+        {
+          "id": 14827414,
+          "satellite": "0 SNUGLITE-II",
+          "sat_id": "YFNZ-9504-4902-9033-1722",
+          "norad_cat_id": 52899,
+          "start": "2026-08-19T15:57:52Z",
+          "end": "2026-08-19T16:11:38Z",
+          "status": "unknown",
+          "vetted_status": "unknown",
+          "max_altitude": 50.0,
+          "transmitter_mode": "GMSK",
+          "transmitter_description": "Mode U -  9k6 GMSK AX25 G3RUH TLM",
+          "transmitter_downlink_low": 436490000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 436490000,
+          "observation_url": "https://network.satnogs.org/observations/14827414/",
+          "payload": null,
+          "waterfall": null,
+          "demoddata": []
+        },
+        {
+          "id": 14826956,
+          "satellite": "0 OBJECT E",
+          "sat_id": "IFKU-9201-2588-0809-6295",
+          "norad_cat_id": 98329,
+          "start": "2026-08-19T15:45:08Z",
+          "end": "2026-08-19T15:57:26Z",
+          "status": "failed",
+          "vetted_status": "failed",
+          "max_altitude": 85.0,
+          "transmitter_mode": "CW",
+          "transmitter_description": "Mode U - CW",
+          "transmitter_downlink_low": 436830000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 436830000,
+          "observation_url": "https://network.satnogs.org/observations/14826956/",
+          "payload": null,
+          "waterfall": null,
+          "demoddata": []
+        },
+        {
           "id": 14826955,
           "satellite": "0 TECHSAT 1B",
           "sat_id": "FCHF-0545-3706-3789-8061",
           "norad_cat_id": 25397,
           "start": "2026-08-19T15:19:28Z",
           "end": "2026-08-19T15:33:44Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
+          "status": "failed",
+          "vetted_status": "failed",
           "max_altitude": 26.0,
           "transmitter_mode": "FSK",
           "transmitter_description": "Mode U 9k6 FSK",
@@ -4894,8 +4774,8 @@
           "norad_cat_id": 98323,
           "start": "2026-08-19T15:05:36Z",
           "end": "2026-08-19T15:17:27Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
+          "status": "failed",
+          "vetted_status": "failed",
           "max_altitude": 31.0,
           "transmitter_mode": "AFSK",
           "transmitter_description": "Mode U - AFSK1k2",
@@ -4946,89 +4826,9 @@
           "payload": null,
           "waterfall": null,
           "demoddata": []
-        },
-        {
-          "id": 14826784,
-          "satellite": "0 SAL-E",
-          "sat_id": "WKBS-6047-7369-7033-9398",
-          "norad_cat_id": 68458,
-          "start": "2026-08-19T14:14:30Z",
-          "end": "2026-08-19T14:26:27Z",
-          "status": "failed",
-          "vetted_status": "failed",
-          "max_altitude": 66.0,
-          "transmitter_mode": "FSK",
-          "transmitter_description": "AX.25 FSK9k6 BEACON",
-          "transmitter_downlink_low": 436965000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 436965000,
-          "observation_url": "https://network.satnogs.org/observations/14826784/",
-          "payload": null,
-          "waterfall": null,
-          "demoddata": []
-        },
-        {
-          "id": 14826582,
-          "satellite": "0 TISAT 1",
-          "sat_id": "TSLM-4078-5089-9909-4945",
-          "norad_cat_id": 36799,
-          "start": "2026-08-19T13:44:11Z",
-          "end": "2026-08-19T13:55:28Z",
-          "status": "failed",
-          "vetted_status": "failed",
-          "max_altitude": 83.0,
-          "transmitter_mode": "CW",
-          "transmitter_description": "CW TLM 19wpm",
-          "transmitter_downlink_low": 437305000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 437305000,
-          "observation_url": "https://network.satnogs.org/observations/14826582/",
-          "payload": null,
-          "waterfall": null,
-          "demoddata": []
-        },
-        {
-          "id": 14826581,
-          "satellite": "0 CUBEBUG 2",
-          "sat_id": "MRQX-2618-0103-4345-3937",
-          "norad_cat_id": 39440,
-          "start": "2026-08-19T13:27:30Z",
-          "end": "2026-08-19T13:40:44Z",
-          "status": "failed",
-          "vetted_status": "failed",
-          "max_altitude": 87.0,
-          "transmitter_mode": "FSK",
-          "transmitter_description": "Mode U - FSK9k6 - AX.25 TLM",
-          "transmitter_downlink_low": 437445000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 437445000,
-          "observation_url": "https://network.satnogs.org/observations/14826581/",
-          "payload": null,
-          "waterfall": null,
-          "demoddata": []
-        },
-        {
-          "id": 14826580,
-          "satellite": "0 PARUS-6U1",
-          "sat_id": "SXGC-2824-2222-8971-3473",
-          "norad_cat_id": 68456,
-          "start": "2026-08-19T13:09:06Z",
-          "end": "2026-08-19T13:19:57Z",
-          "status": "failed",
-          "vetted_status": "failed",
-          "max_altitude": 20.0,
-          "transmitter_mode": "GMSK",
-          "transmitter_description": "UHF TT&C",
-          "transmitter_downlink_low": 437195000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 437196300,
-          "observation_url": "https://network.satnogs.org/observations/14826580/",
-          "payload": null,
-          "waterfall": null,
-          "demoddata": []
         }
       ],
-      "score": 101
+      "score": 102
     },
     {
       "id": 2271,
@@ -5586,26 +5386,6 @@
           "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/14/14820732/satnogs_14820732_2026-08-19T14-02-32.ogg",
           "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/14/14820732/waterfall_14820732_2026-08-19T14-02-32.png",
           "demoddata": []
-        },
-        {
-          "id": 14820917,
-          "satellite": "0 AEPEX",
-          "sat_id": "ROGL-5396-9562-5275-1160",
-          "norad_cat_id": 68506,
-          "start": "2026-08-19T13:15:20Z",
-          "end": "2026-08-19T13:26:45Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
-          "max_altitude": 46.0,
-          "transmitter_mode": "GFSK",
-          "transmitter_description": "Mode U - GFSK9k6 - AX.25 G3RUH",
-          "transmitter_downlink_low": 437325000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 437325000,
-          "observation_url": "https://network.satnogs.org/observations/14820917/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/13/14820917/satnogs_14820917_2026-08-19T13-15-20.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/13/14820917/waterfall_14820917_2026-08-19T13-15-20.png",
-          "demoddata": []
         }
       ],
       "score": 98
@@ -5626,6 +5406,26 @@
       "station_url": "https://network.satnogs.org/stations/2009/",
       "observations_url": "https://network.satnogs.org/observations/?station=2009",
       "observations": [
+        {
+          "id": 14823357,
+          "satellite": "0 KNACKSAT-2",
+          "sat_id": "SCWJ-8858-4107-1493-6553",
+          "norad_cat_id": 67683,
+          "start": "2026-08-19T16:07:33Z",
+          "end": "2026-08-19T16:12:04Z",
+          "status": "unknown",
+          "vetted_status": "unknown",
+          "max_altitude": 19.0,
+          "transmitter_mode": "FSK",
+          "transmitter_description": "Mode U - FSK9k6 - AX.25 G3RUH -TLM",
+          "transmitter_downlink_low": 400630000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 400630000,
+          "observation_url": "https://network.satnogs.org/observations/14823357/",
+          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/16/14823357/satnogs_14823357_2026-08-19T16-07-33.ogg",
+          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/16/14823357/waterfall_14823357_2026-08-19T16-07-33.png",
+          "demoddata": []
+        },
         {
           "id": 14823033,
           "satellite": "0 KNACKSAT-2",
@@ -5790,26 +5590,6 @@
               "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/9/14820528/data_14820528_2026-08-19T09-32-50"
             }
           ]
-        },
-        {
-          "id": 14809569,
-          "satellite": "0 FRONTIERSAT",
-          "sat_id": "GGCH-4346-1583-9419-5634",
-          "norad_cat_id": 69015,
-          "start": "2026-08-19T07:41:14Z",
-          "end": "2026-08-19T07:47:36Z",
-          "status": "unknown",
-          "vetted_status": "unknown",
-          "max_altitude": 28.0,
-          "transmitter_mode": "FSK AX.100 Mode 5",
-          "transmitter_description": "Mode U - GFSK9k6 - Downlink",
-          "transmitter_downlink_low": 436150000,
-          "transmitter_downlink_high": null,
-          "observation_frequency": 436150000,
-          "observation_url": "https://network.satnogs.org/observations/14809569/",
-          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/7/14809569/satnogs_14809569_2026-08-19T07-41-14.ogg",
-          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/7/14809569/waterfall_14809569_2026-08-19T07-41-14.png",
-          "demoddata": []
         }
       ],
       "score": 98
@@ -5830,6 +5610,30 @@
       "station_url": "https://network.satnogs.org/stations/4151/",
       "observations_url": "https://network.satnogs.org/observations/?station=4151",
       "observations": [
+        {
+          "id": 14824404,
+          "satellite": "0 OBJECT E",
+          "sat_id": "IFKU-9201-2588-0809-6295",
+          "norad_cat_id": 98329,
+          "start": "2026-08-19T15:46:12Z",
+          "end": "2026-08-19T15:52:33Z",
+          "status": "unknown",
+          "vetted_status": "unknown",
+          "max_altitude": 73.0,
+          "transmitter_mode": "CW",
+          "transmitter_description": "Mode U - CW",
+          "transmitter_downlink_low": 436830000,
+          "transmitter_downlink_high": null,
+          "observation_frequency": 436830000,
+          "observation_url": "https://network.satnogs.org/observations/14824404/",
+          "payload": "https://network-satnogs.freetls.fastly.net/media/data_obs/2026/8/19/15/14824404/satnogs_14824404_2026-08-19T15-46-12.ogg",
+          "waterfall": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/15/14824404/waterfall_14824404_2026-08-19T15-46-12.png",
+          "demoddata": [
+            {
+              "payload_demod": "https://s3.eu-central-1.wasabisys.com/satnogs-network/data_obs/2026/8/19/15/14824404/data_14824404_2026-08-19T15-49-07"
+            }
+          ]
+        },
         {
           "id": 14824400,
           "satellite": "0 COSMO",
@@ -5932,7 +5736,7 @@
       "name": "EuroSpaceHub-UCM",
       "status": "directory",
       "location": "IM89jn\n                    \n                    @668m",
-      "total_observations": 36424,
+      "total_observations": 36451,
       "future_passes": 132,
       "antenna": [
         {
@@ -6074,7 +5878,7 @@
       "name": "VA3HEV",
       "status": "directory",
       "location": "FN14tg\n                    \n                    @110m",
-      "total_observations": 37313,
+      "total_observations": 37369,
       "future_passes": 219,
       "antenna": [
         {
@@ -6164,7 +5968,7 @@
       "name": "INSTED-Ground Station(UHF)",
       "status": "directory",
       "location": "OK03gt\n                    \n                    @60m",
-      "total_observations": 1419,
+      "total_observations": 1437,
       "future_passes": 56,
       "antenna": [
         {
@@ -6183,7 +5987,7 @@
       "status": "directory",
       "location": "DO21wb\n                    \n                    @1055m",
       "total_observations": 7821,
-      "future_passes": 46,
+      "future_passes": 45,
       "antenna": [
         {
           "band": "UHF",
@@ -6276,6 +6080,28 @@
       ],
       "station_url": "https://network.satnogs.org/stations/1616/",
       "observations_url": "https://network.satnogs.org/observations/?station=1616",
+      "observations": [],
+      "score": 70
+    },
+    {
+      "id": 2987,
+      "name": "VU2JEK_Nitin",
+      "status": "directory",
+      "location": "MK83sd\n                    \n                    @900m",
+      "total_observations": 44935,
+      "future_passes": 8,
+      "antenna": [
+        {
+          "band": "VHF, UHF",
+          "antenna_type_name": "Other Directional"
+        },
+        {
+          "band": "VHF, UHF",
+          "antenna_type_name": "Turnstile"
+        }
+      ],
+      "station_url": "https://network.satnogs.org/stations/2987/",
+      "observations_url": "https://network.satnogs.org/observations/?station=2987",
       "observations": [],
       "score": 70
     },
@@ -6500,24 +6326,6 @@
       "score": 64
     },
     {
-      "id": 4111,
-      "name": "Plyachka",
-      "status": "directory",
-      "location": "KN12rl\n                    \n                    @1100m",
-      "total_observations": 34485,
-      "future_passes": 22,
-      "antenna": [
-        {
-          "band": "UHF",
-          "antenna_type_name": "Helical"
-        }
-      ],
-      "station_url": "https://network.satnogs.org/stations/4111/",
-      "observations_url": "https://network.satnogs.org/observations/?station=4111",
-      "observations": [],
-      "score": 64
-    },
-    {
       "id": 2173,
       "name": "PE0SAT-21",
       "status": "directory",
@@ -6532,6 +6340,24 @@
       ],
       "station_url": "https://network.satnogs.org/stations/2173/",
       "observations_url": "https://network.satnogs.org/observations/?station=2173",
+      "observations": [],
+      "score": 63
+    },
+    {
+      "id": 4111,
+      "name": "Plyachka",
+      "status": "directory",
+      "location": "KN12rl\n                    \n                    @1100m",
+      "total_observations": 34485,
+      "future_passes": 21,
+      "antenna": [
+        {
+          "band": "UHF",
+          "antenna_type_name": "Helical"
+        }
+      ],
+      "station_url": "https://network.satnogs.org/stations/4111/",
+      "observations_url": "https://network.satnogs.org/observations/?station=4111",
       "observations": [],
       "score": 63
     },
@@ -6830,7 +6656,7 @@
       "name": "OE6EUR15",
       "status": "directory",
       "location": "JN77pa\n                    \n                    @430m",
-      "total_observations": 5718,
+      "total_observations": 5720,
       "future_passes": 15,
       "antenna": [
         {
@@ -6866,7 +6692,7 @@
       "name": "USU GAS Yagi Az+El",
       "status": "directory",
       "location": "DN41cr\n                    \n                    @1382m",
-      "total_observations": 24639,
+      "total_observations": 24643,
       "future_passes": 10,
       "antenna": [
         {
@@ -6942,7 +6768,7 @@
       "name": "GAO UHF",
       "status": "directory",
       "location": "JN87hg\n                    \n                    @232m",
-      "total_observations": 110175,
+      "total_observations": 110192,
       "future_passes": 14,
       "antenna": [
         {
@@ -6974,24 +6800,6 @@
       ],
       "station_url": "https://network.satnogs.org/stations/2272/",
       "observations_url": "https://network.satnogs.org/observations/?station=2272",
-      "observations": [],
-      "score": 58
-    },
-    {
-      "id": 3282,
-      "name": "ha7dcd and decent.org",
-      "status": "directory",
-      "location": "JN97sm\n                    \n                    @175m",
-      "total_observations": 6952,
-      "future_passes": 13,
-      "antenna": [
-        {
-          "band": "UHF",
-          "antenna_type_name": "Yagi"
-        }
-      ],
-      "station_url": "https://network.satnogs.org/stations/3282/",
-      "observations_url": "https://network.satnogs.org/observations/?station=3282",
       "observations": [],
       "score": 58
     }
