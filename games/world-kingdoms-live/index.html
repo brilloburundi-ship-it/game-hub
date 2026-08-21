@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#07141d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>World Kingdoms LIVE</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles.css?v=20260821-1">
+</head>
+<body>
+  <canvas id="world" aria-label="Living world simulation"></canvas>
+  <div id="loading"><b>WORLD KINGDOMS</b><em>LIVE</em><span>Creating a new living world…</span></div>
+
+  <header class="hud topbar">
+    <div class="brand">WORLD KINGDOMS <b>LIVE</b></div>
+    <div class="world-clock"><small>WORLD YEAR</small><strong id="year">1</strong><span id="age">FOUNDING AGE</span></div>
+    <div class="status"><i id="statusDot"></i><span id="modeLabel">TEST MODE</span><b id="fps">60 FPS</b></div>
+  </header>
+
+  <aside class="hud ranking">
+    <header><span>WORLD POWERS</span><small id="viewerCount">0 VIEWERS</small></header>
+    <div id="rankRows"></div>
+  </aside>
+
+  <aside class="hud event-card hidden" id="eventCard">
+    <small id="eventType">WORLD EVENT</small>
+    <strong id="eventTitle">A new age begins</strong>
+    <span id="eventText"></span>
+  </aside>
+
+  <section class="hud vote hidden" id="votePanel" aria-live="polite">
+    <header><i id="voteColor"></i><span id="voteKingdom">RED COUNCIL</span><b id="voteTime">15s</b></header>
+    <strong id="voteQuestion"></strong>
+    <div id="voteOptions"></div>
+    <small>Only members of this kingdom can vote in chat</small>
+  </section>
+
+  <aside class="hud history" id="historyPanel">
+    <button id="historyToggle">WORLD HISTORY <span>⌄</span></button>
+    <div id="historyRows"></div>
+  </aside>
+
+  <section class="hud kingdom-card hidden" id="kingdomCard">
+    <header><i id="cardColor"></i><strong id="cardName"></strong><button id="cardClose">×</button></header>
+    <div class="resources" id="cardResources"></div>
+    <div class="card-stats" id="cardStats"></div>
+  </section>
+
+  <section class="hud test-panel collapsed" id="testPanel">
+    <button id="testToggle">TEST MODE</button>
+    <div class="test-body">
+      <div class="test-title"><b>SIMULATE TIKTOK</b><button id="goLive">GO LIVE</button></div>
+      <input id="testUser" value="TestViewer" maxlength="24" aria-label="Viewer username">
+      <select id="testKingdom" aria-label="Kingdom"><option>RED</option><option>BLUE</option><option>GREEN</option><option>YELLOW</option><option>PURPLE</option><option>ORANGE</option></select>
+      <button data-test="join">JOIN</button><button data-test="chat">CHAT</button><button data-test="vote">VOTE 1</button>
+      <button data-test="likes">+500 LIKES</button><button data-test="follow">FOLLOW</button><button data-test="share">SHARE</button>
+      <button data-test="small">SMALL GIFT</button><button data-test="medium">MEDIUM GIFT</button><button data-test="large">LARGE GIFT</button>
+      <button data-test="war">WAR TEST</button>
+    </div>
+  </section>
+
+  <footer class="hud joinbar">
+    <span>JOIN A KINGDOM</span>
+    <b class="red">!RED</b><b class="blue">!BLUE</b><b class="green">!GREEN</b><b class="yellow">!YELLOW</b><b class="purple">!PURPLE</b><b class="orange">!ORANGE</b>
+  </footer>
+
+  <div id="toasts" aria-live="polite"></div>
+  <div class="camera-controls hud"><button id="homeCamera" aria-label="World view">⌂</button><button id="zoomIn" aria-label="Zoom in">＋</button><button id="zoomOut" aria-label="Zoom out">−</button></div>
+
+  <script>window.__WKL_VERSION__='0.1.0-autonomous-foundation';</script>
+  <script src="game.js?v=20260821-1"></script>
+</body>
+</html>
