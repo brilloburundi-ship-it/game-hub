@@ -30,6 +30,7 @@ jobs:
       - run: npm run check:backend
       - run: npm run check:god-world-v8-mobile
       - run: npm run check:kingdom-war-2
+      - run: npm run check:world-kingdoms-live
       - name: Fighter Arena regression check
         continue-on-error: true
         run: npm run check:fighter-arena
