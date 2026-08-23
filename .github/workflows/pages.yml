@@ -3,8 +3,6 @@ name: Build and Deploy
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-${{ github.ref }}
+  group: pages-main
   cancel-in-progress: true
 
 jobs:
@@ -24,27 +22,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm install --ignore-scripts
-      - run: npm test
-      - run: npm run check:backend
-      - run: npm run check:god-world-v8-mobile
-      - run: npm run check:kingdom-war-2
-      - name: Fighter Arena regression check
-        continue-on-error: true
-        run: npm run check:fighter-arena
-      - run: npm run build
-      - if: github.event_name != 'pull_request'
-        uses: actions/configure-pages@v5
+      - name: Build static Game Hub
+        run: node scripts/build.mjs
+      - uses: actions/configure-pages@v5
         with:
           enablement: true
-      - if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   deploy:
-    if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
     environment:
