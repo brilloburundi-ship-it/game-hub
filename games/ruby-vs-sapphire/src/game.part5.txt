@@ -1,0 +1,48 @@
+ingdomBanner',v3(pos.x,yAt(pos.x,pos.z)+h,pos.z),v3(1.15,.72,.10),k.id==='ruby'?mats.ruby:mats.sapphire,true);banner.rotation.y=rotation;banner.metadata={kind:'building',ref:this};this.blocks.push(banner);}
+  }
+  damage(amount,attacker){
+    if(this.destroyed)return;this.hp-=amount;const removeCount=Math.max(0,Math.floor(amount/18));for(let i=0;i<removeCount&&this.blocks.length;i++){const idx=(Math.random()*this.blocks.length)|0;const m=this.blocks.splice(idx,1)[0];if(m)m.dispose();}
+    if(this.hp<=0||this.blocks.length===0){this.destroyed=true;for(const m of this.blocks)m.dispose();this.blocks=[];this.kingdom.housing=Math.max(0,this.kingdom.housing-(this.definition.capacity||0));addEvent(`${attacker.name} destroyed ${this.kingdom.name} ${this.definition.label}!`,'war');if(this===this.kingdom.capital)addEvent(`${this.kingdom.name.toUpperCase()} CASTLE KEEP HAS FALLEN!`,'war');if(this===this.kingdom.townHall)addEvent(`${this.kingdom.name.toUpperCase()} TOWN HALL HAS FALLEN!`,'war');}
+  }
+}
+
+function makeWorldLabel(text,anchor,kingdomId){
+  const dt=new BABYLON.DynamicTexture('labelTex',{width:256,height:96},scene,false);dt.hasAlpha=true;const plane=BABYLON.MeshBuilder.CreatePlane('label',{width:4.6,height:1.7},scene);plane.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;plane.position=anchor.position.add(v3(0,2.6,0));plane.isPickable=false;const mm=new BABYLON.StandardMaterial('labelMat',scene);mm.diffuseTexture=dt;mm.opacityTexture=dt;mm.emissiveColor=kingdomId==='ruby'?C.rubyBright:C.sapphireBright;mm.disableLighting=true;plane.material=mm;updateWorldLabel({tex:dt,plane,mat:mm},text);return {tex:dt,plane,mat:mm};
+}
+function updateWorldLabel(l,text){if(!l)return;const ctx=l.tex.getContext();ctx.clearRect(0,0,256,96);ctx.fillStyle='rgba(5,9,13,.78)';ctx.fillRect(0,0,256,96);ctx.fillStyle='white';ctx.font='bold 24px Arial';ctx.textAlign='center';const lines=text.split('\n');lines.forEach((x,i)=>ctx.fillText(x,128,34+i*30));l.tex.update();}
+function disposeWorldLabel(l){if(!l)return;l.plane.dispose();l.mat.dispose();l.tex.dispose();}
+
+function footprintRadius(type){const bp=instantiateBlueprint(type,0);let mx=2;for(const b of bp.blocks)mx=Math.max(mx,Math.hypot(b.x,b.z)*CONFIG.buildBlock);return mx+1.2}
+function siteFree(pos,type,k){
+  if(isWaterWorld(pos.x,pos.z)&&!CONTENT.buildings[type].coastal)return false;const r=footprintRadius(type);
+  for(const b of buildings)if(!b.destroyed&&dist2(pos,b.pos)<r+footprintRadius(b.type)*.55)return false;for(const p of projects)if(!p.done&&dist2(pos,p.pos)<r+footprintRadius(p.type)*.55)return false;
+  return true;
+}
+function findSite(k,type){
+  const def=CONTENT.buildings[type];if(def.coastal){const coast=k.coast||findCoastNear(k.center,38);if(!coast)return null;for(let i=0;i<80;i++){const p=nearestLand(coast.add(v3(rand(-5,5),0,rand(-5,5))),4);if(nearWater(p,4)&&siteFree(p,type,k))return p;}return null;}
+  const zones={civic:[4,14],residential:[8,24],agriculture:[18,33],production:[15,30],military:[12,24],defense:[CONFIG.wallRadius-3,CONFIG.wallRadius+3]};const [r0,r1]=zones[def.zone]||[8,26];
+  for(let i=0;i<100;i++){const a=Math.random()*Math.PI*2,r=rand(r0,r1),p=nearestLand(k.center.add(v3(Math.cos(a)*r,0,Math.sin(a)*r)),4);if(isWaterWorld(p.x,p.z))continue;if(siteFree(p,type,k))return p;}return null;
+}
+function startProject(k,type,pos=null,rotation=0,variant=null){
+  if(k.projectCount()>=CONFIG.maxProjects)return false;const def=CONTENT.buildings[type];if(!def||k.era<def.era)return false;for(const req of def.requires||[])if(!k.has(req))return false;if(!canAffordEstimate(k,type,.58))return false;const site=pos||findSite(k,type);if(!site)return false;
+  const p=new BuildProject(k,type,site,rotation,variant);projects.push(p);addEvent(`${k.name} began ${def.label}: builders will haul each material from storage.`,k.id);return true;
+}
+
+function roadTile(pos){const ky='road'+keyXZ(pos.x,pos.z);if(occupied.has(ky)||isWaterWorld(pos.x,pos.z))return;occupied.add(ky);const r=cube('road',v3(pos.x,yAt(pos.x,pos.z)+.045,pos.z),v3(.82,.07,.82),mats.road,false);roads.push(r);}
+function addRoad(a,b){const steps=Math.ceil(dist2(a,b)/.75);for(let i=0;i<=steps;i++){const t=i/Math.max(1,steps),p=v3(lerp(a.x,b.x,t),0,lerp(a.z,b.z,t));roadTile(p)}}
+function connectRoad(k,b){if(['Farm','Wall','WatchTower'].includes(b.type))return;const origin=k.townHall?k.townHall.pos:k.center;addRoad(origin,b.pos)}
+
+function fortressPlan(k){
+  if(k.fortressQueue.length)return;const r=CONFIG.wallRadius,enemy=k===ruby?sapphire:ruby,front=Math.atan2(enemy.center.z-k.center.z,enemy.center.x-k.center.x);
+  const pts=[];const seg=10.5;
+  for(const side of [-1,1])for(const t of [-10.5,0,10.5]){pts.push({type:'Wall',pos:k.center.add(v3(t,0,side*r)),rot:0});pts.push({type:'Wall',pos:k.center.add(v3(side*r,0,t)),rot:Math.PI/2});}
+  const gatePos=k.center.add(v3(Math.cos(front)*r,0,Math.sin(front)*r));pts.push({type:'Gatehouse',pos:gatePos,rot:front+Math.PI/2});
+  for(const [x,z] of [[-r,-r],[r,-r],[-r,r],[r,r]])pts.push({type:'WatchTower',pos:k.center.add(v3(x,0,z)),rot:0});k.fortressQueue=pts;
+}
+function updateFortress(k){if(k.era<5||!k.has('Barracks')||!k.has('WatchTower'))return;if(!k.fortressQueue.length&&k.count('Wall')<8)fortressPlan(k);if(k.projectCount()>=CONFIG.maxProjects)return;while(k.fortressQueue.length){const f=k.fortressQueue.shift();if(f.type==='Gatehouse'&&k.has('Gatehouse'))continue;if(startProject(k,f.type,nearestLand(f.pos,3),f.rot))break;}}
+
+function updateStage(k){let s=0;if(k.has('TownHall'))s=1;if(k.has('Farm')&&k.count('Cottage')+k.count('House')>=3)s=2;if(k.has('Market')&&k.has('Blacksmith'))s=3;if(k.has('Gatehouse')&&k.count('Wall')>=4)s=4;if(k.has('Keep'))s=5;if(s!==k.stage){k.stage=s;addEvent(`${k.name} evolved into a ${CONTENT.stages[s]}.`,k.id)}}
+function planKingdom(k,dt){
+  k.planTimer-=dt;if(k.planTimer>0)return;k.planTimer=2.8;updateStage(k);if(k.projectCount()>=CONFIG.maxProjects)return;
+  const pop=k.population(),housingNeed=k.housing<pop+4;
+  if(!k.has('TownHa

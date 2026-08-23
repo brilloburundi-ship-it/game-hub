@@ -1,0 +1,105 @@
+(() => {
+"use strict";
+
+const CONTENT = window.RVS_CONTENT;
+const canvas = document.getElementById("game");
+const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer:false, stencil:true, adaptToDeviceRatio:true });
+const scene = new BABYLON.Scene(engine);
+scene.clearColor = new BABYLON.Color4(0.56,0.76,0.92,1);
+scene.collisionsEnabled = false;
+
+const CONFIG = {
+  terrainCell: 1.9,
+  buildBlock: CONTENT.buildBlock,
+  worldW: 78,
+  worldD: 52,
+  maxHeight: 8,
+  startPop: 12,
+  popCap: 240,
+  simTick: .22,
+  npcSpeed: 5.1,
+  buildSpeed: 1.35,
+  growthBase: 20,
+  daySeconds: 150,
+  peaceMinSeconds: 260,
+  warMinEra: 5,
+  maxProjects: 2,
+  wallRadius: 17,
+  townRadius: 31,
+  resourceRespawn: .09
+};
+
+const C = {
+  ruby:new BABYLON.Color3(.76,.04,.09), rubyBright:new BABYLON.Color3(1,.18,.24),
+  sapphire:new BABYLON.Color3(.04,.22,.78), sapphireBright:new BABYLON.Color3(.12,.46,1),
+  plains:new BABYLON.Color3(.34,.59,.25), forest:new BABYLON.Color3(.23,.48,.18),
+  meadow:new BABYLON.Color3(.42,.67,.31), dry:new BABYLON.Color3(.59,.56,.31),
+  sand:new BABYLON.Color3(.75,.68,.47), stone:new BABYLON.Color3(.45,.47,.50),
+  snow:new BABYLON.Color3(.86,.89,.90), water:new BABYLON.Color3(.10,.37,.66),
+  dirt:new BABYLON.Color3(.43,.29,.17), wood:new BABYLON.Color3(.45,.27,.11),
+  leaves:new BABYLON.Color3(.14,.40,.13), iron:new BABYLON.Color3(.28,.31,.35)
+};
+
+const mats={};
+function mat(name,color,alpha=1,emissive=null){
+  if(mats[name]) return mats[name];
+  const m=new BABYLON.StandardMaterial(name,scene); m.diffuseColor=color; m.specularColor=new BABYLON.Color3(.06,.06,.06); m.alpha=alpha;
+  if(emissive) m.emissiveColor=emissive; mats[name]=m; return m;
+}
+function cube(name,pos,size,material,pickable=false){
+  const b=BABYLON.MeshBuilder.CreateBox(name,{width:size.x,height:size.y,depth:size.z},scene); b.position.copyFrom(pos); b.material=material; b.isPickable=pickable; return b;
+}
+function v3(x,y,z){return new BABYLON.Vector3(x,y,z)}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function rand(a,b){return a+Math.random()*(b-a)}
+function pick(a){return a[(Math.random()*a.length)|0]}
+function dist2(a,b){const dx=a.x-b.x,dz=a.z-b.z;return Math.sqrt(dx*dx+dz*dz)}
+function lerp(a,b,t){return a+(b-a)*t}
+function keyXZ(x,z){return `${Math.round(x/CONFIG.terrainCell)},${Math.round(z/CONFIG.terrainCell)}`}
+
+mat('plains',C.plains);mat('forestGround',C.forest);mat('meadow',C.meadow);mat('dry',C.dry);mat('sand',C.sand);mat('stone',C.stone);mat('snow',C.snow);
+mat('water',C.water,.74);mat('dirt',C.dirt);mat('wood',C.wood);mat('log',C.wood);mat('leaves',C.leaves);mat('iron',C.iron);
+mat('ruby',C.ruby);mat('rubyBright',C.rubyBright);mat('sapphire',C.sapphire);mat('sapphireBright',C.sapphireBright);
+mat('plank',new BABYLON.Color3(.55,.36,.17));mat('cobble',new BABYLON.Color3(.48,.48,.45));mat('brick',new BABYLON.Color3(.50,.33,.28));
+mat('darkStone',new BABYLON.Color3(.28,.29,.31));mat('roof',new BABYLON.Color3(.27,.12,.075));mat('thatch',new BABYLON.Color3(.66,.55,.26));
+mat('farm',new BABYLON.Color3(.43,.29,.14));mat('crop',new BABYLON.Color3(.72,.66,.15));mat('road',new BABYLON.Color3(.49,.37,.22));
+mat('glass',new BABYLON.Color3(.55,.78,.88),.65);mat('bell',new BABYLON.Color3(.67,.51,.16));mat('anvil',new BABYLON.Color3(.18,.20,.22));
+mat('rail',new BABYLON.Color3(.18,.18,.18));mat('cloth',new BABYLON.Color3(.78,.58,.25));mat('weaponRack',new BABYLON.Color3(.22,.20,.17));
+mat('fence',new BABYLON.Color3(.42,.27,.14));mat('target',new BABYLON.Color3(.76,.68,.48));mat('gate',new BABYLON.Color3(.29,.17,.08));
+mat('crate',new BABYLON.Color3(.47,.31,.15));mat('metal',new BABYLON.Color3(.32,.35,.38));
+mat('fire',new BABYLON.Color3(1,.35,.04),1,new BABYLON.Color3(.6,.12,.01));
+mat('arrow',new BABYLON.Color3(.34,.21,.10));mat('boulder',new BABYLON.Color3(.30,.30,.31));
+
+const camera=new BABYLON.ArcRotateCamera('camera',-Math.PI/2,.94,118,v3(0,2,0),scene); camera.attachControl(canvas,true);
+camera.lowerRadiusLimit=12;camera.upperRadiusLimit=180;camera.lowerBetaLimit=.30;camera.upperBetaLimit=1.35;camera.panningSensibility=72;camera.wheelDeltaPercentage=.022;
+const hemi=new BABYLON.HemisphericLight('hemi',v3(.25,1,.15),scene);hemi.intensity=.84;
+const sun=new BABYLON.DirectionalLight('sun',v3(-.48,-1,-.34),scene);sun.position=v3(45,70,38);sun.intensity=.75;
+const shadow=new BABYLON.ShadowGenerator(1024,sun);shadow.useBlurExponentialShadowMap=true;shadow.blurKernel=8;
+
+let simTime=0,speed=1,accumulator=0,worldEnded=false,relation='PEACE',relationTension=0;
+let resources=[],buildings=[],projects=[],npcs=[],roads=[],projectiles=[],siegeEngines=[];
+const viewerTeams=new Map(); const occupied=new Set(); const terrainCache=new Map();
+
+function pseudoNoise(x,z){
+  return Math.sin(x*.18)*.55 + Math.cos(z*.22)*.5 + Math.sin((x+z)*.095)*.62 + Math.cos((x-z)*.061)*.40;
+}
+function riverCenter(gx){return Math.sin(gx*.105)*5.5 + Math.sin(gx*.037)*3.2}
+function lakeMask(gx,gz){
+  const lakes=[[-24,-15,7.5],[27,15,8.2],[2,-19,5.2]];
+  for(const [x,z,r] of lakes){const d=Math.hypot(gx-x,gz-z);if(d<r*(.76+.18*Math.sin(gx*.31+gz*.17)))return true;}return false;
+}
+function terrainHeight(gx,gz){
+  const ck=`${gx},${gz}`; if(terrainCache.has(ck))return terrainCache.get(ck);
+  const ex=Math.abs(gx)/(CONFIG.worldW/2), ez=Math.abs(gz)/(CONFIG.worldD/2);
+  const edge=Math.max(ex,ez); if(edge>.96){terrainCache.set(ck,0);return 0;}
+  const river=Math.abs(gz-riverCenter(gx)); if(river<1.35+Math.abs(Math.sin(gx*.13))*.65){terrainCache.set(ck,0);return 0;}
+  if(lakeMask(gx,gz)){terrainCache.set(ck,0);return 0;}
+  const broad=Math.sin(gx*.041)*1.1+Math.cos(gz*.048)*.9;
+  let h=Math.floor(3.1+pseudoNoise(gx,gz)+broad*.45);
+  if(edge>.82)h-=Math.floor((edge-.82)*20);
+  if(Math.abs(gx)<9 && gz>12)h+=2;
+  h=clamp(h,1,CONFIG.maxHeight);terrainCache.set(ck,h);return h;
+}
+function biomeAt(gx,gz,h=terrainHeight(gx,gz)){
+  if(h===0)return 'water'; if(h>=7)return 'snow'; if(h>=5)return 'stone';
+  const moisture=Math.sin(gx*.071)+Math.cos(g

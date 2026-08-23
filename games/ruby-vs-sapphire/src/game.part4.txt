@@ -1,0 +1,58 @@
+pdatePlaceBuild(dt){
+    if(!this.claim||this.claim.project.done){this.releaseClaim();this.clearCarry();this.task='idle';return}if(this.moveTo(this.claim.world,dt)){
+      this.work+=dt;if(this.work>.48/CONFIG.buildSpeed){this.work=0;this.claim.project.placeClaim(this.claim);this.releaseClaim();this.clearCarry();this.task='idle';}
+    }
+  }
+  updateFarm(dt){
+    const farm=this.target;if(!farm||farm.destroyed){this.task='idle';return}const p=farm.pos.add(v3(rand(-2,2),0,rand(-2,2)));if(this.moveTo(p,dt,.65)){this.work+=dt;if(this.work>2.3){this.work=0;this.kingdom.resources.food+=1.2;this.task='idle'}}
+  }
+  updateMill(dt){
+    const mill=this.target;if(!mill||mill.destroyed){this.task='idle';return}if(this.moveTo(mill.pos,dt,.7)){this.work+=dt;if(this.work>2.6){this.work=0;this.kingdom.resources.food+=1.7;this.task='idle'}}
+  }
+  swing(){if(!this.weaponMesh)return;this.weaponMesh.rotation.z+=.8;setTimeout(()=>{if(this.weaponMesh)this.weaponMesh.rotation.z-=.8},130);}
+  updateMilitary(dt){
+    const k=this.kingdom,enemy=k===ruby?sapphire:ruby;
+    if(relation!=='WAR'){
+      const barr=k.structure('Barracks')||k.townHall;const base=barr?barr.pos:k.center;if(!this.wanderTarget||dist2(this.pos(),this.wanderTarget)<1)this.wanderTarget=base.add(v3(rand(-5,5),0,rand(-5,5)));this.moveTo(this.wanderTarget,dt,.45);return;
+    }
+    const enemies=enemy.soldiers().filter(n=>n.alive);let target=null,bd=Infinity;for(const e of enemies){const d=dist2(this.pos(),e.pos());if(d<bd){bd=d;target=e}}
+    if(this.role==='archer'&&target&&bd<16){if(bd>10)this.moveTo(target.pos(),dt,.8);else if(this.attackCooldown<=0){this.attackCooldown=1.8+Math.random()*.7;launchProjectile(this.pos().add(v3(0,1.5,0)),target,'arrow',18,this); }return;}
+    if(target&&bd<(this.role==='knight'?10:7)){
+      if(this.moveTo(target.pos(),dt,1)){if(this.attackCooldown<=0){this.attackCooldown=this.role==='knight'?1.0:1.15;this.swing();target.health-=this.role==='knight'?29:22;hitSpark(target.pos(),this.kingdom);if(target.health<=0)killNPC(target,`${k.name} ${this.role}`);}}return;
+    }
+    const targetBuilding=chooseSiegeTarget(enemy);if(targetBuilding){
+      const range=this.role==='archer'?12:1.45,db=dist2(this.pos(),targetBuilding.pos);
+      if(db>range)this.moveTo(targetBuilding.pos,dt,this.role==='archer'?.82:1);
+      else if(this.attackCooldown<=0){this.attackCooldown=this.role==='archer'?2.1:1.15;if(this.role==='archer')launchProjectile(this.pos().add(v3(0,1.4,0)),targetBuilding,'arrow',8,this);else {this.swing();targetBuilding.damage(this.role==='knight'?16:11,k);hitSpark(targetBuilding.pos,k);}}
+    }
+  }
+}
+
+function killNPC(n){if(!n.alive)return;n.alive=false;n.releaseClaim();n.clearCarry();for(const m of n.visual.meshes)m.dispose();if(n.weaponMesh)n.weaponMesh.dispose();n.visual.root.dispose();}
+function spawnNPC(k,role='gatherer',name=null,pos=null){const base=pos||k.center.add(v3(rand(-4,4),0,rand(-4,4)));const p=nearestLand(base,5);const n=new NPC(k,p,role,name);npcs.push(n);return n}
+
+function rotateLocal(x,z,rot){const c=Math.cos(rot),s=Math.sin(rot);return {x:x*c-z*s,z:x*s+z*c}}
+class BuildProject{
+  constructor(k,type,pos,rotation=0,variant=null){
+    this.kingdom=k;this.type=type;this.pos=pos.clone();this.rotation=rotation;this.done=false;this.id=Math.random().toString(36).slice(2);const bp=instantiateBlueprint(type,variant);this.definition=bp.def;this.variant=bp.vi;this.blocks=bp.blocks;this.meshes=[];
+    this.marker=cube('site',v3(pos.x,yAt(pos.x,pos.z)+.04,pos.z),v3(2.0,.08,2.0),mat(`site-${k.id}`,k.bright,.38,k.color.scale(.12)),false);
+    this.label=makeWorldLabel(`${bp.def.label}\nFOUNDATION`,this.marker,k.id);
+  }
+  blockCost(b){return b.r==='iron'?.18:b.r==='stone'?.12:.10}
+  worldFor(b){const q=rotateLocal(b.x*CONFIG.buildBlock,b.z*CONFIG.buildBlock,this.rotation);return v3(this.pos.x+q.x,yAt(this.pos.x,this.pos.z)+CONFIG.buildBlock*.5+b.y*CONFIG.buildBlock,this.pos.z+q.z)}
+  claim(npc){const b=this.blocks.find(x=>!x.placed&&!x.claimedBy);if(!b)return null;b.claimedBy=npc;const claim={project:this,block:b,world:this.worldFor(b)};return claim;}
+  placeClaim(claim){
+    const b=claim.block;if(this.done||b.placed)return;const mesh=cube(`build-${this.type}`,claim.world,v3(CONFIG.buildBlock,CONFIG.buildBlock,CONFIG.buildBlock),mats[b.m]||mats.plank,true);mesh.rotation.y=this.rotation;mesh.metadata={kind:'buildingProject',ref:this};shadow.addShadowCaster(mesh);mesh.receiveShadows=true;this.meshes.push(mesh);b.placed=true;b.claimedBy=null;
+    const completed=this.blocks.filter(x=>x.placed).length,ratio=completed/this.blocks.length;const phase=ratio<.18?'FOUNDATION':ratio<.72?'STRUCTURE':ratio<.92?'ROOF':'DETAILS';updateWorldLabel(this.label,`${this.definition.label}\n${phase} ${Math.floor(ratio*100)}%`);
+    if(completed===this.blocks.length)this.finish();
+  }
+  finish(){
+    if(this.done)return;this.done=true;if(this.marker)this.marker.dispose();disposeWorldLabel(this.label);const b=new Building(this.kingdom,this.type,this.pos,this.meshes,this.rotation,this.definition,this.variant);buildings.push(b);
+    this.kingdom.housing+=this.definition.capacity||0;if(this.type==='TownHall'){this.kingdom.townHall=b;this.kingdom.storagePos=b.pos.clone();this.kingdom.housing+=4;}if(this.type==='Keep')this.kingdom.capital=b;
+    connectRoad(this.kingdom,b);addEvent(`${this.kingdom.name} completed ${this.definition.label}.`,this.kingdom.id);updateStage(this.kingdom);
+  }
+}
+
+class Building{
+  constructor(k,type,pos,meshes,rotation,definition,variant){this.kingdom=k;this.type=type;this.pos=pos.clone();this.blocks=meshes;this.rotation=rotation;this.definition=definition;this.variant=variant;this.destroyed=false;this.maxHp=Math.max(120,meshes.length*(type==='Wall'||type==='Gatehouse'||type==='Keep'?9:6));this.hp=this.maxHp;for(const m of meshes)m.metadata={kind:'building',ref:this};
+    if(['TownHall','Barracks','Gatehouse','Keep','Dock'].includes(type)){const h=type==='Keep'?9:type==='Gatehouse'?8:5.2;const banner=cube('k

@@ -1,0 +1,74 @@
+.siegeTimer=0;this.supporters=0;this.territory=13;
+    this.fortressQueue=[];this.capital=null;this.townHall=null;this.coast=findCoastNear(center,34);this.personality=pick(['Expansionist','Builder','Mercantile','Militarist','Defensive']);
+  }
+  population(){return npcs.filter(n=>n.alive&&n.kingdom===this).length}
+  civilians(){return npcs.filter(n=>n.alive&&n.kingdom===this&&!['swordsman','archer','knight'].includes(n.role))}
+  soldiers(){return npcs.filter(n=>n.alive&&n.kingdom===this&&['swordsman','archer','knight'].includes(n.role))}
+  count(type){return buildings.filter(b=>b.kingdom===this&&b.type===type&&!b.destroyed).length}
+  has(type){return this.count(type)>0}
+  projectCount(){return projects.filter(p=>p.kingdom===this&&!p.done).length}
+  structure(type){return buildings.find(b=>b.kingdom===this&&b.type===type&&!b.destroyed)}
+}
+
+const ruby=new Kingdom('ruby','Ruby',C.ruby,C.rubyBright,v3(-48,0,-8));
+const sapphire=new Kingdom('sapphire','Sapphire',C.sapphire,C.sapphireBright,v3(48,0,8));
+for(const k of [ruby,sapphire])k.center=nearestLand(k.center,12);
+const kingdoms=[ruby,sapphire];
+
+function makeHumanoidMesh(k,role,pos){
+  const root=new BABYLON.TransformNode('npcRoot',scene);root.position.copyFrom(pos);
+  const kmat=k.id==='ruby'?mats.ruby:mats.sapphire;
+  const body=cube('body',v3(0,.82,0),v3(.68,1.0,.42),kmat,true);body.parent=root;
+  const head=cube('head',v3(0,1.62,0),v3(.58,.58,.58),mat('skin',new BABYLON.Color3(.72,.55,.42)),true);head.parent=root;
+  const leg1=cube('leg',v3(-.18,.22,0),v3(.22,.52,.24),mats.darkStone,false);leg1.parent=root;const leg2=leg1.clone('leg');leg2.position.x=.18;leg2.parent=root;
+  const meshes=[body,head,leg1,leg2];for(const m of meshes){m.metadata={kind:'npcPart'};shadow.addShadowCaster(m)}
+  return {root,body,meshes};
+}
+function addWeaponVisual(n){
+  if(n.weaponMesh)n.weaponMesh.dispose();n.weaponMesh=null;
+  if(n.role==='swordsman'||n.role==='knight'){
+    const s=cube('sword',v3(.48,.95,.08),v3(.08,.75,.10),mats.metal,true);s.parent=n.visual.root;s.rotation.z=-.35;s.metadata={kind:'npc',ref:n};n.weaponMesh=s;
+  }else if(n.role==='archer'){
+    const bow=cube('bow',v3(.45,.95,.08),v3(.07,.82,.10),mats.wood,true);bow.parent=n.visual.root;bow.rotation.z=.35;bow.metadata={kind:'npc',ref:n};n.weaponMesh=bow;
+  }
+}
+
+class NPC{
+  constructor(k,pos,role='gatherer',name=null){
+    this.kingdom=k;this.role=role;this.name=name||`${k.name}-${Math.floor(Math.random()*9999)}`;this.alive=true;this.health=role==='knight'?145:100;this.maxHealth=this.health;this.hunger=100;this.task='idle';this.target=null;this.work=0;this.carry=null;this.claim=null;this.attackCooldown=rand(0,.8);this.wanderTarget=null;
+    this.visual=makeHumanoidMesh(k,role,v3(pos.x,yAt(pos.x,pos.z)+.02,pos.z));this.mesh=this.visual.body;this.mesh.metadata={kind:'npc',ref:this};addWeaponVisual(this);
+  }
+  pos(){return this.visual.root.position}
+  setRole(role){this.role=role;this.health=role==='knight'?145:Math.max(this.health,100);this.maxHealth=role==='knight'?145:100;addWeaponVisual(this)}
+  moveTo(pos,dt,speedMul=1){
+    const p=this.pos(),d=v3(pos.x-p.x,0,pos.z-p.z),len=Math.hypot(d.x,d.z);if(len<.22)return true;d.scaleInPlace(1/Math.max(.001,len));
+    const roleMul=this.role==='knight'?1.42:(this.role==='swordsman'?1.08:1);const step=Math.min(len,CONFIG.npcSpeed*roleMul*speedMul*dt);p.x+=d.x*step;p.z+=d.z*step;
+    if(isWaterWorld(p.x,p.z)){p.x-=d.x*step;p.z-=d.z*step;this.wanderTarget=null;return false;}p.y+=(yAt(p.x,p.z)+.02-p.y)*Math.min(1,dt*8);this.visual.root.rotation.y=Math.atan2(d.x,d.z);return len<.45;
+  }
+  setCarry(type){this.carry=type;if(this.carryMesh)this.carryMesh.dispose();const mm=type==='wood'?mats.wood:type==='stone'?mats.stone:type==='iron'?mats.iron:mat('foodCarry',new BABYLON.Color3(.82,.54,.10));this.carryMesh=cube('carry',v3(0,1.45,0),v3(.42,.42,.42),mm,false);this.carryMesh.parent=this.visual.root;}
+  clearCarry(){this.carry=null;if(this.carryMesh){this.carryMesh.dispose();this.carryMesh=null}}
+  releaseClaim(){if(this.claim&&this.claim.block)this.claim.block.claimedBy=null;this.claim=null}
+  update(dt){
+    if(!this.alive)return;this.hunger-=dt*.12;this.attackCooldown-=dt;
+    if(['swordsman','archer','knight'].includes(this.role))return this.updateMilitary(dt);
+    if(this.hunger<24&&this.kingdom.resources.food>0&&this.task!=='placeBuild'){this.releaseClaim();this.task='eat';this.target=this.kingdom.storagePos.clone();}
+    if(this.task==='eat'){if(this.moveTo(this.target,dt)){this.kingdom.resources.food=Math.max(0,this.kingdom.resources.food-1);this.hunger=100;this.task='idle'}return;}
+    if(this.task==='gather')return this.updateGather(dt);
+    if(this.task==='deliver')return this.updateDeliver(dt);
+    if(this.task==='fetchBuild')return this.updateFetchBuild(dt);
+    if(this.task==='placeBuild')return this.updatePlaceBuild(dt);
+    if(this.task==='workFarm')return this.updateFarm(dt);
+    if(this.task==='workMill')return this.updateMill(dt);
+    assignTask(this);
+  }
+  updateGather(dt){
+    const r=this.target;if(!r||!resources.includes(r)){this.task='idle';return}if(this.moveTo(v3(r.x,0,r.z),dt)){this.work+=dt;if(this.work>1.35){this.work=0;r.amount--;const got=r.type;this.setCarry(got);r.reservedBy=null;if(r.amount<=0)removeResource(r);this.target=this.kingdom.storagePos.clone();this.task='deliver';}}
+  }
+  updateDeliver(dt){if(this.moveTo(this.target,dt)){this.kingdom.resources[this.carry]=(this.kingdom.resources[this.carry]||0)+1;this.clearCarry();this.task='idle';}}
+  updateFetchBuild(dt){
+    if(!this.claim||!this.claim.project||this.claim.project.done){this.releaseClaim();this.task='idle';return}if(this.moveTo(this.kingdom.storagePos,dt)){
+      const res=this.claim.block.r||'wood',cost=this.claim.project.blockCost(this.claim.block);if((this.kingdom.resources[res]||0)<cost){this.releaseClaim();this.task='idle';return}
+      this.kingdom.resources[res]-=cost;this.setCarry(res);this.target=this.claim.world;this.task='placeBuild';
+    }
+  }
+  u

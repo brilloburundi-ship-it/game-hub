@@ -1,0 +1,63 @@
+z*.083)+Math.sin((gx-z)*.037);
+  if(gz<-15 && moisture<.6)return 'dry'; if(moisture>1.0)return 'forest'; if(moisture>.25)return 'meadow'; return 'plains';
+}
+function yAt(x,z){const gx=Math.round(x/CONFIG.terrainCell),gz=Math.round(z/CONFIG.terrainCell);return terrainHeight(gx,gz)*CONFIG.terrainCell}
+function isWaterWorld(x,z){return yAt(x,z)<=0}
+function gridWorld(gx,gz){return v3(gx*CONFIG.terrainCell,terrainHeight(gx,gz)*CONFIG.terrainCell,gz*CONFIG.terrainCell)}
+function nearestLand(pos,maxR=12){
+  let best=null,bd=Infinity;for(let r=0;r<=maxR;r++)for(let dx=-r;dx<=r;dx++)for(const dz of [-r,r]){
+    const x=pos.x+dx*CONFIG.terrainCell,z=pos.z+dz*CONFIG.terrainCell;if(!isWaterWorld(x,z)){const d=Math.hypot(dx,dz);if(d<bd){bd=d;best=v3(x,0,z)}}
+  }return best||pos.clone();
+}
+function nearWater(pos,r=8){
+  const gr=Math.ceil(r/CONFIG.terrainCell);for(let dx=-gr;dx<=gr;dx++)for(let dz=-gr;dz<=gr;dz++){if(dx*dx+dz*dz>gr*gr)continue;if(isWaterWorld(pos.x+dx*CONFIG.terrainCell,pos.z+dz*CONFIG.terrainCell))return true;}return false;
+}
+function findCoastNear(center,range=28){
+  let best=null,bd=Infinity;for(let i=0;i<160;i++){
+    const a=Math.random()*Math.PI*2,r=rand(8,range),p=v3(center.x+Math.cos(a)*r,0,center.z+Math.sin(a)*r);
+    if(isWaterWorld(p.x,p.z))continue;if(!nearWater(p,4.5))continue;const d=dist2(center,p);if(d<bd){bd=d;best=p;}
+  }return best;
+}
+
+function makeWorld(){
+  const water=BABYLON.MeshBuilder.CreateGround('water',{width:CONFIG.worldW*CONFIG.terrainCell+30,height:CONFIG.worldD*CONFIG.terrainCell+30},scene);water.position.y=.78;water.material=mats.water;water.isPickable=false;
+  const groups={plains:[],forest:[],meadow:[],dry:[],sand:[],stone:[],snow:[]};
+  for(let gx=-CONFIG.worldW/2;gx<CONFIG.worldW/2;gx++)for(let gz=-CONFIG.worldD/2;gz<CONFIG.worldD/2;gz++){
+    const h=terrainHeight(gx,gz);if(h===0)continue;let bi=biomeAt(gx,gz,h);if(nearWater(gridWorld(gx,gz),2.1)&&h<=2)bi='sand';
+    const height=h*CONFIG.terrainCell;const b=cube('terrainTemp',v3(gx*CONFIG.terrainCell,height/2,gz*CONFIG.terrainCell),v3(CONFIG.terrainCell,height,CONFIG.terrainCell),mats[bi]||mats.plains,false);groups[bi].push(b);
+    const p=gridWorld(gx,gz);
+    if(bi==='forest'&&Math.random()<.17)spawnTree(p.x,p.z,1+Math.random()*.25);
+    else if((bi==='meadow'||bi==='plains')&&Math.random()<.045)spawnTree(p.x,p.z,.9+Math.random()*.2);
+    if((bi==='meadow'||bi==='plains')&&Math.random()<.035)spawnBerry(p.x,p.z);
+    if((bi==='stone'||h>=5)&&Math.random()<.055)spawnRock(p.x,p.z,Math.random()<.20?'iron':'stone');
+  }
+  for(const [name,arr] of Object.entries(groups)){
+    if(!arr.length)continue;const merged=BABYLON.Mesh.MergeMeshes(arr,true,true,undefined,false,true);if(merged){merged.name=`terrain-${name}`;merged.receiveShadows=true;merged.isPickable=false;merged.freezeWorldMatrix();}
+  }
+  addEvent('A larger world was generated: rivers, lakes, forests, plains, drylands and mountain snowfields.','');
+}
+
+function spawnTree(x,z,s=1){
+  if(isWaterWorld(x,z))return;const y=yAt(x,z);const trunk=cube('tree',v3(x,y+1.15*s,z),v3(.62*s,2.3*s,.62*s),mats.wood,true);
+  const crown=cube('leaves',v3(x,y+2.75*s,z),v3(2.0*s,2.05*s,2.0*s),mats.leaves,true);trunk.metadata={kind:'resource',type:'wood'};crown.metadata=trunk.metadata;
+  resources.push({type:'wood',x,z,amount:7+Math.floor(s*3),meshes:[trunk,crown],reservedBy:null});
+}
+function spawnBerry(x,z){if(isWaterWorld(x,z))return;const y=yAt(x,z);const b=cube('berries',v3(x,y+.38,z),v3(.95,.76,.95),mat('berry',new BABYLON.Color3(.30,.46,.14)),true);b.metadata={kind:'resource',type:'food'};resources.push({type:'food',x,z,amount:6,meshes:[b],reservedBy:null});}
+function spawnRock(x,z,type='stone'){if(isWaterWorld(x,z))return;const y=yAt(x,z);const b=cube(type,v3(x,y+.52,z),v3(1.15,1.05,1.15),type==='iron'?mats.iron:mats.stone,true);b.rotation.y=Math.random()*2;b.metadata={kind:'resource',type};resources.push({type,x,z,amount:type==='iron'?6:10,meshes:[b],reservedBy:null});}
+function removeResource(r){for(const m of r.meshes)m.dispose();const i=resources.indexOf(r);if(i>=0)resources.splice(i,1)}
+function closestResource(type,pos,max=80,npc=null){let best=null,bd=max;for(const r of resources){if(r.type!==type||r.amount<=0||(r.reservedBy&&r.reservedBy!==npc))continue;const d=dist2(pos,r);if(d<bd){bd=d;best=r}}return best}
+function replenishResources(dt){if(resources.length>360)return;if(Math.random()<dt*CONFIG.resourceRespawn){const gx=(Math.random()*CONFIG.worldW-CONFIG.worldW/2)|0,gz=(Math.random()*CONFIG.worldD-CONFIG.worldD/2)|0,h=terrainHeight(gx,gz);if(h>0){const p=gridWorld(gx,gz),bi=biomeAt(gx,gz,h);if(bi==='forest'||bi==='meadow')spawnTree(p.x,p.z,.9);else if(bi==='plains')spawnBerry(p.x,p.z);else if(bi==='stone')spawnRock(p.x,p.z,Math.random()<.18?'iron':'stone')}}}
+
+function instantiateBlueprint(type,variantIndex=null){
+  const def=CONTENT.buildings[type];if(!def)throw new Error(`Unknown building ${type}`);const vi=variantIndex===null?Math.floor(Math.random()*def.variants.length):variantIndex%def.variants.length;
+  const blocks=def.variants[vi]().map((b,i)=>({...b,id:i,placed:false,claimedBy:null}));blocks.sort((a,b)=>(a.phase-b.phase)||(a.y-b.y)||(a.z-b.z)||(a.x-b.x));return {def,vi,blocks};
+}
+function estimatedCost(type){
+  const bp=instantiateBlueprint(type,0),cost={wood:0,stone:0,iron:0};for(const b of bp.blocks){const r=b.r||'wood';const unit=r==='iron'?.18:r==='stone'?.12:.10;cost[r]=(cost[r]||0)+unit;}return cost;
+}
+function canAffordEstimate(k,type,mult=.72){const c=estimatedCost(type);return Object.entries(c).every(([r,v])=>(k.resources[r]||0)>=v*mult)}
+
+class Kingdom{
+  constructor(id,name,color,bright,center){
+    this.id=id;this.name=name;this.color=color;this.bright=bright;this.center=center.clone();this.storagePos=center.clone();this.resources={food:65,wood:30,stone:16,iron:3};
+    this.era=1;this.tech=0;this.housing=CONFIG.startPop+3;this.alive=true;this.stage=0;this.lastGrowth=0;this.foodTimer=0;this.planTimer=0;this.recruitTimer=0;this

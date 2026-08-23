@@ -1,0 +1,60 @@
+ll')){startProject(k,'TownHall',k.center.add(v3(0,0,2)));return;}
+  if(k.count('Cottage')<2){startProject(k,'Cottage');return;}
+  if(!k.has('Granary')){startProject(k,'Granary');return;}
+  if(k.era>=2&&!k.has('Farm')){startProject(k,'Farm');return;}
+  if(k.era>=2&&!k.has('LumberCamp')){startProject(k,'LumberCamp');return;}
+  if(k.era>=2&&!k.has('Quarry')){startProject(k,'Quarry');return;}
+  if(housingNeed){startProject(k,k.era>=2?'House':'Cottage');return;}
+  if(k.era>=2&&k.count('Farm')<Math.max(2,Math.ceil(pop/28))){startProject(k,'Farm');return;}
+  if(k.era>=2&&!k.has('Windmill')){startProject(k,'Windmill');return;}
+  if(k.era>=3&&!k.has('Mine')){startProject(k,'Mine');return;}
+  if(k.era>=3&&!k.has('Blacksmith')){startProject(k,'Blacksmith');return;}
+  if(k.era>=3&&!k.has('Market')){startProject(k,'Market');return;}
+  if(k.era>=3&&k.coast&&!k.has('Dock')){startProject(k,'Dock',k.coast,Math.atan2(riverCenter(k.coast.x/CONFIG.terrainCell)-k.coast.z,1));return;}
+  if(k.era>=3&&k.has('Dock')&&!k.has('PortWarehouse')){startProject(k,'PortWarehouse');return;}
+  if(k.era>=4&&!k.has('Barracks')){startProject(k,'Barracks');return;}
+  if(k.era>=4&&!k.has('ArcheryRange')){startProject(k,'ArcheryRange');return;}
+  if(k.era>=4&&!k.has('Stable')){startProject(k,'Stable');return;}
+  if(k.era>=4&&k.has('Dock')&&!k.has('Shipyard')){startProject(k,'Shipyard');return;}
+  if(k.era>=4&&k.count('WatchTower')<2){startProject(k,'WatchTower');return;}
+  if(k.era>=5&&!k.has('SiegeWorkshop')){startProject(k,'SiegeWorkshop');return;}
+  if(k.era>=5){updateFortress(k);if(k.has('Gatehouse')&&k.count('Wall')>=4&&!k.has('Keep')){startProject(k,'Keep',k.center.add(v3(0,0,-3)));return;}}
+  if(pop>35&&Math.random()<.35)startProject(k,'House');
+}
+
+function assignTask(n){
+  const k=n.kingdom;
+  if(n.role==='builder'||(k.projectCount()>0&&Math.random()<.16)){
+    for(const p of projects){if(p.kingdom!==k||p.done)continue;const claim=p.claim(n);if(claim){n.claim=claim;n.target=k.storagePos.clone();n.task='fetchBuild';n.role='builder';return;}}
+  }
+  if(k.has('Farm')&&k.resources.food<k.population()*2.4&&Math.random()<.25){n.role='farmer';n.target=k.structure('Farm');n.task='workFarm';return;}
+  if(k.has('Windmill')&&Math.random()<.08){n.role='miller';n.target=k.structure('Windmill');n.task='workMill';return;}
+  let type;if(k.resources.food<Math.max(38,k.population()*2.0))type='food';else if(k.resources.wood<50)type='wood';else if(k.resources.stone<52)type='stone';else if(k.era>=3&&k.resources.iron<18)type='iron';else type=pick(['wood','food','stone']);
+  let r=closestResource(type,n.pos(),92,n);if(!r&&type==='iron')r=closestResource('stone',n.pos(),92,n);if(r){r.reservedBy=n;n.target=r;n.task='gather';n.role=type==='wood'?'lumberjack':type==='food'?'forager':'miner';return;}
+  if(!n.wanderTarget||dist2(n.pos(),n.wanderTarget)<1)n.wanderTarget=nearestLand(k.center.add(v3(rand(-12,12),0,rand(-12,12))),4);n.moveTo(n.wanderTarget,CONFIG.simTick,.3);
+}
+
+function technology(k,dt){
+  const effects=buildings.filter(b=>b.kingdom===k&&!b.destroyed).reduce((s,b)=>s+(b.definition.effects?.tech||0),0);k.tech+=dt*(.42+k.population()*.014+effects*.18);
+  const th=[0,0,85,245,520,940];while(k.era<5&&k.tech>=th[k.era+1]){k.era++;addEvent(`${k.name} entered ${['','Survival','Agriculture','Craftsmanship','Metallurgy','Kingdom'][k.era]} Era.`,k.id)}
+}
+function economy(k,dt){
+  const farms=k.count('Farm'),mills=k.count('Windmill'),docks=k.count('Dock'),lumber=k.count('LumberCamp'),quarry=k.count('Quarry'),mine=k.count('Mine');
+  k.resources.food+=(farms*.055+mills*.085+docks*.035)*dt;k.resources.wood+=lumber*.028*dt;k.resources.stone+=quarry*.020*dt;k.resources.iron+=mine*.008*dt;
+  k.foodTimer+=dt;if(k.foodTimer>5){k.foodTimer=0;k.resources.food=Math.max(0,k.resources.food-k.population()*.16)}
+}
+function populationGrowth(k,dt){k.lastGrowth+=dt;const pop=k.population();if(k.lastGrowth>CONFIG.growthBase&&pop<CONFIG.popCap&&pop<k.housing&&k.resources.food>pop*1.18&&k.has('TownHall')){k.lastGrowth=0;k.resources.food-=3.5;spawnNPC(k,Math.random()<.16?'builder':'gatherer');addEvent(`${k.name} population grew to ${pop+1}.`,k.id)}}
+function rebalanceBuilders(k){const desired=Math.min(6,Math.max(2,Math.ceil(k.population()/26)));const builders=k.civilians().filter(n=>n.role==='builder');if(k.projectCount()>0&&builders.length<desired){const n=k.civilians().find(n=>!['farmer','miller'].includes(n.role));if(n)n.role='builder'}}
+function recruit(k,dt){
+  k.recruitTimer-=dt;if(k.recruitTimer>0||k.era<4||!k.has('Barracks'))return;k.recruitTimer=4.5;const pop=k.population(),current=k.soldiers().length,target=Math.min(54,Math.floor(pop*(relation==='WAR'?.38:.22)));if(current>=target)return;
+  const civ=k.civilians().find(n=>n.role!=='builder');if(!civ)return;let role='swordsman',costIron=.8,costWood=.2;if(k.has('ArcheryRange')&&current%3===1){role='archer';costIron=.25;costWood=.75}else if(k.has('Stable')&&current%6===4){role='knight';costIron=1.6;costWood=.5}
+  if(k.resources.iron<costIron||k.resources.wood<costWood)return;k.resources.iron-=costIron;k.resources.wood-=costWood;civ.setRole(role);civ.task='guard';addEvent(`${k.name} equipped a ${role}.`,k.id);
+}
+
+class SiegeEngine{
+  constructor(k,pos){this.kingdom=k;this.alive=true;this.health=190;this.cooldown=rand(1,3);this.root=new BABYLON.TransformNode('catapult',scene);this.root.position.copyFrom(v3(pos.x,yAt(pos.x,pos.z)+.05,pos.z));
+    this.body=cube('catapultBody',v3(0,.65,0),v3(2.1,.6,1.55),mats.wood,true);this.body.parent=this.root;this.body.metadata={kind:'siege',ref:this};
+    for(const x of [-.85,.85])for(const z of [-.65,.65]){const w=BABYLON.MeshBuilder.CreateCylinder('wheel',{diameter:.68,height:.22,tessellation:12},scene);w.rotation.z=Math.PI/2;w.position=v3(x,.36,z);w.material=mats.darkStone;w.parent=this.root;}
+    this.arm=cube('arm',v3(0,1.55,.1),v3(.22,2.6,.22),mats.wood,false);this.arm.rotation.x=-.55;this.arm.parent=this.root;shadow.addShadowCaster(this.body);
+  }
+  pos(){return this.ro
