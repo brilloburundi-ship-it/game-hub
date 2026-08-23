@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#0a0f14" />
+  <title>Ruby vs Sapphire</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <header id="hud">
+    <section class="kingdom ruby">
+      <h2>RUBY</h2>
+      <div class="stats">
+        <span>POP <b id="ruby-pop">0</b></span><span>FOOD <b id="ruby-food">0</b></span>
+        <span>WOOD <b id="ruby-wood">0</b></span><span>STONE <b id="ruby-stone">0</b></span>
+        <span>IRON <b id="ruby-iron">0</b></span><span>ARMY <b id="ruby-army">0</b></span>
+      </div>
+      <div class="era" id="ruby-era">SURVIVAL</div>
+    </section>
+
+    <section id="center-ui">
+      <div id="brand">RUBY <small>VS</small> SAPPHIRE</div>
+      <div class="statusline">
+        <span id="relation">PEACE</span>
+        <span id="bridge"><i id="bridge-dot"></i><b id="bridge-label">TEST MODE</b></span>
+      </div>
+      <div id="controls">
+        <button data-speed="0">⏸</button>
+        <button data-speed="1" class="active">1×</button>
+        <button data-speed="2">2×</button>
+        <button data-speed="4">4×</button>
+        <button id="overview">OVERVIEW</button>
+        <button id="toggle-live">GO LIVE</button>
+        <button id="toggle-test">TEST</button>
+        <button id="restart">NEW WORLD</button>
+      </div>
+    </section>
+
+    <section class="kingdom sapphire">
+      <h2>SAPPHIRE</h2>
+      <div class="stats">
+        <span>POP <b id="sapphire-pop">0</b></span><span>FOOD <b id="sapphire-food">0</b></span>
+        <span>WOOD <b id="sapphire-wood">0</b></span><span>STONE <b id="sapphire-stone">0</b></span>
+        <span>IRON <b id="sapphire-iron">0</b></span><span>ARMY <b id="sapphire-army">0</b></span>
+      </div>
+      <div class="era" id="sapphire-era">SURVIVAL</div>
+    </section>
+  </header>
+
+  <aside id="test-panel" class="hidden">
+    <h3>TIKFINITY TEST MODE</h3>
+    <div class="row"><button data-test="join-ruby">JOIN RUBY</button><button data-test="join-sapphire">JOIN SAPPHIRE</button></div>
+    <div class="row"><button data-test="like-ruby">LIKE → RUBY</button><button data-test="like-sapphire">LIKE → SAPPHIRE</button></div>
+    <div class="row"><button data-test="follow-ruby">FOLLOW → RUBY</button><button data-test="follow-sapphire">FOLLOW → SAPPHIRE</button></div>
+    <div class="row"><button data-test="gift-ruby">GIFT 100 → RUBY</button><button data-test="gift-sapphire">GIFT 100 → SAPPHIRE</button></div>
+    <div class="hint">LIVE chat: type <b>RUBY</b> or <b>SAPPHIRE</b> to choose a kingdom.</div>
+  </aside>
+
+  <aside id="inspect" class="hidden">
+    <button id="close-inspect">×</button>
+    <h3 id="inspect-title">Entity</h3>
+    <div id="inspect-body"></div>
+  </aside>
+
+  <div id="event-log"></div>
+  <div id="help">Drag: orbit · Wheel: zoom · Right drag: pan · Click: inspect</div>
+
+  <div id="victory" class="hidden">
+    <div class="victory-card">
+      <div id="victory-title">RUBY VICTORY</div>
+      <p id="victory-sub"></p>
+      <button onclick="location.reload()">NEW WORLD</button>
+    </div>
+  </div>
+
+  <script src="./src/tikfinity.js"></script>
+  <script src="./src/content.js"></script>
+  <script src="./src/game-loader.js"></script>
+</body>
+</html>
