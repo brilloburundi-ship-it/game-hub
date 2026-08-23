@@ -1,68 +1,23 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#07110f" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>World Conflict Live</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#07110f" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>World Conflict Live</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div class="brand"><b>WORLD CONFLICT</b><span>LIVE</span></div>
-      <div class="topstats"><span id="yearLabel">LIVE WORLD</span><span id="activeLabel">0 ACTIVE</span><span id="warLabel">0 WARS</span></div>
-      <button id="pauseBtn" class="iconBtn" type="button">II</button>
-    </header>
-    <main class="layout">
-      <section class="mapPanel">
-        <div class="mapToolbar">
-          <div class="legend"><i class="dot dormant"></i>Dormant <i class="dot active"></i>Supported <i class="dot war"></i>At war</div>
-          <div class="speedBtns" aria-label="Simulation speed"><button data-speed="1" class="speed active">1×</button><button data-speed="2" class="speed">2×</button><button data-speed="4" class="speed">4×</button></div>
-        </div>
-        <div id="mapWrap" class="mapWrap">
-          <svg id="worldMap" viewBox="0 0 1400 700" role="img" aria-label="Interactive world map">
-            <defs>
-              <pattern id="waterPattern" width="36" height="24" patternUnits="userSpaceOnUse"><rect width="36" height="24" fill="#0d3140"/><path d="M-4 7 Q5 2 14 7 T32 7 T50 7 M-4 18 Q5 13 14 18 T32 18 T50 18" fill="none" stroke="#1a4a59" stroke-width="2" opacity=".55"/></pattern>
-              <pattern id="grassPattern" width="22" height="22" patternUnits="userSpaceOnUse"><rect width="22" height="22" fill="#4f7351"/><path d="M3 18l2-6m7 7 1-7m5 4 2-5M1 5l4 1m8-3 4 2" stroke="#678b61" stroke-width="1.2" opacity=".55"/></pattern>
-              <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".45"/></filter>
-            </defs>
-            <rect width="1400" height="700" fill="url(#waterPattern)"/>
-            <g id="viewport"><g id="countries"></g><g id="warLayer"></g><g id="labelLayer"></g></g>
-          </svg>
-          <div id="joinCard" class="joinCard hidden"><small>NEW SUPPORTER</small><b id="joinNation">ITALY</b><span id="joinViewer">@viewer joined</span></div>
-          <div id="loading" class="loading"><b>Loading real world borders…</b><span>Natural Earth / World Atlas</span></div>
-        </div>
-      </section>
-      <aside class="sidePanel">
-        <section class="card nationCard">
-          <div class="sectionHead"><span>SELECTED NATION</span><b id="nationStatus">DORMANT</b></div>
-          <h1 id="nationName">Select a nation</h1>
-          <div id="ownerLine" class="ownerLine">Tap a country on the map</div>
-          <div class="bigStats"><div><small>VIEWERS</small><strong id="viewersVal">0</strong></div><div><small>LIVE POWER</small><strong id="powerVal">0</strong></div></div>
-          <div class="meters">
-            <label>LIVE FUEL <span id="fuelVal">0</span><i><em id="fuelBar"></em></i></label>
-            <label>ARMY <span id="armyVal">0</span><i><em id="armyBar"></em></i></label>
-            <label>SUPPLY <span id="supplyVal">0</span><i><em id="supplyBar"></em></i></label>
-            <label>MOBILIZATION <span id="mobVal">0%</span><i><em id="mobBar"></em></i></label>
-            <label>WAR READINESS <span id="readyVal">0%</span><i><em id="readyBar"></em></i></label>
-          </div>
-        </section>
-        <section class="card testCard">
-          <div class="sectionHead"><span>LIVE TEST</span><b id="testStatus">IDLE</b></div>
-          <button id="autoTestBtn" class="primary" type="button">▶ AUTO TEST · 10 VIEWERS</button>
-          <div id="testInfo" class="muted">Italy 4 · France 3 · Germany 3</div>
-          <div class="manualRow"><input id="viewerInput" value="TestViewer" aria-label="Viewer username"/><input id="nationInput" value="Italy" aria-label="Nation name"/><button id="joinBtn">JOIN</button></div>
-          <div class="eventGrid"><button data-event="like">♥ LIKE</button><button data-event="follow">＋ FOLLOW</button><button data-event="share">↗ SHARE</button><button data-event="rose">✿ ROSE</button><button data-gift="500">🎁 500</button><button data-gift="2000">🎁 2000</button></div>
-        </section>
-        <section class="card"><div class="sectionHead"><span>LIVE POWERS</span><b>TOP 5</b></div><div id="ranking" class="ranking"><div class="empty">No supported nations yet.</div></div></section>
-        <section class="card warsCard"><div class="sectionHead"><span>ACTIVE CAMPAIGNS</span><b id="campaignCount">0</b></div><div id="campaigns" class="campaigns"><div class="empty">No active campaigns.</div></div></section>
-      </aside>
-    </main>
-    <div id="ticker" class="ticker"><b>WORLD FEED</b><span id="tickerText">Waiting for the first viewer to choose a nation…</span></div>
-    <div id="victory" class="victory hidden"><div><small>WORLD CONQUERED</small><h2 id="winnerName">GERMANY WINS</h2><p id="winnerStats"></p><button id="restartBtn" class="primary">START NEW WORLD</button></div></div>
-  </div>
-  <script type="module" src="main.js"></script>
-</body>
-</html>
+<div id="app">
+<header class="topbar"><div class="brand"><b>WORLD CONFLICT</b><span>LIVE</span></div><div class="topstats"><span>LIVE WORLD</span><span id="activeLabel">0 ACTIVE</span><span id="warLabel">0 WARS</span></div><button id="pauseBtn" class="iconBtn" type="button">II</button></header>
+<main class="layout">
+<section class="mapPanel"><div class="mapToolbar"><div class="legend"><i class="dot dormant"></i>Dormant <i class="dot active"></i>Supported <i class="dot war"></i>At war</div><div class="speedBtns"><button data-speed="1" class="speed active">1×</button><button data-speed="2" class="speed">2×</button><button data-speed="4" class="speed">4×</button></div></div><div id="mapWrap" class="mapWrap"><svg id="worldMap" viewBox="0 0 1400 700" role="img" aria-label="Interactive world map"><defs><pattern id="waterPattern" width="36" height="24" patternUnits="userSpaceOnUse"><rect width="36" height="24" fill="#0d3140"/><path d="M-4 7 Q5 2 14 7 T32 7 T50 7 M-4 18 Q5 13 14 18 T32 18 T50 18" fill="none" stroke="#1a4a59" stroke-width="2" opacity=".55"/></pattern></defs><rect width="1400" height="700" fill="url(#waterPattern)"/><g id="viewport"><g id="countries"></g><g id="warLayer"></g><g id="labelLayer"></g></g></svg><div id="joinCard" class="joinCard hidden"><small>NEW SUPPORTER</small><b id="joinNation">ITALY</b><span id="joinViewer">@viewer joined</span></div><div id="loading" class="loading"><b>Loading real world borders…</b><span>World Atlas</span></div></div></section>
+<aside class="sidePanel">
+<section class="card nationCard"><div class="sectionHead"><span>SELECTED NATION</span><b id="nationStatus">DORMANT</b></div><h1 id="nationName">Select a nation</h1><div id="ownerLine" class="ownerLine">Tap a country on the map</div><div class="bigStats"><div><small>VIEWERS</small><strong id="viewersVal">0</strong></div><div><small>LIVE POWER</small><strong id="powerVal">0</strong></div></div><div class="meters"><label>LIVE FUEL <span id="fuelVal">0</span><i><em id="fuelBar"></em></i></label><label>ARMY <span id="armyVal">0</span><i><em id="armyBar"></em></i></label><label>SUPPLY <span id="supplyVal">0</span><i><em id="supplyBar"></em></i></label><label>MOBILIZATION <span id="mobVal">0%</span><i><em id="mobBar"></em></i></label><label>WAR READINESS <span id="readyVal">0%</span><i><em id="readyBar"></em></i></label></div></section>
+<section class="card testCard"><div class="sectionHead"><span>LIVE TEST</span><b id="testStatus">IDLE</b></div><button id="autoTestBtn" class="primary" type="button">▶ AUTO TEST · 10 VIEWERS</button><div id="testInfo" class="muted">Italy 4 · France 3 · Germany 3</div><div class="manualRow"><input id="viewerInput" value="TestViewer"/><input id="nationInput" value="Italy"/><button id="joinBtn">JOIN</button></div><div class="eventGrid"><button data-event="like">♥ LIKE</button><button data-event="follow">＋ FOLLOW</button><button data-event="share">↗ SHARE</button><button data-event="rose">✿ ROSE</button><button data-gift="500">🎁 500</button><button data-gift="2000">🎁 2000</button></div></section>
+<section class="card"><div class="sectionHead"><span>LIVE POWERS</span><b>TOP 5</b></div><div id="ranking" class="ranking"><div class="empty">No supported nations yet.</div></div></section><section class="card warsCard"><div class="sectionHead"><span>ACTIVE CAMPAIGNS</span><b id="campaignCount">0</b></div><div id="campaigns" class="campaigns"><div class="empty">No active campaigns.</div></div></section>
+</aside></main><div id="ticker" class="ticker"><b>WORLD FEED</b><span id="tickerText">Waiting for the first viewer to choose a nation…</span></div><div id="victory" class="victory hidden"><div><small>WORLD CONQUERED</small><h2 id="winnerName">GERMANY WINS</h2><p id="winnerStats"></p><button id="restartBtn" class="primary">START NEW WORLD</button></div></div>
+</div><script type="module" src="main.js"></script></body></html>
