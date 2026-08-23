@@ -1,4 +1,4 @@
-const CACHE = "game-hub-studio-v5-ruby-vs-sapphire";
+const CACHE = "game-hub-studio-v6-world-conflict-refresh";
 const SHELL = [
   "./",
   "./index.html",
