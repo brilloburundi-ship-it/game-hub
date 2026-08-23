@@ -1,4 +1,4 @@
-const CACHE = "game-hub-studio-v4-launch-fix";
+const CACHE = "game-hub-studio-v5-ruby-vs-sapphire";
 const SHELL = [
   "./",
   "./index.html",
