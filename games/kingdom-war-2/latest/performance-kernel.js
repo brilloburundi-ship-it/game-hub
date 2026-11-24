@@ -654,7 +654,7 @@
     };
     state.installed = true;
     document.documentElement.dataset.performanceKernel = VERSION;
-    document.documentElement.dataset.completeRelease = '9.0.0-minifolks';
+    document.documentElement.dataset.completeRelease = window.__GOD_WORLD_RELEASE || '10.0.0-living-civilizations';
     document.title = 'Kingdom War 2';
   }
 
