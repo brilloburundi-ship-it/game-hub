@@ -10,7 +10,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const living=sim=>sim.kingdoms.filter(k=>k?.alive&&!k.founding);
 const activeWar=sim=>sim.wars.find(w=>!w.done);
 const isAtWar=(sim,k)=>sim.wars.some(w=>!w.done&&(w.a===k.id||w.b===k.id));
-const stats={sword:{hp:72,damage:11,range:13,speed:47},spear:{hp:85,damage:13,range:17,speed:43},archer:{hp:52,damage:8,range:52,speed:45}};
+const stats={sword:{hp:72,damage:11,range:23,speed:47},spear:{hp:85,damage:13,range:27,speed:43},archer:{hp:52,damage:8,range:52,speed:45}};
 const mobile=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
 function targetArmy(k,cap=96){
  const gift=Math.max(0,Number(k.__v713InteractionPower)||0);
@@ -29,6 +29,17 @@ function createNavigation(sim){
  let revision=-1,created=0;
  const id=(x,y)=>y*W+x,valid=(x,y)=>x>=0&&y>=0&&x<W&&y<H;
  for(let y=0;y<H;y++)for(let x=0;x<W;x++)terrain[id(x,y)]=sim.isWalkableCell(x,y)?1:0;
+ const components=new Int16Array(N).fill(-1);let group=0;
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const start=id(x,y);if(!terrain[start]||components[start]>=0)continue;
+  const queue=[start];components[start]=group;
+  for(let head=0;head<queue.length;head++){
+   const i=queue[head],cx=i%W,cy=(i/W)|0;
+   for(const [dx,dy] of DIRS){const nx=cx+dx,ny=cy+dy;if(!valid(nx,ny))continue;const ni=id(nx,ny);if(terrain[ni]&&components[ni]<0){components[ni]=group;queue.push(ni);}}
+  }
+  group++;
+ }
+ function connected(a,b){return valid(...a)&&valid(...b)&&components[id(...a)]>=0&&components[id(...a)]===components[id(...b)];}
  function refresh(){
   const rev=sim.__kw2TopologyRevision||0;if(rev===revision)return;
   revision=rev;fields.clear();blocks.clear();
@@ -90,7 +101,7 @@ function createNavigation(sim){
   }
   return best;
  }
- return {refresh,pass,gate,field,value,next,begin(){created=0;refresh();},goalsForBuilding,get revision(){return revision;}};
+ return {refresh,pass,gate,field,value,next,connected,begin(){created=0;refresh();},goalsForBuilding,get revision(){return revision;}};
 }
 function install(sim){
  if(sim.__kw2CivilizationWar||!sim.r?.P||!sim.r?.entities)return false;
@@ -104,6 +115,7 @@ function install(sim){
  // simulation is never called: this is the single authority for combat.
  for(const list of r.__v66Guards?.values?.()||[])for(const u of list)u.s?.destroy?.({children:true});
  r.__v66Guards?.clear?.();
+ for(const fx of r.__v66Fires?.values?.()||[])fx.c?.destroy?.({children:true});
  r.__v66Fires?.clear?.();
  sim.visibleCitizenLimit=k=>Math.min(mobile()?18:32,Math.max(mobile()?14:24,Number(k.__v712VisibleCitizenCap)||0));
  const priorJoin=sim.join.bind(sim);
@@ -153,6 +165,7 @@ function install(sim){
   return oldFarmerAI(k);
  };
  function makeUnit(k,war){
+  const reserve=war.reserve[k.id];if(!reserve||reserve.remaining<=0)return null;
   const current=units.filter(u=>!u.dead&&u.side===k.id);
   if(current.length>=targetArmy(k,cap)||units.filter(u=>!u.dead).length>=globalCap)return null;
   if(k.resources.food<2||k.resources.gold<.6)return null;
@@ -164,9 +177,9 @@ function install(sim){
   const role=seq%4===0?'archer':seq%3===0?'spear':'sword',st=stats[role];
   const s=r.makeSoldier(k,role);if(!s)return null;
   const bonus=clamp(1+Math.log10(1+Math.max(0,k.__v713InteractionPower||0)/100)*.12,1,1.65);
-  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28)};
+  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1)};
   s.position.set(u.x,u.y);s.zIndex=Math.round(u.y*100)+16;r.entities.addChild(s);
-  units.push(u);k.resources.food-=2;k.resources.gold-=.6;
+  units.push(u);reserve.remaining--;k.resources.food-=2;k.resources.gold-=.6;
   state.peakUnits=Math.max(state.peakUnits,units.length);
   return u;
  }
@@ -221,9 +234,10 @@ function install(sim){
  r.endWar=endWar;
  r.startWar=function(w){w.__v66={phase:'rally',age:0,phaseAge:0};w.__kw2Started=state.clock;w.__kw2Progress=state.clock;};
  function start(a,b,manual=false){
-  if(sim.matchOver||!a?.alive||!b?.alive||a===b||sim.areAllied(a,b)||activeWar(sim)||units.some(u=>!u.dead&&u.retiring))return false;
+  if(sim.matchOver||!a?.alive||!b?.alive||a===b||sim.areAllied(a,b)||!nav.connected(a.capital,b.capital)||activeWar(sim)||units.some(u=>!u.dead&&u.retiring))return false;
   if(!manual&&(sim.age-(a.__kw2FoundedAt??sim.age)<120||sim.age-(b.__kw2FoundedAt??sim.age)<120))return false;
-  const w={id:'civil-war-'+(++state.warCount),a:a.id,b:b.id,front:[a.capital.slice(),b.capital.slice()],done:false,lastCapture:sim.age,startedAge:sim.age,occupation:new Map(),nextRecruit:0};
+  const w={id:'civil-war-'+(++state.warCount),a:a.id,b:b.id,front:[a.capital.slice(),b.capital.slice()],done:false,lastCapture:sim.age,startedAge:sim.age,occupation:new Map(),nextRecruit:0,reserve:{}};
+  for(const k of [a,b]){const n=targetArmy(k,cap);w.reserve[k.id]={remaining:n+Math.floor(k.pop*.3),lastTarget:n};}
   sim.wars.push(w);r.startWar(w);r.notifyCameraWar?.(w,sim);state.nextWar=sim.age+30;
   return true;
  }
@@ -254,7 +268,8 @@ function install(sim){
   return result;
  }
  function clearLine(u,v){
-  const steps=Math.ceil(distance(u,v)/8);
+  if(!nav.pass(u.side,...v.cell))return false;
+  const steps=Math.ceil(distance(u,v)/6);
   for(let i=1;i<steps;i++){const c=grid(sim,u.x+(v.x-u.x)*i/steps,u.y+(v.y-u.y)*i/steps);if(!nav.pass(u.side,...c))return false;}
   return true;
  }
@@ -280,9 +295,17 @@ function install(sim){
   const f=nav.field(u.side,target);
   if(u.nextCell&&!nav.pass(u.side,...u.nextCell))u.nextCell=null;
   if(!u.nextCell&&f)u.nextCell=nav.next(u.side,f,...u.cell);
-  if(!u.nextCell){anim(u,'idle');return;}
+  if(!u.nextCell){
+   if(target.unit&&!target.unit.dead){
+    const v=target.unit,d=distance(u,v),step=Math.min(d,u.speed*dt);
+    if(d>.5){const nx=u.x+(v.x-u.x)/d*step,ny=u.y+(v.y-u.y)/d*step,c=grid(sim,nx,ny);
+     if(nav.pass(u.side,...c)){face(u,v.x);anim(u,'walk');u.x=nx;u.y=ny;u.cell=c;u.s.position.set(nx,ny);u.s.zIndex=Math.round(ny*100)+16;return;}}
+   }
+   anim(u,'idle');return;
+  }
   const c=u.nextCell;nav.gate(u.side,...c);nav.gate(u.side,...u.cell);
-  const p=cellWorld(sim,...c),dx=p.x-u.x,dy=p.y-u.y,d=Math.hypot(dx,dy);
+  const p=cellWorld(sim,...c);p.x+=u.offsetX;p.y+=u.offsetY;
+  const dx=p.x-u.x,dy=p.y-u.y,d=Math.hypot(dx,dy);
   if(d<.6){u.x=p.x;u.y=p.y;u.cell=c.slice();u.nextCell=null;return;}
   // Individual speeds and local congestion, no shared formation or group movement.
   const same=nearby(map,u,8).filter(v=>v.side===u.side);
@@ -343,7 +366,7 @@ function install(sim){
    if(w.done){endWar(w);continue;}
    const a=this.kingdoms[w.a],b=this.kingdoms[w.b];
    if(!a?.alive||!b?.alive||this.areAllied(a,b)){endWar(w);continue;}
-   if(state.clock-w.__kw2Progress>100||this.age-w.startedAge>420){endWar(w);continue;}
+   if((state.clock-w.__kw2Started>20&&[w.a,w.b].every(id=>w.reserve[id].remaining<=0&&!units.some(u=>!u.dead&&u.side===id)))||state.clock-w.__kw2Progress>100||this.age-w.startedAge>420){endWar(w);continue;}
    occupation(w);
    const aUnits=units.filter(u=>!u.dead&&u.side===a.id),bUnits=units.filter(u=>!u.dead&&u.side===b.id);
    const near=aUnits.find(u=>u.target?.unit||u.target?.building);
@@ -374,7 +397,7 @@ function install(sim){
    if(state.clock>=w.nextRecruit){
     w.nextRecruit=state.clock+.18;
     for(const id of [w.a,w.b]){
-     const k=sim.kingdoms[id];if(k?.alive&&units.filter(u=>!u.dead&&u.side===id).length<targetArmy(k,dynamic))makeUnit(k,w);
+     const k=sim.kingdoms[id];if(k?.alive){const reserve=w.reserve[id],target=targetArmy(k,cap);if(target>reserve.lastTarget){reserve.remaining+=target-reserve.lastTarget;reserve.lastTarget=target;}if(units.filter(u=>!u.dead&&u.side===id).length<targetArmy(k,dynamic))makeUnit(k,w);}
     }
    }
   }
