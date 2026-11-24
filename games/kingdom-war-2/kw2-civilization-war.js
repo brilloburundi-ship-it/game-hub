@@ -12,11 +12,11 @@ const activeWar=sim=>sim.wars.find(w=>!w.done);
 const isAtWar=(sim,k)=>sim.wars.some(w=>!w.done&&(w.a===k.id||w.b===k.id));
 const stats={sword:{hp:72,damage:11,range:23,speed:47},spear:{hp:85,damage:13,range:27,speed:43},archer:{hp:52,damage:8,range:52,speed:45}};
 const mobile=()=>typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches;
-function targetArmy(k,cap=96){
+function targetArmy(k,cap=128){
  const gift=Math.max(0,Number(k.__v713InteractionPower)||0);
  const support=Math.floor(Math.log2(1+gift/100)*2.5);
  const pop=Math.max(0,Number(k.pop)||0),trained=Math.max(0,Number(k.military)||0);
- return Math.min(cap,Math.max(0,Math.floor(pop*.85)+support),Math.max(3,Math.floor(pop*.58+Math.sqrt(trained)*.8+support)));
+ return Math.min(cap,Math.max(0,Math.floor(pop*.85)+support),Math.max(3,Math.floor(pop*.68+Math.sqrt(trained)*.9+support)));
 }
 function cellWorld(sim,x,y){const a=sim.iso(x,y);return {x:a[0],y:a[1]+6};}
 function grid(sim,x,y){
@@ -61,7 +61,7 @@ function createNavigation(sim){
  }
  function buildField(side,goals,cacheKey){
   const existing=fields.get(cacheKey);if(existing)return existing;
-  if(created>=5)return null;created++;
+  if(created>=3)return null;created++;
   const d=new Int16Array(N).fill(-1),q=new Int32Array(N);let head=0,tail=0;
   for(const [x,y] of goals)if(pass(side,x,y)&&d[id(x,y)]===-1){const i=id(x,y);d[i]=0;q[tail++]=i;}
   while(head<tail){
@@ -72,7 +72,7 @@ function createNavigation(sim){
     const ni=id(nx,ny);if(d[ni]!==-1)continue;d[ni]=d[i]+1;q[tail++]=ni;
    }
   }
-  if(fields.size>=100)fields.delete(fields.keys().next().value);
+  if(fields.size>=80)fields.delete(fields.keys().next().value);
   fields.set(cacheKey,d);return d;
  }
  function goalsForBuilding(b){
@@ -109,7 +109,7 @@ function install(sim){
  const r=sim.r,P=r.P;
  window.__KW2_FORT.install(sim);
  const nav=createNavigation(sim),units=[],arrows=[],fires=new Map();
- const cap=mobile()?44:96,globalCap=cap*2;
+ const cap=mobile()?48:128,globalCap=cap*2;
  const state={installed:true,version:VERSION,units,arrows,fires,cap,globalCap,warCount:0,combatKills:0,buildingsDestroyed:0,territoryCaptured:0,peakUnits:0,nextWar:0,clock:0};
  // Old battle modules remain only for shared renderer utilities. Their army
  // simulation is never called: this is the single authority for combat.
@@ -180,7 +180,7 @@ function install(sim){
   const variant=variants[role][(Math.floor(seq/3)+k.id)%variants[role].length];
   if(r.getMinifolkFrames&&s._sprite){try{const frames={};for(const a of ['idle','walk','attack','hurt','death']){const v=r.getMinifolkFrames('humans',variant,a,k);frames[a]=v?.length?v:s._anim[a];}if(frames.idle?.length){s._anim=frames;s._sprite.textures=frames.idle;s._sprite.gotoAndPlay?.(0);s._unit=variant;}}catch(_){}}
   const bonus=clamp(1+Math.log10(1+Math.max(0,k.__v713InteractionPower||0)/100)*.12,1,1.65);
-  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1),occupier:seq%5===1};
+  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1),occupier:seq%5===1,musterCell:war.muster?.slots[k.id]?.[seq%(war.muster.slots[k.id].length||1)]||null};
   s.position.set(u.x,u.y);s.zIndex=Math.round(u.y*100)+16;r.entities.addChild(s);
   units.push(u);reserve.remaining--;k.resources.food-=2;k.resources.gold-=.6;
   state.peakUnits=Math.max(state.peakUnits,units.length);
@@ -236,17 +236,53 @@ function install(sim){
  }
  r.endWar=endWar;
  r.startWar=function(w){w.__v66={phase:'rally',age:0,phaseAge:0};w.__kw2Started=state.clock;w.__kw2Progress=state.clock;};
+ function musterPlan(a,b){
+  nav.begin();
+  const src=nav.goalsForBuilding(a.buildings.find(v=>alive(v)&&v.type==='castle')||{type:'castle',x:a.capital[0],y:a.capital[1]}).filter(c=>nav.pass(a.id,...c));
+  const dst=nav.goalsForBuilding(b.buildings.find(v=>alive(v)&&v.type==='castle')||{type:'castle',x:b.capital[0],y:b.capital[1]}).filter(c=>nav.pass(b.id,...c));
+  if(!src.length||!dst.length)return null;
+  // Find a neutral, open rendezvous along a real route, not the geometric midpoint in water.
+  const W=sim.w.gridW,H=sim.w.gridH,id=(x,y)=>y*W+x;
+  const parent=new Int32Array(W*H).fill(-1),q=new Int32Array(W*H);let head=0,tail=0,goal=-1;
+  for(const c of src){const i=id(...c);parent[i]=i;q[tail++]=i;}
+  const goals=new Set(dst.map(c=>id(...c)));
+  while(head<tail){
+   const i=q[head++];if(goals.has(i)){goal=i;break;}
+   const x=i%W,y=(i/W)|0;
+   for(const [dx,dy] of DIRS){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=W||ny>=H||!sim.isWalkableCell(nx,ny))continue;const j=id(nx,ny);if(parent[j]>=0)continue;
+    const block=sim.buildingBlockingCell?.(nx,ny);if(block&&block.type!=='gate')continue;
+    parent[j]=i;q[tail++]=j;}
+  }
+  if(goal<0)return null;const path=[];for(let i=goal;;i=parent[i]){path.push([i%W,(i/W)|0]);if(parent[i]===i)break;}path.reverse();
+  if(path.length<9)return null;
+  const mid=(path.length/2)|0,front=path[mid],out={center:front,slots:{}};
+  for(const [k,fraction] of [[a,.39],[b,.61]]){
+   const base=path[Math.round((path.length-1)*fraction)];
+   const cells=[base];
+   for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){
+    if(Math.abs(dx)+Math.abs(dy)>3||(!dx&&!dy))continue;
+    const x=base[0]+dx,y=base[1]+dy;
+    if(nav.pass(k.id,x,y)&&!sim.buildingBlockingCell?.(x,y)&&Math.hypot(x-front[0],y-front[1])>=1.5)cells.push([x,y]);
+   }
+   cells.sort((x,y)=>Math.hypot(x[0]-base[0],x[1]-base[1])-Math.hypot(y[0]-base[0],y[1]-base[1]));
+   out.slots[k.id]=cells.slice(0,7);
+  }
+  return out;
+ }
  function start(a,b,manual=false){
   if(sim.matchOver||!a?.alive||!b?.alive||a===b||sim.areAllied(a,b)||!nav.connected(a.capital,b.capital)||activeWar(sim)||units.some(u=>!u.dead&&u.retiring))return false;
   if(!manual&&(sim.age-(a.__kw2FoundedAt??sim.age)<120||sim.age-(b.__kw2FoundedAt??sim.age)<120))return false;
   const w={id:'civil-war-'+(++state.warCount),a:a.id,b:b.id,front:[a.capital.slice(),b.capital.slice()],done:false,lastCapture:sim.age,startedAge:sim.age,occupation:new Map(),nextRecruit:0,reserve:{}};
   for(const k of [a,b]){const n=targetArmy(k,cap);w.reserve[k.id]={remaining:n+Math.floor(k.pop*.3),lastTarget:n};}
+  w.muster=musterPlan(a,b);w.released=!w.muster;w.musterDeadline=state.clock+45;
   sim.wars.push(w);r.startWar(w);r.notifyCameraWar?.(w,sim);state.nextWar=sim.age+30;
   return true;
  }
+ state.canFight=(a,b)=>!!(a?.alive&&b?.alive&&a!==b&&!sim.areAllied(a,b)&&nav.connected(a.capital,b.capital));
  sim.startWar=function(a,b){return start(a,b,false);};
  sim.attack=function(a,b){return start(a,b,true);};
  sim.warAI=function(){
+  if(this.__kw2TestRun&&!this.__kw2TestRun.started)return false;
   if(this.matchOver||activeWar(this)||this.age<state.nextWar||units.some(u=>!u.dead&&u.retiring))return false;
   const ks=living(this).filter(k=>this.age-(k.__kw2FoundedAt??this.age)>=120&&k.pop>=6);
   const pairs=[];
@@ -281,6 +317,7 @@ function install(sim){
   const others=nearby(map,u,95).filter(v=>v.side===enemy.id);
   others.sort((a,b)=>distance(u,a)-distance(u,b));
   const closest=others[0];if(closest&&clearLine(u,closest))return {unit:closest,cell:closest.cell.slice()};
+  if(w.muster&&w.released&&w.__v66.phase!=='combat'&&Math.hypot(u.cell[0]-w.muster.center[0],u.cell[1]-w.muster.center[1])>2){const t={cell:w.muster.center},f=nav.field(u.side,t);if(f&&nav.value(f,...u.cell)>=0)return t;}
   const bs=enemy.buildings.filter(alive).sort((a,b)=>{
    const score=v=>Math.hypot(v.sx-u.x,v.sy-u.y)-(v.type==='gate'?18:0)+(v.type==='castle'?12:0);
    return score(a)-score(b);
@@ -327,6 +364,12 @@ function install(sim){
    if(!b||Math.hypot(u.x-b.sx,u.y-b.sy)<45||state.clock-(u.returnStarted??=state.clock)>65){u.dead=true;u.deadAt=state.clock-3;return;}
    move(u,{building:b},dt,map);return;
   }
+  if(!w.released&&u.musterCell){
+   const t={cell:u.musterCell},f=nav.field(u.side,t);
+   if(f&&nav.value(f,...u.cell)===0){u.musterReady=true;u.nextCell=null;anim(u,'idle');return;}
+   if(f&&nav.value(f,...u.cell)>=0){move(u,t,dt,map);return;}
+   if(!f){anim(u,'idle');return;}
+  }
   if(u.occupier&&w.__v66.phase==='combat'&&!u.nextCell){
    const [x,y]=u.cell,owner=sim.getOwner(x,y);
    const border=sim.neigh(x,y).some(c=>sim.getOwner(...c)!==owner);
@@ -343,6 +386,7 @@ function install(sim){
   if(!target){anim(u,'idle');return;}
   const v=target.unit,b=target.building;
   if(v&&!v.dead)target.cell=v.cell.slice();
+  if(!v&&!b){move(u,target,dt,map);return;}
   const p=v?{x:v.x,y:v.y}:{x:b.sx,y:b.sy};
   const d=Math.hypot(u.x-p.x,u.y-p.y),st=stats[u.role];
   const field=b?nav.field(u.side,target):null;
@@ -384,7 +428,7 @@ function install(sim){
    const aUnits=units.filter(u=>!u.dead&&u.side===a.id),bUnits=units.filter(u=>!u.dead&&u.side===b.id);
    const near=aUnits.find(u=>u.target?.unit||u.target?.building);
    if(near){const other=near.target.unit?.cell||[near.target.building.x,near.target.building.y];w.front=[near.cell.slice(),other.slice()];}
-   if(w.__v66.phase==='rally'&&state.clock-w.__kw2Started>3)w.__v66.phase='advance';
+   if(w.released&&w.__v66.phase==='rally')w.__v66.phase='advance';
   }
  };
  function updateTowers(w,map){
@@ -427,14 +471,15 @@ function install(sim){
    if(state.clock>=w.nextRecruit){
     w.nextRecruit=state.clock+.18;
     for(const id of [w.a,w.b]){
-     const k=sim.kingdoms[id];if(k?.alive){const reserve=w.reserve[id],target=targetArmy(k,cap);if(target>reserve.lastTarget){reserve.remaining+=target-reserve.lastTarget;reserve.lastTarget=target;}if(units.filter(u=>!u.dead&&u.side===id).length<targetArmy(k,dynamic))makeUnit(k,w);}
+     const k=sim.kingdoms[id];if(k?.alive){const reserve=w.reserve[id],target=targetArmy(k,cap);if(target>reserve.lastTarget){reserve.remaining+=target-reserve.lastTarget;reserve.lastTarget=target;}for(let batch=0;batch<3&&units.filter(u=>!u.dead&&u.side===id).length<targetArmy(k,dynamic);batch++){if(!makeUnit(k,w))break;}}
     }
    }
   }
+  if(w&&!w.released){const enough=[w.a,w.b].every(id=>{const list=units.filter(u=>!u.dead&&u.side===id);const k=sim.kingdoms[id],target=targetArmy(k,cap);return list.length>=Math.max(2,Math.ceil(target*.6))&&list.filter(u=>u.musterReady).length>=Math.max(2,Math.ceil(list.length*.65));});if(enough||state.clock>=w.musterDeadline){w.released=true;w.__v66.phase='advance';for(const u of units){u.nextCell=null;u.nextThink=0;u.target=null;}}}
   const map=spatial();
   for(const u of units)updateUnit(u,w,map,elapsed);
   updateTowers(w,map);
-  for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>1.6){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>.9)u.s.alpha=clamp((1.6-age)/.7,0,1);}
+  for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>2.5){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>1.5)u.s.alpha=clamp((2.5-age),0,1);}
   window.__KW2_FORT.gateUpdate(sim,elapsed);updateEffects(elapsed);
   sortClock+=elapsed;if(sortClock>=.12){sortClock=0;r.__v800RequestSort?.();if(r.entities)r.entities.sortDirty=true;}
   document.documentElement.dataset.kw2ArmyUnits=String(units.filter(u=>!u.dead).length);

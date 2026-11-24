@@ -130,13 +130,18 @@ function install(sim){
  };
  function spawnShip(k,port,route,kind,dest,cargo){
   if(!route||route.length<2||state.ships.length>=24)return null;
-  const g=new P.Container(),h=new P.Graphics(),sail=new P.Graphics();
-  h.poly([-12,-1,-8,5,7,5,13,-2,8,0,-9,0]).fill({color:0x79502d}).stroke({color:0x3c291b,width:1});
-  h.rect(-9,-3,18,3).fill({color:0xc18d52});h.rect(-1,-18,2,17).fill({color:0x533b27});
-  sail.poly([0,-17,9,-9,0,-4,-7,-10]).fill({color:0xece2b5}).stroke({color:0x987448,width:1});
-  sail.poly([0,-17,9,-9,0,-9]).fill({color:k.color||0xe3ad55});h.addChild(sail);g.addChild(h);g.scale.set(kind==='colony'?1.15:1);
-  g.eventMode='none';const [x,y]=sim.iso(...route[0]);g.position.set(x,y);g.zIndex=Math.round(y*100)+14;r.entities.addChild(g);
-  const ship={id:++state.serial,k,port,route,at:1,x,y,g,h,kind,dest,cargo,arrived:false,returning:false};state.ships.push(ship);return ship;
+  const lease=r.__kw2LeaseFishingBoat?.(k,port),frames=lease?.frames||r.__kw2BoatFrames?.(k);
+  let g,h;
+  if(frames?.length&&P.Sprite){
+   g=lease?.sprite||new P.Sprite(frames[4]);h=g;
+   g.anchor.set(.5,.78);g.scale.set(.52);g.roundPixels=true;g.texture=frames[4];
+  }else{
+   // A simple hull is only used if the legacy atlas has not loaded.
+   g=new P.Container();h=new P.Graphics();
+   h.poly([-12,-1,-8,5,7,5,13,-2,8,0,-9,0]).fill({color:0x79502d});h.rect(-1,-18,2,17).fill({color:0x533b27});h.poly([0,-17,9,-9,0,-4,-7,-10]).fill({color:k.color||0xe3ad55});g.addChild(h);
+  }
+  g.eventMode='none';const [x,y]=sim.iso(...route[0]);g.position.set(x,y+3);g.zIndex=Math.round(y*100)+14;if(!lease)r.entities.addChild(g);
+  const ship={id:++state.serial,k,port,route,at:1,x,y,g,h,frames,lease,animClock:0,kind,dest,cargo,arrived:false,returning:false};state.ships.push(ship);return ship;
  }
  function chooseColony(k,port){
   if((k.__kw2Cities||[]).length>=5||state.ships.some(s=>s.k===k&&s.kind==='colony'))return null;
@@ -185,6 +190,7 @@ function install(sim){
  async function growCity(k,c){
   if(!live(c.center)){c.label?.destroy?.();c.dead=true;return;}
   if(sim.age-(c.lastBuild||0)<9)return;
+  if(window.__KW2_BALANCED_CITIES){if(await window.__KW2_BALANCED_CITIES.build(sim,k,{center:c}))c.lastBuild=sim.age;return;}
   const near=k.buildings.filter(b=>live(b)&&Math.hypot(b.x-c.x,b.y-c.y)<7);
   const type=near.filter(b=>b.type==='farm').length<Math.max(1,Math.floor(near.length/4))?'farm':'house_b';
   const cost=type==='farm'?{wood:45,stone:4}:{wood:55,stone:8};if(!afford(k,cost))return;
@@ -195,14 +201,15 @@ function install(sim){
   options.sort((a,b)=>Math.hypot(a[0]-c.x,a[1]-c.y)-Math.hypot(b[0]-c.x,b[1]-c.y));
   const p=options[0];if(!p)return;claim(sim,k,[p]);const b=await sim.addBuilding(k,type,...p,false,false);if(b){charge(k,cost);c.lastBuild=sim.age;k.popCap=capacity(k);}
  }
- function remove(s){s.g.destroy({children:true});state.ships=state.ships.filter(v=>v!==s);}
+ function remove(s){if(s.lease)r.__kw2ReleaseFishingBoat?.(s.lease,s.kind==='colony'||!s.k.alive);else s.g.destroy({children:true});state.ships=state.ships.filter(v=>v!==s);}
  function update(dt){
   for(const s of state.ships){
    if(!s.k.alive||s.arrived)continue;
    const c=s.route[s.at];if(!c){s.arrived=true;continue;}
    const p=sim.iso(...c),dx=p[0]-s.x,dy=p[1]-s.y,d=Math.hypot(dx,dy),step=Math.min(d,90*dt);
-   if(d<.6){s.x=p[0];s.y=p[1];s.at++;}else{s.x+=dx/d*step;s.y+=dy/d*step;s.h.scale.x=dx<0?-1:1;}
-   s.g.position.set(s.x,s.y);s.g.zIndex=Math.round(s.y*100)+14;
+   if(d<.6){s.x=p[0];s.y=p[1];s.at++;}else{s.x+=dx/d*step;s.y+=dy/d*step;s.h.scale.x=(dx<0?-1:1)*Math.abs(s.h.scale.x||1);}
+   if(s.frames?.length){s.animClock+=dt;const frame=s.frames[4+Math.floor(s.animClock/.18)%4];if(s.g.texture!==frame)s.g.texture=frame;}
+   s.g.position.set(s.x,s.y+3);s.g.zIndex=Math.round(s.y*100)+14;
   }
  }
  async function arrivals(){
