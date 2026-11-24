@@ -15,6 +15,7 @@ function chronicle(message){
 function focus(sim,k){if(!k?.alive)return;sim.select(k);sim.r.pauseAutoCamera?.(15);sim.r.focusCell?.(...k.capital);}
 function render(sim){
  const ks=live(sim),army=sim.__kw2CivilizationWar;
+ $('royalGifts').classList.toggle('royal-testing',!$('testPanel').classList.contains('collapsed'));
  const totals=ks.reduce((a,k)=>{a.pop+=k.pop||0;for(const r of ['gold','food','stone','wood'])a[r]+=Number(k.resources[r])||0;return a;},{pop:0,gold:0,food:0,stone:0,wood:0});
  for(const [k,id] of Object.entries({pop:'totalPop',gold:'totalGold',food:'totalFood',stone:'totalStone',wood:'totalWood'}))put(id,fmt(totals[k]));
  // Preserve the core ranking and its ordering. Add accessible interactions
@@ -66,7 +67,7 @@ function install(sim){
   const action=e.target.closest('[data-royal-action]')?.dataset.royalAction;if(!action)return;
   const panel=$('testPanel');
   // Only simulate after the operator explicitly enables TEST.
-  if(panel.classList.contains('collapsed')){panel.classList.remove('collapsed');chronicle('TEST aperto: scegli il nome e tocca di nuovo il regalo.');return;}
+  if(panel.classList.contains('collapsed')){panel.classList.remove('collapsed');$('royalGifts').classList.add('royal-testing');chronicle('TEST aperto: scegli il nome e tocca di nuovo il regalo.');return;}
   panel.querySelector('[data-test="'+action+'"]')?.click();
  });
  const feed=$('feed');
