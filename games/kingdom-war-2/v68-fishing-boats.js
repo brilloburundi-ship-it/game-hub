@@ -35,6 +35,9 @@ async function install(){
  suppressFarmGroundSquare(renderer,sim);
  const base=await makeFrames(P),cache=new Map(),boats=new Map();
  const framesFor=k=>{if(cache.has(k.id))return cache.get(k.id);const f=base.map(t=>recolor(renderer,t,k.color));cache.set(k.id,f);return f;};
+ renderer.__kw2BoatFrames=framesFor;
+ renderer.__kw2LeaseFishingBoat=(k,port)=>{const b=boats.get(k.id);if(!b||b.port!==port||b.state!=='docked'||b.mission)return null;b.mission=true;return b;};
+ renderer.__kw2ReleaseFishingBoat=(b,consume=false)=>{if(!b)return;if(consume){remove(b);return;}b.mission=false;b.state='docked';b.wait=rand(3,7);b.animClock=0;const home=portSeaCell(sim,b.port);if(home)position(b,...worldPoint(sim,home));};
  const setFrame=(boat,start,count,period)=>{const i=start+(Math.floor(boat.animClock/period)%count),t=boat.frames[i];if(boat.sprite.texture!==t)boat.sprite.texture=t;};
  const face=(boat,tx)=>{const sx=Math.abs(boat.sprite.scale.x||boat.scale);boat.sprite.scale.x=tx>=boat.x?sx:-sx;boat.sprite.scale.y=Math.abs(boat.sprite.scale.y||boat.scale);};
  const position=(boat,x,y)=>{boat.x=x;boat.y=y;boat.sprite.position.set(x,y);boat.sprite.zIndex=Math.round(y*100)+14;};
@@ -47,6 +50,7 @@ async function install(){
  function startTrip(boat){const home=portSeaCell(sim,boat.port);if(!home)return false;boat.home=home;const route=fishingRoute(sim,home);if(!route)return false;boat.route=route;boat.routeIndex=1;boat.state='outbound';boat.animClock=0;return true;}
  function move(boat,route,dt,speed){if(!route?.length||boat.routeIndex>=route.length)return true;const [tx,ty]=worldPoint(sim,route[boat.routeIndex]);face(boat,tx);const dx=tx-boat.x,dy=ty-boat.y,d=Math.hypot(dx,dy);if(d<.8){position(boat,tx,ty);boat.routeIndex++;return boat.routeIndex>=route.length;}const step=Math.min(d,speed*dt);position(boat,boat.x+dx/d*step,boat.y+dy/d*step);return false;}
  function update(boat,dt){
+   if(boat.mission)return;
    boat.animClock+=dt;if(!boat.k?.alive||!portAlive(boat.k,boat.port))destroy(boat);
    if(boat.state==='destroying'){boat.destroyClock+=dt;boat.sprite.texture=boat.frames[8+clamp(Math.floor(boat.destroyClock/.52),0,3)];if(boat.destroyClock>=2.25)remove(boat);return;}
    if(boat.state==='docked'){setFrame(boat,0,4,.34);boat.wait-=dt;if(boat.wait<=0&&!startTrip(boat))boat.wait=rand(4,8);return;}
@@ -54,7 +58,7 @@ async function install(){
    if(boat.state==='fishing'){setFrame(boat,0,4,.42);boat.fishClock-=dt;if(boat.fishClock<=0){boat.route=[...boat.route].reverse();boat.routeIndex=1;boat.state='returning';boat.animClock=0;}return;}
    if(boat.state==='returning'){setFrame(boat,4,4,.18);if(move(boat,boat.route,dt,19)){boat.state='docked';boat.wait=rand(5,10);boat.animClock=0;const [x,y]=worldPoint(sim,boat.home);position(boat,x,y);}}
  }
- let scan=0;renderer.app.ticker.add(()=>{const dt=Math.min(.05,renderer.app.ticker.deltaMS/1000);scan-=dt;if(scan<=0){scan=1;for(const k of sim.kingdoms||[]){if(!k?.alive)continue;const port=(k.buildings||[]).find(b=>b.type==='port'&&!b.__v66Destroyed),existing=boats.get(k.id);if(!existing&&port?._sprite?.visible&&port?._sprite?.renderable)spawn(k,port);else if(existing&&existing.port!==port)destroy(existing);}}for(const boat of [...boats.values()])update(boat,dt);if(renderer.__v800RequestSort)renderer.__v800RequestSort();else if(renderer.entities?.sortableChildren)renderer.entities.sortDirty=true;});
+ let scan=0;renderer.app.ticker.add(()=>{const dt=Math.min(.05,renderer.app.ticker.deltaMS/1000);scan-=dt;if(scan<=0){scan=1;for(const k of sim.kingdoms||[]){if(!k?.alive)continue;const port=(k.buildings||[]).find(b=>b.type==='port'&&!b.__v66Destroyed),existing=boats.get(k.id);if(!existing&&port?._sprite?.visible&&port?._sprite?.renderable)spawn(k,port);else if(existing&&!existing.mission&&existing.port!==port)destroy(existing);}}for(const boat of [...boats.values()])update(boat,dt);if(renderer.__v800RequestSort)renderer.__v800RequestSort();else if(renderer.entities?.sortableChildren)renderer.entities.sortDirty=true;});
  const api=window.TikTokGodWorld=window.TikTokGodWorld||{};api.destroyFishingBoat=ref=>{let k=null;if(Number.isInteger(ref))k=sim.kingdoms?.[ref];else{const n=String(ref??'').toLowerCase();k=sim.kingdomByName?.get(n)||sim.kingdoms?.find(x=>String(x.name).toLowerCase()===n);}const b=k?boats.get(k.id):null;if(b)destroy(b);return!!b;};
  renderer.__v68FishingBoats=boats;window.__V68_FISHING_BOATS={installed:true,version:VERSION,onePerPort:true,seaOnly:true,fishingLoop:true,returnToPort:true,destructionFrames:true,kingdomColor:true,farmGroundSquareHidden:true,atlasBytes:11437,atlasRepair:true};document.documentElement.dataset.fishingBoats=VERSION;
 }
