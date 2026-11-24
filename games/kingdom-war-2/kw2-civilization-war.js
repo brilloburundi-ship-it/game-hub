@@ -91,11 +91,12 @@ function createNavigation(sim){
   const c=target.cell;return buildField(side,[c,...DIRS.map(([dx,dy])=>[c[0]+dx,c[1]+dy])],side+':c:'+key(...c));
  }
  function value(f,x,y){return valid(x,y)&&f?f[id(x,y)]:-1;}
- function next(side,f,x,y){
+ function next(side,f,x,y,phase=0){
   let best=null,d=value(f,x,y);
   if(d===0)return null;
   if(d<0)d=Infinity;
-  for(const [dx,dy] of DIRS){
+  for(let i=0;i<4;i++){
+   const [dx,dy]=DIRS[(i+Math.floor(phase))%4];
    const a=x+dx,b=y+dy,v=value(f,a,b);
    if(v>=0&&v<d&&pass(side,a,b)){d=v;best=[a,b];}
   }
@@ -296,7 +297,7 @@ function install(sim){
   if(!target){anim(u,'idle');return;}
   const f=nav.field(u.side,target);
   if(u.nextCell&&!nav.pass(u.side,...u.nextCell))u.nextCell=null;
-  if(!u.nextCell&&f)u.nextCell=nav.next(u.side,f,...u.cell);
+  if(!u.nextCell&&f)u.nextCell=nav.next(u.side,f,...u.cell,u.phase);
   if(!u.nextCell){
    if(target.unit&&!target.unit.dead){
     const v=target.unit,d=distance(u,v),step=Math.min(d,u.speed*dt);
@@ -311,8 +312,9 @@ function install(sim){
   if(d<.6){u.x=p.x;u.y=p.y;u.cell=c.slice();u.nextCell=null;return;}
   // Individual speeds and local congestion, no shared formation or group movement.
   const same=nearby(map,u,8).filter(v=>v.side===u.side);
-  const speed=u.speed*(same.length>2?.64:1),step=Math.min(d,speed*dt);
+  const speed=u.speed*(same.length>2?.78:1),step=Math.min(d,speed*dt);
   face(u,p.x);anim(u,'walk');u.x+=dx/d*step;u.y+=dy/d*step;
+  if(d>5&&same.length){let rx=0,ry=0;for(const v of same){const ax=u.x-v.x,ay=u.y-v.y,l=Math.max(.1,Math.hypot(ax,ay));rx+=ax/l;ry+=ay/l;}const nx=u.x+clamp(rx,-1,1)*.55,ny=u.y+clamp(ry,-1,1)*.55;const here=grid(sim,u.x,u.y),there=grid(sim,nx,ny);if(here[0]===there[0]&&here[1]===there[1]){u.x=nx;u.y=ny;}}
   u.s.position.set(u.x,u.y);u.s.zIndex=Math.round(u.y*100)+16;
   if(d-step<.5){u.cell=c.slice();u.nextCell=null;}
  }
@@ -385,6 +387,23 @@ function install(sim){
    if(w.__v66.phase==='rally'&&state.clock-w.__kw2Started>3)w.__v66.phase='advance';
   }
  };
+ function updateTowers(w,map){
+  if(!w)return;
+  for(const side of [w.a,w.b]){
+   const k=sim.kingdoms[side];if(!k?.alive)continue;
+   const enemy=side===w.a?w.b:w.a;
+   for(const b of k.buildings){
+    if(!alive(b)||!['stone_tower','watchtower'].includes(b.type)||(b.__kw2NextShot||0)>state.clock)continue;
+    const point={x:b.sx,y:b.sy};
+    const candidates=nearby(map,point,78).filter(u=>u.side===enemy);
+    if(!candidates.length)continue;
+    candidates.sort((a,c)=>distance(point,a)-distance(point,c));
+    const target=candidates[0];b.__kw2NextShot=state.clock+rand(1.5,2.2);
+    makeArrow({x:b.sx,y:b.sy-24},target);target.hp-=rand(5,9);
+    if(target.hp<=0)kill(target);
+   }
+  }
+ }
  function updateEffects(dt){
   for(let i=arrows.length-1;i>=0;i--){
    const a=arrows[i];a.t+=dt;const t=Math.min(1,a.t/a.d);
@@ -414,6 +433,7 @@ function install(sim){
   }
   const map=spatial();
   for(const u of units)updateUnit(u,w,map,elapsed);
+  updateTowers(w,map);
   for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>1.6){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>.9)u.s.alpha=clamp((1.6-age)/.7,0,1);}
   window.__KW2_FORT.gateUpdate(sim,elapsed);updateEffects(elapsed);
   sortClock+=elapsed;if(sortClock>=.12){sortClock=0;r.__v800RequestSort?.();if(r.entities)r.entities.sortDirty=true;}
