@@ -3,6 +3,9 @@
 
   const commands = [
     ['👑', 'JOIN = create your kingdom'],
+    ['⚓','TRADE name = send a merchant'],
+    ['⛵','COLONIZE = launch an expedition'],
+    ['🏠','BUILD = prioritize city growth'],
     ['❤️', 'LIKE = speed up the economy'],
     ['🔨', 'FOLLOW = builders and materials'],
     ['🌹', 'ROSE = +100 power, food and gold'],
