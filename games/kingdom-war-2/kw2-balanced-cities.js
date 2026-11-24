@@ -47,6 +47,7 @@ async function build(sim,k,{test=false,center=null}={}){
   const localK=center?{...k,pop:cityPop,buildings:local}:k;
   const list=plan(localK,local).filter(t=>afford(k,t)&&(!sim.r.buildTex||sim.r.buildTex[t]));
   if(!list.length)return false;
+  if(test&&((k.__kw2TestBuilds||0)%3===2)){const idx=list.findIndex(t=>!houses.includes(t));if(idx>0)list.unshift(...list.splice(idx,1));}
   let expanded=false;
   for(let attempt=0;attempt<2;attempt++){
    for(const type of list){
@@ -59,6 +60,7 @@ async function build(sim,k,{test=false,center=null}={}){
     for(const [r,n] of Object.entries(costs[type]))k.resources[r]-=n;
     k.popCap=window.__KW2_MARITIME.capacity(k);
     if(houses.includes(type)&&k.pop<k.popCap&&k.resources.food>=24){k.pop=Math.min(k.popCap,k.pop+(test?6:2));k.resources.food-=24;try{await sim.syncCitizens(k);}catch(e){console.warn('[citizens]',e);}}
+    if(test)k.__kw2TestBuilds=(k.__kw2TestBuilds||0)+1;
     sim.r.puff?.(...sim.iso(x,y));return true;
    }
    if(center||expanded||k.resources.wood<65)break;
@@ -89,12 +91,12 @@ function install(sim){
    for(const k of ks){
     if(!k.__kw2DevelopmentTest)continue;
     k.popCap=window.__KW2_MARITIME.capacity(k);
-    const target=Math.min(k.popCap,130);
-    if(k.pop<target){k.pop=Math.min(target,k.pop+12);k.lastPop=this.age;await this.syncCitizens(k);}
+    const target=Math.min(k.popCap,160);
+    if(k.pop<target){k.pop=Math.min(target,k.pop+12);k.lastPop=this.age;try{await this.syncCitizens(k);}catch(e){console.warn('[test citizens]',e);}}
     k.military=Math.max(k.military,k.pop*1.4);
-    if(k.pop>=100||this.age>=run.until)delete k.__kw2DevelopmentTest;
+    if(k.pop>=130||this.age>=run.until)delete k.__kw2DevelopmentTest;
    }
-   const ready=ks.filter(k=>k.pop>=65);
+   const ready=ks.filter(k=>k.pop>=100);
    if(!this.wars.some(w=>!w.done)&&!run.started){
     const pairs=[];for(let i=0;i<ready.length;i++)for(let j=i+1;j<ready.length;j++)pairs.push([ready[i],ready[j]]);
     pairs.sort((a,b)=>Math.hypot(a[0].capital[0]-a[1].capital[0],a[0].capital[1]-a[1].capital[1])-Math.hypot(b[0].capital[0]-b[1].capital[0],b[0].capital[1]-b[1].capital[1]));
@@ -115,10 +117,10 @@ function install(sim){
   for(const k of ks){
    k.__kw2DevelopmentTest=true;k.resources.food+=6000;k.resources.wood+=6000;k.resources.stone+=3500;k.resources.gold+=2200;
    k.lastBuild=this.age-10;k.lastExpand=this.age-10;k.lastPop=this.age-10;
-   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+90);
+   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+120);
    k.military=Math.max(k.military,100);
   }
-  this.__kw2TestRun={until:this.age+75,started:false};
+  this.__kw2TestRun={until:this.age+110,started:false};
   note('TEST: developing '+ks.length+' kingdoms — housing, economy and armies');
   return true;
  };
