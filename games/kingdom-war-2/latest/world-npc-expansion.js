@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v705-world-npc-expansion-2';
-  const WORLD_SCALE = 4 / 3;
+  const VERSION = 'kw2-oceans-expanded-world-1';
+  const WORLD_SCALE = 2;
   const FARMER_SPEED_FACTOR = 0.58;
   const FARMER_MIN_SPEED = 9.5;
   const FARMER_MAX_SPEED = 14.5;
