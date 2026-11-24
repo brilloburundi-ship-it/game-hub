@@ -17,7 +17,7 @@
       else setStatus('PC online Â· waiting for TikFinity', '#d39d34');
       return;
     }
-    if (!window.TikTokGodWorld) {
+    if (typeof window.TikTokGodWorld?.emit !== 'function') {
       queuedEvents.push(payload);
       return;
     }
@@ -25,7 +25,7 @@
   }
 
   function flushQueue() {
-    if (!window.TikTokGodWorld) return false;
+    if (typeof window.TikTokGodWorld?.emit !== 'function') return false;
     while (queuedEvents.length) {
       window.dispatchEvent(new CustomEvent('tiktok-event', { detail: queuedEvents.shift() }));
     }
