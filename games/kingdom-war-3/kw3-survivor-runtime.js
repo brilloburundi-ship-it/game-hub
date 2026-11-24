@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260814-kw3-true-kw2-base-1';
+  const VERSION = '20261124-kw3-single-fortress-1';
   const MAX_ACTIVE = 2;
   const PREP_SECONDS = 35;
   const ARENA_RADIUS = 11;
@@ -78,36 +78,19 @@
   }
 
   async function buildFortress(sim, k, slot) {
-    if (!k?.alive || k.__kw3FortressReady) return;
-    k.__kw3FortressReady = true;
-    claimFortressGround(sim, k);
+    if (!k?.alive) return false;
     k.resources.food = Math.max(k.resources.food, 260);
     k.resources.wood = Math.max(k.resources.wood, 320);
     k.resources.stone = Math.max(k.resources.stone, 260);
     k.resources.gold = Math.max(k.resources.gold, 90);
     k.popCap = Math.max(k.popCap, 24);
     k.military = Math.max(k.military, 24);
+    const layout = window.__KW3_CLOSED_FORTRESS;
+    if (!layout) throw new Error('Closed fortress planner unavailable');
+    const ready = await layout.rebuild(sim, k, slot);
+    if (!ready) return false;
 
-    const gateY = slot === 0 ? 2 : -2;
-    const walls = [];
-    for (let x = -2; x <= 2; x++) {
-      if (!(x === 0 && gateY === -2)) walls.push(['wall', x, -2]);
-      if (!(x === 0 && gateY === 2)) walls.push(['wall', x, 2]);
-    }
-    for (let y = -1; y <= 1; y++) {
-      walls.push(['wall', -2, y]);
-      walls.push(['wall', 2, y]);
-    }
-    for (const [type, dx, dy] of walls) await forceBuilding(sim, k, type, dx, dy);
-    await forceBuilding(sim, k, 'gate', 0, gateY);
-    for (const [dx, dy] of [[-2,-2],[2,-2],[-2,2],[2,2]]) await forceBuilding(sim, k, 'stone_tower', dx, dy);
-
-    await forceBuilding(sim, k, 'barracks', -1, 0);
-    await forceBuilding(sim, k, 'farm', 1, 0);
-    await forceBuilding(sim, k, 'house_a', 0, slot === 0 ? -1 : 1);
-    await forceBuilding(sim, k, 'market', 1, slot === 0 ? -1 : 1);
-
-    // Use the real KW2 port system if its renderer/runtime accepts the type.
+    // Keep the original optional port mechanic.
     let coast = null, best = Infinity;
     for (const token of k.territory) {
       const [x, y] = token.split(',').map(Number);
@@ -117,10 +100,7 @@
     if (coast && best <= 4 && !sim.buildingAt?.(...coast)) {
       try { await sim.addBuilding(k, 'port', coast[0], coast[1], true, true); } catch (_) {}
     }
-
-    sim.__v800Performance?.rebuildBuildingIndex?.();
-    sim.r.redrawTerritories?.(sim, true);
-    sim.r.redrawSettlementGround?.(sim);
+    return true;
   }
 
   function focusArena(sim) {
@@ -277,7 +257,7 @@
       const live = alive(this);
       const remaining = Math.max(0, Math.ceil(Number(this.__kw3PrepUntil || 0) - Number(this.age || 0)));
       document.documentElement.dataset.kw3Prep = String(remaining);
-      if (this.__kw3RoundActive && live.length === 2 && remaining <= 0 && !activeWar(this)) {
+      if (this.__kw3RoundActive && live.length === 2 && remaining <= 0 && live.every(k => k.__kw3FortressV3Ready) && !activeWar(this)) {
         for (const side of live) side.__kw3Shield = false;
         document.documentElement.dataset.kw3State = 'siege';
         rawAttack(live[0], live[1]);
@@ -293,6 +273,7 @@
     if (ranking) ranking.textContent = 'ARENA POWERS';
 
     sim.__kw3SurvivorRuntime = VERSION;
+    window.__KW3_CLOSED_FORTRESS.install(sim);
     window.__KW3_SURVIVOR = Object.freeze({
       installed: true,
       version: VERSION,
@@ -313,7 +294,7 @@
   async function wait() {
     for (let i = 0; i < 2400; i++) {
       const sim = window.__SIM;
-      if (sim?.r && window.__TREE_DEPTH_V706?.installed && window.__KW2_INDIVIDUAL_ARMIES?.installed && typeof sim.join === 'function' && typeof sim.tick === 'function') {
+      if (sim?.r && window.__KW3_CLOSED_FORTRESS && window.__TREE_DEPTH_V706?.installed && window.__KW2_INDIVIDUAL_ARMIES?.installed && typeof sim.join === 'function' && typeof sim.tick === 'function') {
         install(sim);
         return;
       }
