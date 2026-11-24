@@ -1,0 +1,49 @@
+/* The artwork is sliced from the supplied transparent PNG, never redrawn. */
+body.royal-art{--art-width:min(620px,64vw);--art-rank:min(160px,20vw);--art-chron:min(185px,23vw);--art-gift:min(700px,76vw);--art-war:min(620px,67vw);--art-head:calc(var(--art-width)*.2585);--art-res:calc(var(--art-width)*.1095);--art-gift-h:calc(var(--art-gift)*.321);--art-war-h:calc(var(--art-war)*.334)}
+body.royal-art .topbar,body.royal-art .royal-frame{background-color:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%!important;box-sizing:border-box}
+body.royal-art .royal-frame:before,body.royal-art .royal-frame:after{display:none}
+body.royal-art .topbar{left:50%!important;right:auto!important;top:4px!important;transform:translateX(-50%)!important;width:var(--art-width)!important;height:var(--art-head)!important;background-image:var(--kw2-art-logo)!important;padding:0!important}
+body.royal-art .topbar .brand{visibility:hidden}
+body.royal-art .topbar .stats{position:absolute;bottom:1%;left:15%;right:15%;font-size:clamp(8px,1.4vw,12px);padding:2px;border-radius:4px;background:#1b1713d9;justify-content:center;z-index:2}
+body.royal-art #royalHudToggle{top:10%;right:3%;z-index:3}
+body.royal-art #royalTotals{top:calc(4px + var(--art-head))!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important;width:var(--art-width)!important;height:var(--art-res)!important;max-height:none!important;background-image:var(--kw2-art-resources)!important;grid-template-columns:24.5% 19% 17% 17% 22.5%;padding:0 5% 4% 4%;align-items:end}
+body.royal-art #royalTotals>div{display:flex;align-items:center;justify-content:center;position:relative;border:0;padding:0;min-width:0}
+body.royal-art #royalTotals>div span,body.royal-art #royalTotals>div small{display:none}
+body.royal-art #royalTotals>div b{font-size:clamp(9px,2.1vw,18px);line-height:1.1;padding:1px 5px;background:#141615e8;border-radius:3px;text-shadow:0 1px 2px #000}
+body.royal-art #royalTotals>div:last-child small{display:block;position:absolute;bottom:100%;right:1%;background:#141615;color:#e9d9a9;padding:0 3px;font-size:clamp(7px,1.1vw,12px)}
+body.royal-art #ranking,body.royal-art #royalChronicle{top:calc(7px + var(--art-head) + var(--art-res))!important;max-height:none!important;overflow:hidden!important}
+body.royal-art #ranking{left:2px!important;width:var(--art-rank)!important;height:calc(var(--art-rank)*2.374)!important;background-image:var(--kw2-art-ranking)!important;padding:0!important}
+body.royal-art #royalChronicle{right:2px!important;width:var(--art-chron)!important;height:calc(var(--art-chron)*1.9604)!important;background-image:var(--kw2-art-chronicle)!important;padding:0!important}
+body.royal-art #ranking .royal-heading,body.royal-art #royalChronicle .royal-heading{position:absolute;top:7%;left:8%;width:84%;height:15%;color:transparent!important;background:transparent!important;border:0!important;text-shadow:none!important}
+body.royal-art #rankRows{position:absolute;top:25%;left:12%;right:12%;bottom:16%;overflow-y:auto;overflow-x:hidden;padding:0}
+body.royal-art #royalEvents{position:absolute;top:23%;left:13%;right:12%;bottom:16%;overflow-y:auto;overflow-x:hidden}
+body.royal-art #rankRows .rank-row{font-size:clamp(9px,1.3vw,14px)!important;padding:3px 0}
+body.royal-art #royalEvents p{font-size:clamp(8px,1.25vw,13px)}
+body.royal-art #royalGifts{left:50%!important;right:auto!important;transform:translateX(-50%)!important;bottom:2px!important;width:var(--art-gift)!important;height:var(--art-gift-h)!important;max-height:none!important;background-image:var(--kw2-art-gifts)!important;padding:0!important}
+body.royal-art #royalGifts .royal-heading{position:absolute;top:3%;left:17%;width:66%;height:18%;max-width:none;color:transparent;background:transparent;border:none;text-shadow:none;margin:0}
+body.royal-art #royalCommands{position:absolute;top:25%;left:5%;right:5%;height:10%;color:transparent;border:0;font-size:0}
+body.royal-art #royalGiftItems{position:absolute;top:35%;left:5%;right:5%;bottom:8%;padding:0;gap:0}
+body.royal-art #royalGiftItems button{opacity:0;min-height:100%;padding:0;border:0}
+body.royal-art #royalGiftItems button:focus-visible{opacity:1;outline:2px solid #ffe8a3;background:#33271ed9}
+body.royal-art #royalGiftDetail{position:absolute;left:12%;right:12%;bottom:2%;font-size:clamp(8px,1.3vw,12px);padding:2px;background:#171717e8;max-height:32px;overflow:hidden}
+body.royal-art #royalTestNote{display:none!important}
+body.royal-art #royalWar{bottom:calc(3px + var(--art-gift-h))!important;left:50%!important;transform:translateX(-50%)!important;width:var(--art-war)!important;height:var(--art-war-h)!important;background-image:var(--kw2-art-war)!important;padding:0!important}
+body.royal-art #royalWar .war-ribbon,body.royal-art #royalWar .versus{visibility:hidden}
+body.royal-art #royalWar .royal-duel{position:absolute;top:53%;left:17%;right:17%;height:19%;gap:18%;justify-content:space-between}
+body.royal-art #royalWar .royal-side{width:42%;padding:0}
+body.royal-art #royalWar .royal-side b{font-size:clamp(10px,2.1vw,21px)}
+body.royal-art #royalWar .royal-side small{font-size:clamp(8px,1.35vw,14px)}
+body.royal-art #royalWar .royal-balance{position:absolute;left:15%;right:15%;top:79.5%;height:7%;margin:0;border:0;border-radius:5px}
+body.royal-art #royalWar #warPhase{position:absolute;bottom:1%;left:28%;right:28%;background:#1c1715ce;font-size:clamp(8px,1.2vw,12px)}
+body.royal-art .zoom,body.royal-art .test-panel{bottom:calc(8px + var(--art-gift-h))!important}
+body.royal-art .kingdom-card{bottom:calc(8px + var(--art-gift-h) + var(--art-war-h))!important}
+body.royal-art .royal-collapsed{background-image:none!important;background:#201b15cc!important;height:36px!important;overflow:hidden}
+body.royal-art .royal-collapsed .royal-heading{color:#ffe4aa!important;font-size:10px!important;text-shadow:0 1px 1px #000!important;visibility:visible!important;top:0!important;height:100%!important;left:0!important;width:100%!important}
+body.royal-art.royal-clean .topbar{background-image:none!important}
+#royalArtFile{display:none}#royalArtStatus{font:10px/1.2 system-ui;color:#e5cb94;max-width:230px}
+@media (max-aspect-ratio: 4/5){body.royal-art{--art-width:98vw;--art-rank:24.5vw;--art-chron:28.5vw;--art-gift:98vw;--art-war:98vw}body.royal-art #royalTotals{padding-bottom:4%}body.royal-art #ranking .rank-row{grid-template-columns:10px 14px 1fr!important}}
+body.royal-art.royal-portrait{--art-width:min(98vw,55vh);--art-rank:calc(var(--art-width)*.25);--art-chron:calc(var(--art-width)*.295);--art-gift:var(--art-width);--art-war:var(--art-width)}
+body.royal-art.royal-portrait #ranking{left:calc(50% - var(--art-width)/2)!important}
+body.royal-art.royal-portrait #royalChronicle{right:calc(50% - var(--art-width)/2)!important}
+body.royal-art.royal-portrait .test-panel{left:calc(50% - var(--art-width)/2)!important}
+body.royal-art.royal-portrait .zoom{right:calc(50% - var(--art-width)/2)!important}
