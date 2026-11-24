@@ -21,7 +21,7 @@ function allocation(k,visible){
  return weights;
 }
 function localCells(sim,k,c,radius=9){
- return [...k.territory].map(t=>t.split(',').map(Number)).filter(p=>dist(...p,c)<=radius&&sim.isNpcWalkableCell(k,...p)&&nearest(cities(k),...p)===c);
+ return [...k.territory].map(t=>t.split(',').map(Number)).filter(p=>dist(...p,c)<=radius&&sim.isNpcWalkableCell(k,...p)&&tag(nearest(cities(k),...p))===tag(c));
 }
 function chooseHome(sim,k){
  const weights=allocation(k,Math.min(k.pop,sim.visibleCitizenLimit(k)));
