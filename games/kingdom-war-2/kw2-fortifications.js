@@ -206,7 +206,9 @@ async function construction(sim,k){
  if(!missing.length)return false;
  // Gatehouses and corner towers first, then wall runs grow from existing structures.
  missing.sort((a,b)=>(a.type==='gate'?0:a.type==='stone_tower'?1:2)-(b.type==='gate'?0:b.type==='stone_tower'?1:2));
- const c=missing.find(c=>Object.entries(costs[c.type]).every(([r,n])=>k.resources[r]>=n));
+ // Never consume the last timber and stone needed for a house or farm.
+ const young=k.pop<12,buffer={wood:young?55:25,stone:young?8:4};
+ const c=missing.find(c=>Object.entries(costs[c.type]).every(([r,n])=>k.resources[r]>=n+(buffer[r]||0)));
  if(!c)return false;
  const b=await sim.addBuilding(k,c.type,c.x,c.y,true,true);if(!b)return false;
  for(const [r,n] of Object.entries(costs[c.type]))k.resources[r]-=n;
@@ -283,7 +285,7 @@ function install(sim){
  const oldExpand=sim.expandAI.bind(sim);
  sim.expandAI=function(k){
   if(!atWar(this,k)&&this.age-(k.lastExpand||0)>=2&&k.resources.food>=8&&k.resources.wood>=6){
-   const c=frontier(this,k);if(c){this.setOwner(...c,k.id);k.territory.add(key(...c));k.resources.food-=4;k.resources.wood-=3;k.lastExpand=this.age;this.__v800Performance?.invalidateKingdom?.(k.id);return true;}
+   const c=frontier(this,k);if(c){this.setOwner(...c,k.id);k.territory.add(key(...c));k.resources.food-=3;k.resources.wood-=2;k.lastExpand=this.age;this.__v800Performance?.invalidateKingdom?.(k.id);return true;}
   }
   return oldExpand(k);
  };
