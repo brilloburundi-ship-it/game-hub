@@ -1,4 +1,4 @@
-const CACHE = 'kw2-auto-war-perf-1';
+const CACHE = 'kw2-living-civilizations-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
@@ -9,7 +9,7 @@ const SHELL = [
   'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js', 'v68-fishing-asset.js', 'v68-fishing-boats.js',
   'latest/war-peace-cleanup.js', 'latest/gameplay.js', 'latest/water-base.js', 'latest/visuals.js', 'latest/farmer-direction.js', 'latest/building-scale.js',
   'latest/live-power.js', 'latest/performance-kernel.js', 'minifolks-world.js',
-  'live-prelaunch-surgical.js', 'live-war-expedition-surgical.js', 'live-auto-war-performance.js',
+  'kw2-fortifications.js', 'kw2-civilization-war.js',
   'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/minifolks/manifest.json',
   'assets/vegetation/flora-atlas.part0', 'assets/vegetation/flora-atlas.part1', 'assets/vegetation/flora-atlas.part2', 'assets/vegetation/flora-atlas.part3',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
@@ -31,7 +31,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith('kw2-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('kw2-') && !k.startsWith('kw2-kw3-') && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
