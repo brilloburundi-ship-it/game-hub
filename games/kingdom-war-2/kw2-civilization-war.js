@@ -176,6 +176,9 @@ function install(sim){
   const seq=k.__kw2ArmySeq=(k.__kw2ArmySeq||0)+1;
   const role=seq%4===0?'archer':seq%3===0?'spear':'sword',st=stats[role];
   const s=r.makeSoldier(k,role);if(!s)return null;
+  const variants={sword:['SwordMan','KingMan','PrinceMan','HorseMan'],spear:['SpearMan','HalberdMan','ShieldMan','CavalierMan'],archer:['ArcherMan','CrossBowMan','Mage','ArchMage']};
+  const variant=variants[role][(Math.floor(seq/3)+k.id)%variants[role].length];
+  if(r.getMinifolkFrames&&s._sprite){try{const frames={};for(const a of ['idle','walk','attack','hurt','death']){const v=r.getMinifolkFrames('humans',variant,a,k);frames[a]=v?.length?v:s._anim[a];}if(frames.idle?.length){s._anim=frames;s._sprite.textures=frames.idle;s._sprite.gotoAndPlay?.(0);s._unit=variant;}}catch(_){}}
   const bonus=clamp(1+Math.log10(1+Math.max(0,k.__v713InteractionPower||0)/100)*.12,1,1.65);
   const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1)};
   s.position.set(u.x,u.y);s.zIndex=Math.round(u.y*100)+16;r.entities.addChild(s);
