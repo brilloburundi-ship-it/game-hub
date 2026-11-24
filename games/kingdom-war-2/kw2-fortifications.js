@@ -244,7 +244,7 @@ function gateUpdate(sim,dt){
     if((f.path||[]).slice(0,2).some(c=>c[0]===b.x&&c[1]===b.y)||Math.hypot(f.x-b.sx,f.y-b.sy)<13)gateRequest(sim,k.id,b);
    }
    const want=(b.__kw2GateHold||0)>(sim.__kw2Clock||0);
-   b.__kw2GateOpen=want?1:0;
+   b.__kw2GateOpen=Math.max(0,Math.min(1,(b.__kw2GateOpen||0)+(want?10:-10)*dt));
    style(sim,k,b,wallAt(k,b.x,b.y));
   }
  }
