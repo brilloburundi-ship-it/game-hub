@@ -8,12 +8,12 @@
   const pick = a => a[(Math.random() * a.length) | 0];
   const key = (x, y) => `${x},${y}`;
 
-  const COLORS = [0x27a7ff, 0xff594f, 0xffc928, 0x58d26f, 0xb66cff, 0xff8a34, 0x23d6c1, 0xf45da2, 0x9dcf3e, 0x5c77ff, 0xd99c42, 0xe4e4e4];
+  const COLORS = [0x27a7ff, 0xff594f, 0xffc928, 0x58d26f, 0xb66cff, 0xff8a34, 0x23d6c1, 0xf45da2, 0x9dcf3e, 0x5c77ff, 0xd99c42, 0xe4e4e4, 0x376b9f, 0xc84a8a, 0x70b9a5, 0xa35329, 0x8c7ee8, 0xe2a69c, 0x88a348, 0x66bfdc];
   const COLORCSS = COLORS.map(c => '#' + c.toString(16).padStart(6, '0'));
   const NAMES = ['Greenvale', 'Highrock', 'Brightwood', 'Moonstone', 'Riverhold', 'Goldfield', 'Bluepeak', 'Royal Oak'];
   const MAX_VISIBLE_FARMERS = 24;
   const MAX_GIFT_VISIBLE_FARMERS = 36;
-  const MAX_MATCH_KINGDOMS = 12;
+  const MAX_MATCH_KINGDOMS = 20;
   const VICTORY_RESTART_MS = 10000;
   const FARMER_WORLD_HEIGHT = 18;
   const MINIFOLK_TEAM_LIGHT = '#6098E8';
@@ -79,6 +79,7 @@
   class Simulation {
     constructor(world, renderer) {
       this.w = world;
+      this.maxKingdoms = MAX_MATCH_KINGDOMS;
       this.r = renderer;
       this.kingdoms = [];
       this.kingdomByName = new Map();
@@ -237,9 +238,9 @@
       if (existing && existing.alive) {
         this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} is already in the world`); return existing;
       }
-      if (existing && !existing.alive) { toast(`${name}: eliminated until the next world`); return null; }
+      if (existing && !existing.alive) { if(this.age-(existing.__kw2FallenAt??this.age)<60){toast(`${name}: you can JOIN again after 60 seconds`);return null;}this.kingdomByName.delete(nameKey); }
       const occupiedSlots = this.kingdoms.filter(k => k.alive || k.founding).length;
-      if (this.roundEntrants >= MAX_MATCH_KINGDOMS || occupiedSlots >= MAX_MATCH_KINGDOMS) {
+      if (occupiedSlots >= MAX_MATCH_KINGDOMS) {
         toast(`World full: maximum ${MAX_MATCH_KINGDOMS} kingdoms this round`);
         return null;
       }
@@ -897,7 +898,7 @@
       if (!loser?.alive) return false;
       const castle = loser.buildings.find(building => building.type === 'castle' && !building.__v66Destroyed);
       this.r.notifyCameraCastleDestruction?.(castle, loser, winner, 10);
-      loser.alive = false;
+      loser.alive = false; loser.__kw2FallenAt=this.age; if(loser.__kw2Fort)delete loser.__kw2Fort.assigned;
       loser.aggressive = null;
       const fallenCells = new Set([...loser.territory, key(loser.capital[0], loser.capital[1])]);
       for (const s of fallenCells) {
@@ -933,9 +934,8 @@
     checkVictory() {
       if (this.matchOver || !this.matchStarted) return false;
       const contenders = this.kingdoms.filter(k => k.alive && !k.founding && k.territory.size > 0 && k.buildings.some(b => b.type === 'castle' && !b.__v66Destroyed));
-      if (contenders.length !== 1) return false;
-      this.showVictory(contenders[0]);
-      return true;
+      if (contenders.length !== 1) {this.__kw2LastChampion=null;return false;}
+      const winner=contenders[0];if(this.__kw2LastChampion!==winner.id){this.__kw2LastChampion=winner.id;toast('👑 '+winner.name+' rules the world — new kingdoms may JOIN');feed('WORLD',winner.name+' is the reigning champion');}return false;
     }
 
     showVictory(winner) {
