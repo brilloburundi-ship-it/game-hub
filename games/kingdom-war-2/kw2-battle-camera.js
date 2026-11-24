@@ -3,7 +3,8 @@
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 function target(sim,r,director,now){
  const war=sim?.wars?.find(w=>!w.done);
- if(!war){director.__kw2BattleKey=null;return null;}
+ if(!war){director.__kw2BattleKey=null;director.__kw2BattleSample=null;return null;}
+ if(director.__kw2BattleSample?.id===war.id&&now-director.__kw2BattleSample.at<180)return director.__kw2BattleSample.target;
  const a=sim.kingdoms[war.a],b=sim.kingdoms[war.b];if(!a?.alive||!b?.alive)return null;
  const us=(sim.__kw2CivilizationWar?.units||[]).filter(u=>!u.dead&&!u.retiring&&u.warId===war.id);
  const A=us.filter(u=>u.side===a.id),B=us.filter(u=>u.side===b.id);
@@ -28,7 +29,7 @@ function target(sim,r,director,now){
  const x=(minX+maxX)/2,y=(minY+maxY)/2;
  director.mode='war';director.focusKingdom=null;director.shotKey='battle-'+war.id;director.warShot=null;director.__kw2BattleKey=war.id;
  document.documentElement.dataset.kw2BattleCamera=war.__v66?.phase||'rally';
- return {scale,x:W*.5-x*scale,y:H*.48-y*scale};
+ const result={scale,x:W*.5-x*scale,y:H*.48-y*scale};director.__kw2BattleSample={id:war.id,at:now,target:result};return result;
 }
 window.__KW2_BATTLE_CAMERA={target};
 })();
