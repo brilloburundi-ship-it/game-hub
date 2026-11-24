@@ -91,12 +91,12 @@ function install(sim){
    for(const k of ks){
     if(!k.__kw2DevelopmentTest)continue;
     k.popCap=window.__KW2_MARITIME.capacity(k);
-    const target=Math.min(k.popCap,160);
+    const target=Math.min(k.popCap,220);
     if(k.pop<target){k.pop=Math.min(target,k.pop+12);k.lastPop=this.age;try{await this.syncCitizens(k);}catch(e){console.warn('[test citizens]',e);}}
     k.military=Math.max(Number(k.military)||0,k.pop*1.4);
-    if(k.pop>=130||this.age>=run.until)delete k.__kw2DevelopmentTest;
+    if(k.pop>=180||this.age>=run.until)delete k.__kw2DevelopmentTest;
    }
-   const ready=ks.filter(k=>k.pop>=100||(this.age>=run.until&&k.pop>=6));
+   const ready=ks.filter(k=>k.pop>=140||(this.age>=run.until&&k.pop>=35));
    if(!this.wars.some(w=>!w.done)&&!run.started){
     const pairs=[];for(let i=0;i<ready.length;i++)for(let j=i+1;j<ready.length;j++)pairs.push([ready[i],ready[j]]);
     pairs.sort((a,b)=>Math.hypot(a[0].capital[0]-a[1].capital[0],a[0].capital[1]-a[1].capital[1])-Math.hypot(b[0].capital[0]-b[1].capital[0],b[0].capital[1]-b[1].capital[1]));
@@ -117,10 +117,10 @@ function install(sim){
   for(const k of ks){
    k.__kw2DevelopmentTest=true;k.resources.food+=6000;k.resources.wood+=6000;k.resources.stone+=3500;k.resources.gold+=2200;
    k.lastBuild=this.age-10;k.lastExpand=this.age-10;k.lastPop=this.age-10;
-   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+120);
+   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+180);
    k.military=Math.max(Number(k.military)||0,100);
   }
-  this.__kw2TestRun={until:this.age+110,started:false};
+  this.__kw2TestRun={until:this.age+165,started:false};
   note('TEST: developing '+ks.length+' kingdoms — housing, economy and armies');
   return true;
  };
