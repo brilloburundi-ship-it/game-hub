@@ -452,6 +452,6 @@ function install(sim){
 window.__KW2_CIVILIZATION={install,targetArmy,createNavigation,grid};
 const wait=setInterval(()=>{
  const sim=window.__SIM;
- if(sim?.r?.app?.ticker&&window.__V800_PERFORMANCE_KERNEL?.installed&&window.__V713_LIVE_POWER?.installed&&sim.__v661BattleStabilityInstalled&&window.__KW2_FORT){clearInterval(wait);try{install(sim);}catch(error){window.__KW2_CIVILIZATION_ERROR=String(error?.message||error);console.error('[KW2 initialization]',error);}}
+ if(sim?.r?.app?.ticker&&window.__V800_PERFORMANCE_KERNEL?.installed&&window.__V713_LIVE_POWER?.installed&&sim.__v661BattleStabilityInstalled&&window.__KW2_FORT&&window.__GOD_WORLD_LATEST_SHAPE?.installed){clearInterval(wait);try{install(sim);}catch(error){window.__KW2_CIVILIZATION_ERROR=String(error?.message||error);console.error('[KW2 initialization]',error);}}
 },50);
 })();
