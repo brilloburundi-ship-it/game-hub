@@ -1,0 +1,33 @@
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import test from 'node:test';
+function run(source,assert){
+ const win={},elements=new Map();
+ const el=()=>({textContent:'',children:[],dataset:{},classList:{toggle(){},contains(){return true;}},style:{cssText:'',setProperty(){}},setAttribute(){},replaceChildren(...children){this.children=children;}});
+ const doc={documentElement:{dataset:{}},getElementById(id){if(!elements.has(id))elements.set(id,el());return elements.get(id);},createElement:el};
+ for(const p of Object.keys(source).filter(p=>p.endsWith('.js')))new Function(source[p]);
+ new Function('window','document','setTimeout','console',source['latest/world-shape.js'].replace('  install().catch(error => {','  Promise.resolve().catch(error => {'))(win,doc,()=>0,{error(){}});
+ new Function('window','document',source['kw2-fortifications.js'])(win,doc);
+ new Function('window','document','setInterval','clearInterval',source['kw2-civilization-war.js'])(win,doc,()=>0,()=>{});
+ new Function('window','document','setInterval','clearInterval',source['kw2-royal-hud.js'])(win,doc,()=>0,()=>{});
+ const W=104,H=75,w={gridW:W,gridH:H,tileW:40,tileH:20,originX:2000,originY:147};
+ const sim={w,kingdoms:[],riverSet:new Set(),getOwner(){return -1},land(x,y){return w.land[y]?.[x]===1},biome(x,y){return w.biomes[y]?.[x]},isWalkableCell(x,y){return this.land(x,y)&&!this.riverSet.has(x+','+y)&&!['mountain','ice_coast'].includes(this.biome(x,y))},isBuildableCell(x,y,t){return this.isWalkableCell(x,y)&&['grass','desert','forest'].includes(this.biome(x,y))&&w.coastDistance[y][x]>=(t==='castle'?4:2)&&[[1,0],[-1,0],[0,1],[0,-1]].filter(([dx,dy])=>this.land(x+dx,y+dy)).length>=3}};
+ win.__KW2_WORLD_ATLAS.reshape(sim);
+ const sites=win.__KW2_FORT.reserveSites(sim),nav=win.__KW2_CIVILIZATION.createNavigation(sim);
+ assert(sites.length===12,'all twelve capitals fit');assert(sites.every(p=>nav.connected([sites[0].x,sites[0].y],[p.x,p.y])),'every capital shares walkable continent');
+ assert(w.rivers.length===5,'five rivers');assert(new Set(w.biomes.flat()).size===8,'eight biomes');
+ const ks=[{id:0,name:'Valoria',alive:true,pop:20,resources:{gold:40,food:60,stone:30,wood:50},css:'#aa3322',buildings:[]},{id:1,name:'Nordheim',alive:true,pop:10,resources:{gold:20,food:30,stone:12,wood:30},css:'#2244bb',buildings:[]}];
+ const hudSim={kingdoms:ks,power:k=>k.pop*10,wars:[{id:'test',a:0,b:1,done:false,__v66:{phase:'combat'}}],__kw2CivilizationWar:{units:[{side:0},{side:0},{side:1}],territoryCaptured:3,buildingsDestroyed:1,combatKills:1}};
+ win.__KW2_ROYAL_HUD.render(hudSim);
+ assert(doc.getElementById('totalPop').textContent==='30','actual population');
+ assert(doc.getElementById('totalGold').textContent==='60','actual resources');
+ assert(doc.getElementById('warAName').textContent==='Valoria','real combatant');
+ assert(doc.getElementById('warAUnits').textContent==='2 soldati','actual army count');
+ assert(doc.getElementById('warBUnits').textContent==='1 soldati','actual enemy army count');
+ assert(doc.getElementById('warFillA').style.cssText.includes('66.666'),'power ratio');
+ const ids=[...source['index.html'].matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);assert(new Set(ids).size===ids.length,'no duplicate HTML ids');
+ for(const id of ['royalTotals','rankRows','royalWar','royalChronicle','royalGiftItems','royalHudToggle'])assert(ids.includes(id),'panel '+id);
+ return {sites:sites.length,connected:true,landCells:w.land.flat().filter(Boolean).length,rivers:w.rivers.length,biomes:new Set(w.biomes.flat()).size,hud:'real totals, combatants, army counts and power balance'};
+}
+const names=["latest/world-shape.js","kw2-fortifications.js","kw2-civilization-war.js","kw2-royal-hud.js","index.html","sw.js"];
+test('KW2 atlas: connected capitals and live HUD',async()=>{const source={};for(const p of names)source[p]=await readFile(new URL('../'+p,import.meta.url),'utf8');console.log(run(source,assert.ok));});
