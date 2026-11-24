@@ -43,7 +43,7 @@ async function build(sim,k,{test=false,center=null}={}){
  k.__kw2BalancedBusy=true;
  try{
   const local=center?k.buildings.filter(b=>Math.hypot(b.x-center.x,b.y-center.y)<8):k.buildings;
-  const cityPop=center?Math.min(k.pop,Math.max(12,local.filter(b=>houses.includes(b.type)).length*7)):k.pop;
+  const cityPop=center?(window.__KW2_CITY_POP?.allocation(k,k.pop).find(w=>w.c.x===center.x&&w.c.y===center.y)?.n??Math.min(k.pop,12)):k.pop;
   const localK=center?{...k,pop:cityPop,buildings:local}:k;
   const list=plan(localK,local).filter(t=>afford(k,t)&&(!sim.r.buildTex||sim.r.buildTex[t]));
   if(!list.length)return false;
@@ -59,7 +59,7 @@ async function build(sim,k,{test=false,center=null}={}){
     if(!b){if(claimed){sim.setOwner(x,y,-1);k.territory.delete(x+','+y);sim.__v800Performance?.invalidateKingdom?.(k.id);}continue;}
     for(const [r,n] of Object.entries(costs[type]))k.resources[r]-=n;
     k.popCap=window.__KW2_MARITIME.capacity(k);
-    if(houses.includes(type)&&k.pop<k.popCap&&k.resources.food>=24){k.pop=Math.min(k.popCap,k.pop+(test?6:2));k.resources.food-=24;try{await sim.syncCitizens(k);}catch(e){console.warn('[citizens]',e);}}
+    if(houses.includes(type)&&k.pop<k.popCap&&k.resources.food>=24){const n=Math.min(k.popCap-k.pop,test?10:6,Math.floor(k.resources.food/4));k.pop+=n;k.resources.food-=4*n;try{await sim.syncCitizens(k);}catch(e){console.warn('[citizens]',e);}}
     if(test)k.__kw2TestBuilds=(k.__kw2TestBuilds||0)+1;
     sim.r.puff?.(...sim.iso(x,y));return true;
    }
