@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="v65-overrides.css?v=20260813-kw2-minifolks-1" />
   <title>Kingdom War 2</title>
   <link rel="stylesheet" href="kw2-royal-hud.css?v=20261124-battlefronts-1" />
+  <link rel="stylesheet" href="kw2-royal-art.css?v=20261124-royal-armies-1" />
 </head>
 <body>
   <div id="game"></div>
@@ -69,7 +70,7 @@
   <section id="testPanel" class="hud test-panel collapsed">
     <button id="toggleTest">TEST</button>
     <div class="test-inner">
-      <input id="testName" value="Player" maxlength="18" />
+      <input id="testName" value="Player" maxlength="18" /><button id="royalArtImport" type="button">IMPORT HUD</button><button id="royalPortrait" type="button" aria-pressed="false">PORTRAIT HUD</button><input id="royalArtFile" type="file" accept="image/png,image/webp" /><span id="royalArtStatus">Original artwork is optional.</span>
       <button data-test="join">JOIN</button><button data-test="like">LIKE ×20</button><button data-test="follow">FOLLOW</button><button data-test="rose">ROSE</button><button data-test="ice">ICE CREAM</button><button data-test="fireworks">FIREWORKS</button><button data-test="swan">SWAN</button><button data-test="concert">CONCERT</button><button data-test="money">MONEY GUN</button><button data-test="jet">PRIVATE JET</button><button data-test="meteor">METEOR</button><button data-test="car">SPORTS CAR</button><button data-test="galaxy">GALAXY</button><button data-test="lion">LION</button><button data-test="dragon">DRAGON</button><button data-test="universe">UNIVERSE</button><button data-test="attack">ATTACK</button><button data-test="ally">ALLY</button><button data-test="develop-all" title="Accelerate all founded kingdoms and start a large battle">DEVELOP ALL + WAR</button><button data-test="boost">+30s</button><button data-test="colonize">COLONIZE</button><button data-test="trade">TRADE</button><button data-test="build">BUILD</button><button data-test="status">STATUS</button>
     </div>
   </section>
@@ -78,12 +79,12 @@
   <div class="zoom hud"><button id="homeCam" aria-label="Show the whole map">⌂</button></div>
 
   <!-- One atomic V8 release. World data and visual assets are unchanged. -->
-  <script>window.__GOD_WORLD_RELEASE='10.3.0-battlefronts';window.__GOD_WORLD_RELEASE_TOKEN='20261124-kw2-battlefronts-1';</script>
+  <script>window.__GOD_WORLD_RELEASE='10.4.0-royal-armies';window.__GOD_WORLD_RELEASE_TOKEN='20261124-kw2-royal-armies-1';</script>
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
   <script src="latest/runtime-stability.js?v=20260813-kw2-minifolks-1"></script>
   <script src="asset-recovery.js?v=20261124-kw2-living-civilizations-1"></script>
   <script src="latest/world-npc-expansion.js?v=20261124-oceans-1"></script>
-  <script src="game.js?v=20261124-battlefronts-1"></script>
+  <script src="game.js?v=20261124-royal-armies-1"></script>
   <script src="latest/world-base.js?v=20260813-kw2-minifolks-1"></script>
   <script src="latest/world-shape.js?v=20261124-oceans-1"></script>
   <script src="latest/flora-loader.js?v=20260813-kw2-minifolks-1"></script>
@@ -118,10 +119,12 @@
   <script src="latest/performance-kernel.js?v=20261124-battlefronts-1"></script>
   <script src="minifolks-world.js?v=20260813-kw2-minifolks-1"></script>
   <script src="kw2-fortifications.js?v=20261124-oceans-1"></script>
-  <script src="kw2-civilization-war.js?v=20261124-battlefronts-1"></script>
+  <script src="kw2-civilization-war.js?v=20261124-royal-armies-1"></script>
   <script src="kw2-royal-hud.js?v=20261124-oceans-1"></script>
-  <script src="kw2-maritime-cities.js?v=20261124-battlefronts-1"></script>
-  <script src="kw2-balanced-cities.js?v=20261124-battlefronts-1"></script>
+  <script src="kw2-maritime-cities.js?v=20261124-royal-armies-1"></script>
+  <script src="kw2-balanced-cities.js?v=20261124-royal-armies-1"></script>
   <script src="kw2-battle-camera.js?v=20261124-battlefronts-1"></script>
+  <script src="kw2-city-population.js?v=20261124-royal-armies-1"></script>
+  <script src="kw2-royal-art.js?v=20261124-royal-armies-1"></script>
 </body>
 </html>
