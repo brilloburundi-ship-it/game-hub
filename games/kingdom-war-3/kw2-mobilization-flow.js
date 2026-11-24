@@ -130,7 +130,7 @@
         remaining++;
         farmer.path = [];
         farmer.taskCell = null;
-        const step = moveToward(Number(farmer.x) || tx, Number(farmer.y) || ty, tx, ty, CIVILIAN_SPEED, dt);
+        const step = window.__KW3_GATES?.step(sim,side,Number(farmer.x)||tx,Number(farmer.y)||ty,tx,ty,CIVILIAN_SPEED,dt,4)||moveToward(Number(farmer.x) || tx, Number(farmer.y) || ty, tx, ty, CIVILIAN_SPEED, dt);
         farmer.x = step.x;
         farmer.y = step.y;
         farmer.action = 'walk';
@@ -290,7 +290,7 @@
         if (!unit?.s || unit.s.destroyed) continue;
         const tx = anchorX - dx * (18 + Math.floor(i / 6) * 10.5) + px * (((i % 6) - 2.5) * 7.5);
         const ty = anchorY - dy * (18 + Math.floor(i / 6) * 10.5) + py * (((i % 6) - 2.5) * 7.5);
-        const step = moveToward(unit.x, unit.y, tx, ty, SOLDIER_SPEED, dt);
+        const step = window.__KW3_GATES?.step(sim,side,unit.x,unit.y,tx,ty,SOLDIER_SPEED,dt,4)||moveToward(unit.x, unit.y, tx, ty, SOLDIER_SPEED, dt);
         unit.x = step.x;
         unit.y = step.y;
         unit.s.position.set(unit.x, unit.y);
@@ -378,7 +378,7 @@
       const kingdom = sim.kingdoms?.[entry.side], unit = entry.unit, sprite = unit?.s;
       if (!kingdom?.alive || !sprite || sprite.destroyed || entry.done) continue;
       const [tx, ty] = castlePoint(sim, kingdom);
-      const step = moveToward(entry.x, entry.y, tx, ty, SOLDIER_SPEED, dt);
+      const step = window.__KW3_GATES?.step(sim,entry.side,entry.x,entry.y,tx,ty,SOLDIER_SPEED,dt,4)||moveToward(entry.x, entry.y, tx, ty, SOLDIER_SPEED, dt);
       entry.x = step.x; entry.y = step.y;
       setVisible(sprite, true); renderer.swapAnim?.(sprite, 'walk'); sprite.position.set(entry.x, entry.y); sprite.zIndex = Math.round(entry.y * 100) + 16;
       if (entry.type === 'core') { unit.x = entry.x; unit.y = entry.y; unit.state = 'returning'; unit.warId = null; }
@@ -403,7 +403,7 @@
     for (const entry of state.entries) {
       const farmer = entry.farmer;
       if (!entry.kingdom?.alive || !farmer || !farmer.__kw2CivilianExit) continue;
-      const step = moveToward(farmer.x, farmer.y, entry.tx, entry.ty, EXIT_SPEED, dt);
+      const step = window.__KW3_GATES?.step(sim,entry.kingdom.id,farmer.x,farmer.y,entry.tx,entry.ty,EXIT_SPEED,dt,4)||moveToward(farmer.x, farmer.y, entry.tx, entry.ty, EXIT_SPEED, dt);
       farmer.x = step.x; farmer.y = step.y; farmer.action = 'walk';
       renderer.updateFarmer?.(farmer, step.dx, step.dy);
       if (farmer._sprite && !farmer._sprite.destroyed) farmer._sprite.position.set(step.x, step.y);

@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const VERSION='20261124-kw3-closed-square-1', R=4;
+const VERSION='20261124-kw3-two-gates-1', R=4;
 const key=(x,y)=>`${x},${y}`;
 const DEF=new Set(['wall','wall_corner','gate','stone_tower','watchtower']);
 const live=sim=>(sim.kingdoms||[]).filter(k=>k?.alive&&!k.founding);
@@ -11,7 +11,7 @@ function plan(gx,gy){
  for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
   if(Math.max(Math.abs(dx),Math.abs(dy))!==R)continue;
   const corner=Math.abs(dx)===R&&Math.abs(dy)===R;
-  cells.push({dx,dy,type:corner?'stone_tower':dx===gx&&dy===gy?'gate':'wall',axis:Math.abs(dy)===R?'x':'y'});
+  cells.push({dx,dy,type:corner?'stone_tower':((dx===gx&&dy===gy)||(dx===-gx&&dy===-gy))?'gate':'wall',axis:Math.abs(dy)===R?'x':'y'});
  }
  return cells;
 }
@@ -91,14 +91,14 @@ function economySlots(gx,gy){
 // Match the world grid exactly. One reusable pixel texture per axis and type;
 // walls overlap their neighbours by a small amount, not by arbitrary sprite width.
 const textures=new Map();
-function wallTexture(sim,type,axis){
+function wallTexture(sim,type,axis,frame=0){
  const r=sim.r,P=r.P||window.PIXI,base=r.buildTex?.[type];
  if(!P?.Texture||!base||typeof document.createElement!=='function')return null;
  const scale=r.buildingScale(type,base);
  if(!Number.isFinite(scale)||scale<=0)return null;
  const tw=sim.w.tileW/2,th=sim.w.tileH/2,sign=axis==='x'?1:-1;
  const vx=sign*tw,vy=th, H=type==='gate'?38:28,T=5;
- const cacheKey=[type,axis,tw,th,scale].join('/');
+ const cacheKey=[type,axis,tw,th,scale,frame].join('/');
  if(textures.has(cacheKey))return textures.get(cacheKey);
  const c=document.createElement('canvas'),w=Math.ceil((Math.abs(vx)*1.26+T*2+6)/scale),h=Math.ceil((H+Math.abs(vy)*1.26+T*2+10)/scale);
  c.width=w;c.height=h;const ctx=c.getContext('2d');if(!ctx)return null;
@@ -122,10 +122,21 @@ function wallTexture(sim,type,axis){
   poly([pt(lo,H+5,-s),pt(hi,H+5,-s),pt(hi,H+5,s),pt(lo,H+5,s)],'#ddd8c5');
  }
  if(type==='gate'){
-  poly(face(-.34,.34,0,23),'#3a2a21');
-  poly(face(-.29,.29,0,19),'#684934');
-  for(let i=-2;i<=2;i++)poly(face(i*.11,i*.11+.025,0,19),'#30241d',null);
-  poly(face(-.29,.29,6,8),'#a49174');poly(face(-.29,.29,14,16),'#a49174');
+  // Cut an actual transparent passage through the stone, then animate a raised wooden portcullis.
+  ctx.save();ctx.globalCompositeOperation='destination-out';
+  poly([pt(-.33,-3,-s),pt(.33,-3,-s),pt(.33,25,-s),pt(-.33,25,-s)],'#000',null);
+  poly(face(-.33,.33,-3,25),'#000',null);
+  poly([pt(-.33,-3,-s),pt(.33,-3,-s),pt(.33,-3,s),pt(-.33,-3,s)],'#000',null);
+  poly([pt(-.33,25,-s),pt(.33,25,-s),pt(.33,25,s),pt(-.33,25,s)],'#000',null);
+  ctx.restore();
+  // The lowered door occupies the aperture; opening raises it behind the lintel.
+  const lift=frame*5.75;
+  if(lift<23){
+   poly(face(-.31,.31,lift,23),'#684934');
+   for(let i=-2;i<=2;i++)poly(face(i*.11,i*.11+.025,lift,23),'#30241d',null);
+   for(const z of [6,14])if(z+lift<22)poly(face(-.29,.29,z+lift,Math.min(23,z+lift+2)),'#a49174');
+  }
+  poly(face(-.38,.38,24,28),'#bbb9ab');
  }
  const texture=P.Texture.from(c);try{texture.source.scaleMode='nearest';}catch{}
  const result={texture,anchorY:pivot/h,scale};textures.set(cacheKey,result);return result;
@@ -133,7 +144,7 @@ function wallTexture(sim,type,axis){
 function style(sim,b,cell){
  if(!b||!cell||!active(b)||!['wall','gate'].includes(b.type))return;
  const sp=b._sprite;if(!sp||sp.destroyed)return;
- const t=wallTexture(sim,b.type,cell.axis);if(!t)return;
+ const t=wallTexture(sim,b.type,cell.axis,b.type==='gate'?(window.__KW3_GATES?.frame(b)||0):0);if(!t)return;
  if(sp.texture!==t.texture){sp.texture=t.texture;sp.anchor.set(.5,t.anchorY);}
  // Native construction can animate scale. Restore the correct sign without
  // interfering with the current growth factor; the texture encodes direction.
@@ -164,7 +175,7 @@ async function rebuild(sim,k,slot){
   k.__kw3WallPlan=plan(gx,gy);
   k.__kw3ReservedCells=new Set();
   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)k.__kw3ReservedCells.add(key(dx,dy));
-  for(let step=1;step<R;step++)k.__kw3ReservedCells.add(key(k.__kw3GateDir[0]*step,k.__kw3GateDir[1]*step));
+  for(let step=1;step<R;step++){k.__kw3ReservedCells.add(key(k.__kw3GateDir[0]*step,k.__kw3GateDir[1]*step));k.__kw3ReservedCells.add(key(-k.__kw3GateDir[0]*step,-k.__kw3GateDir[1]*step));}
   claim(sim,k);k.__kw3ArenaV2Ready=true;
   const expected=new Map(k.__kw3WallPlan.map(c=>[key(c.dx,c.dy),c.type]));
   for(const b of [...k.buildings]){
@@ -216,11 +227,12 @@ function install(sim){
   }
   return result;
  };
+ window.__KW3_GATES?.install(sim);
  sim.__kw3ArenaLayoutV2=VERSION;
  window.__KW3_ARENA_LAYOUT_V2=Object.freeze({installed:true,version:VERSION,map:'compact-two-side',outerWallRadius:R,innerWall:false,connectedWalls:true,clearCourtyard:true,dynamicOpponentFacingGate:true,reservedBuildCells:true,mirroredWallAxis:true});
  document.documentElement.dataset.kw3ArenaLayout=VERSION;
  Promise.resolve().then(async()=>{for(const [i,k] of live(sim).entries())await rebuild(sim,k,i);focus(sim);}).catch(e=>console.error('[KW3 fortress]',e));
 }
-window.__KW3_CLOSED_FORTRESS={freeSpawn,rebuild,validate,install};
+window.__KW3_CLOSED_FORTRESS={freeSpawn,rebuild,validate,install,style};
 let tries=0;const timer=setInterval(()=>{tries++;const sim=window.__SIM;if(sim?.join&&sim?.r&&window.__KW3_SURVIVOR?.installed){clearInterval(timer);install(sim);}else if(tries>2400)clearInterval(timer);},50);
 })();

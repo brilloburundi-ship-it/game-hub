@@ -285,11 +285,14 @@
     return result;
   }
 
-  function navigationObstacle(sim, worldX, worldY) {
+  function navigationObstacle(sim, worldX, worldY, side=null) {
+    const gateApi=window.__KW3_GATES;
+    const fortressHit=gateApi?.obstacle(sim,side,worldX,worldY);
+    if(fortressHit)return {source:fortressHit,x:fortressHit.sx,y:fortressHit.sy};
     for (const k of sim.kingdoms || []) {
       if (!k.alive) continue;
       for (const b of k.buildings || []) {
-        if (b.__v66Destroyed) continue;
+        if (b.__v66Destroyed || (gateApi&&k.__kw3WallPlan&&['wall','wall_corner','gate','stone_tower','watchtower'].includes(b.type))) continue;
         const [rx, ry] = buildingRadii(b), cx = b.sx, cy = b.sy - 2;
         const nx = (worldX - cx) / rx, ny = (worldY - cy) / ry;
         if (nx * nx + ny * ny < 1) return { source: b, x: cx, y: cy };
@@ -308,7 +311,7 @@
     for (const k of sim.kingdoms || []) {
       if (!k.alive) continue;
       for (const b of k.buildings || []) {
-        if (b.__v66Destroyed) continue;
+        if (b.__v66Destroyed || (window.__KW3_GATES&&k.__kw3WallPlan&&['wall','wall_corner','gate','stone_tower','watchtower'].includes(b.type))) continue;
         const [rx, ry] = buildingRadii(b), dx = u.x - b.sx, dy = u.y - (b.sy - 2);
         const normalized = Math.hypot(dx / (rx * 1.35), dy / (ry * 1.5));
         if (normalized >= 1) continue;
@@ -326,12 +329,13 @@
   }
 
   function navigableVelocity(sim, u, vx, vy, step) {
-    const current = navigationObstacle(sim, u.x, u.y);
+    const current = navigationObstacle(sim, u.x, u.y, u.side);
     for (const angle of [0, 0.38, -0.38, 0.72, -0.72, 1.08, -1.08]) {
       const cos = Math.cos(angle), sin = Math.sin(angle);
       const nx = vx * cos - vy * sin, ny = vx * sin + vy * cos;
       const nextX = u.x + nx * step, nextY = u.y + ny * step;
-      const next = navigationObstacle(sim, nextX, nextY);
+      if(window.__KW3_GATES&&!window.__KW3_GATES.canMove(sim,u.side,u.x,u.y,nextX,nextY))continue;
+      const next = navigationObstacle(sim, nextX, nextY,u.side);
       if (!next) return [nx, ny];
       if (current?.source === next.source) {
         const before = Math.hypot(u.x - current.x, u.y - current.y);
@@ -343,17 +347,20 @@
   }
 
   function moveGuard(sim, r, u, tx, ty, dt, speed, peers) {
+    const originalTarget=[tx,ty];
+    if(window.__KW3_GATES)[tx,ty]=window.__KW3_GATES.route(sim,u.side,u.x,u.y,tx,ty);
+    const routed=tx!==originalTarget[0]||ty!==originalTarget[1];
     let dx = tx - u.x, dy = ty - u.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.6) {
       setAnim(r, u, 'idle');
-      return true;
+      return !routed;
     }
     let vx = dx / d, vy = dy / d;
     const sep = separationVector(u, peers);
     const obs = obstacleSteer(sim, u);
-    vx += sep[0] * 0.72 + obs[0];
-    vy += sep[1] * 0.72 + obs[1];
+    vx += sep[0] * (routed?.12:.72) + obs[0];
+    vy += sep[1] * (routed?.12:.72) + obs[1];
     const len = Math.max(0.001, Math.hypot(vx, vy));
     vx /= len; vy /= len;
     const step = Math.min(d, speed * dt);
@@ -366,7 +373,7 @@
     u.s.zIndex = Math.round(u.y * 100) + 16;
     faceTarget(u, u.x + vx * 8);
     setAnim(r, u, 'walk');
-    return d <= 2.2;
+    return !routed&&d <= 2.2;
   }
 
   function warGeometry(sim, w, side, u) {
@@ -433,6 +440,7 @@
       if (b.__v66Destroyed || b.hp <= 0) continue;
       const d = dist(u.x, u.y, b.sx, b.sy);
       if (!allowCastle && b.type === 'castle') {
+        if(enemy.__kw3WallPlan)continue;
         const lockRange = buildingAttackRadius(b, u.role) + CASTLE_LOCK_PADDING;
         if (d <= lockRange && d < lockedCastleD) {
           lockedCastle = b;
@@ -499,7 +507,7 @@
     }
 
     const guardDistance = target ? dist(u.x, u.y, target.x, target.y) : Infinity;
-    const [building, buildingDistance] = nearestEnemyBuilding(enemy, u, enemy.territory.size <= 5);
+    const [building, buildingDistance] = nearestEnemyBuilding(enemy, u, enemy.__kw3WallPlan ? !!enemy.__kw3Breached : enemy.territory.size <= 5);
 
     // Once troops physically reach the castle perimeter, the castle becomes the
     // locked objective even before the defender is reduced to its final cells.
