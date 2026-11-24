@@ -1995,7 +1995,7 @@
       const timer = setTimeout(() => controller.abort(), 12000);
       try {
         const url = new URL(path, document.baseURI);
-        if (attempt) url.searchParams.set('kw3retry', String(Date.now()));
+        if (attempt) url.searchParams.set('kw2retry', String(Date.now()));
         const response = await fetch(url.href, { cache: attempt ? 'reload' : 'default', signal: controller.signal });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return await response.json();
@@ -2027,7 +2027,7 @@
       if (window.PIXI && !window.__KW2_MARITIME?.install(sim)) throw new Error('Maritime engine unavailable');
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
-    } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry / Riprova</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
+    } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
   }
 
   function wire(sim, r) {
