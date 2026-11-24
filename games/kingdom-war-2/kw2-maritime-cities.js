@@ -208,7 +208,7 @@ function install(sim){
  async function arrivals(){
   for(const k of sim.kingdoms)if(!k.alive)for(const c of k.__kw2Cities||[])if(c.label&&!c.label.destroyed)c.label.destroy();
   for(const s of [...state.ships]){
-   if(!s.k.alive){remove(s);continue;}
+   if(!s.k.alive){if(s.returning&&s.profit&&s.dest?.k?.alive)s.dest.k.resources.gold+=s.profit;remove(s);continue;}
    if(!s.arrived)continue;
    if(s.kind==='colony'){
     if(!await foundColony(s)){for(const [r,n] of Object.entries(s.cargo))s.k.resources[r]+=n;note('⛵ '+s.k.name+' expedition returned: site unavailable');}
