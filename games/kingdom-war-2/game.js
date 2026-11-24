@@ -104,7 +104,7 @@
     isRiver(x, y) { return this.riverSet.has(key(x, y)); }
     neigh(x, y) { return [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => this.land(a, b)); }
     getOwner(x, y) { return this.inBounds(x, y) ? this.owner[this.idx(x, y)] : -99; }
-    setOwner(x, y, id) { if (this.inBounds(x, y)) this.owner[this.idx(x, y)] = id; }
+    setOwner(x, y, id) { if (this.inBounds(x, y) && (id < 0 || (this.land(x,y) && !this.isRiver(x,y)))) this.owner[this.idx(x, y)] = id; }
     iso(x, y) { return [this.w.originX + (x - y) * this.w.tileW / 2, this.w.originY + (x + y) * this.w.tileH / 2]; }
     coastDistance(x, y) { return this.w.coastDistance?.[y]?.[x] ?? 0; }
 
@@ -216,7 +216,7 @@
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           if (Math.abs(dx) + Math.abs(dy) !== r) continue;
           const a = x + dx, b = y + dy;
-          if (!this.land(a, b) || this.getOwner(a, b) !== -1) continue;
+          if (!this.land(a, b) || this.isRiver(a,b) || this.getOwner(a, b) !== -1) continue;
           cells.push([a, b]);
         }
       }
@@ -377,6 +377,7 @@
     }
 
     async addBuilding(k, type, x, y, forceCastle = false, instant = false) {
+      if (!this.land(x,y) || this.isRiver(x,y) || this.getOwner(x,y) !== k.id) return null;
       if (!forceCastle) {
         if (!this.isBuildableCell(x, y, type) || this.getOwner(x, y) !== k.id || this.buildingAt(x, y)) return null;
       }
@@ -971,7 +972,7 @@
     claimGiftLand(k, amount) {
       const wanted = Math.max(0, amount | 0), frontier = new Map();
       const addFrontier = (x, y) => {
-        if (this.getOwner(x, y) === -1 && this.land(x, y)) frontier.set(key(x, y), [x, y]);
+        if (this.getOwner(x, y) === -1 && this.land(x, y) && !this.isRiver(x,y)) frontier.set(key(x, y), [x, y]);
       };
       for (const token of k.territory) {
         const [x, y] = token.split(',').map(Number);
@@ -2023,6 +2024,7 @@
       if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init();
       if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar&&!window.__KW2_CIVILIZATION_ERROR;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed: '+(window.__KW2_CIVILIZATION_ERROR||'timeout'));}
+      if (window.PIXI && !window.__KW2_MARITIME?.install(sim)) throw new Error('Maritime engine unavailable');
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
     } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry / Riprova</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
@@ -2034,7 +2036,8 @@
     $('#homeCam').onclick = () => r.home(); $('#toggleTest').onclick = () => $('#testPanel').classList.toggle('collapsed');
     $$('[data-test]').forEach(b => b.onclick = async () => {
       const name = $('#testName').value.trim() || 'Player', act = b.dataset.test;
-      if (act === 'join') await sim.join(name);
+      if (['colonize','trade','build','status'].includes(act)) await sim.__kw2WorldCommand?.(name,act);
+      else if (act === 'join') await sim.join(name);
       else if (act === 'like') { sim.like(name, 20); feed(name, '❤️ ×20'); }
       else if (act === 'follow') { sim.follow(name); feed(name, 'FOLLOW'); }
       else if (act === 'rose') { await sim.gift(name, 'Rose', 1); feed(name, '🌹 Rose'); }
@@ -2046,7 +2049,7 @@
       else if (act === 'dragon') { await sim.gift(name, 'Dragon', 1); feed(name, '🐉 Dragon'); }
       else if (act === 'universe') { await sim.gift(name, 'Universe', 1); feed(name, '🌠 Universe'); }
       else if (act === 'boost') sim.boost30();
-      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('At least two non-allied kingdoms are required'); }
+      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { if(sim.attack(a, target))feed(name, `ATTACK ${target.name}`);else toast('War unavailable: active war, alliance or no land route'); } else toast('At least two non-allied kingdoms are required'); }
       else if (act === 'ally') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.find(k => k.alive && k !== a && !sim.areAllied(a, k)); if (target) sim.ally(a, target); else toast('No kingdom is available for a new alliance'); }
     });
     const chatForm = $('#chatForm');
@@ -2058,8 +2061,9 @@
   async function processComment(sim, user, comment) {
     feed(user, comment); const c = comment.trim();
     if (/^join$/i.test(c)) return sim.join(user);
+    if (/^(colonize|build|status|trade(?:\s+.*)?)$/i.test(c)) return sim.__kw2WorldCommand?.(user,c);
     const m = c.match(/^attack\s+@?(.+)$/i);
-    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b); }
+    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b) || toast('War unavailable: active war or no land route'); }
     const alliance = c.match(/^ally\s+@?(.+)$/i);
     if (alliance) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(alliance[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${alliance[1].trim()} not found`); return sim.ally(a, b); }
     if (/^expand$/i.test(c)) { const k = sim.kingdomByName.get(user.toLowerCase()); if (k) { k.resources.food += 10; k.resources.wood += 8; k.lastExpand = 0; } }
