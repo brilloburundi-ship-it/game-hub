@@ -130,32 +130,36 @@ function candidate(sim,x,y,r){
 }
 function reserveSites(sim){
  if(sim.__kw2FortSlots)return sim.__kw2FortSlots;
- const pts=[];
+ const small=[],large=[];
  for(let y=4;y<sim.w.gridH-4;y++)for(let x=4;x<sim.w.gridW-4;x++){
-  const p=candidate(sim,x,y,2);if(p)pts.push(p);
+  const p=candidate(sim,x,y,2);if(p)small.push(p);
+  const q=candidate(sim,x,y,3);if(q)large.push(q);
+ }
+ const compatible=(p,q)=>Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))>=p.r+q.r+2;
+ function fill(chosen,pool,count){
+  while(chosen.length<count){
+   let next=null,score=-Infinity;
+   for(const p of pool){
+    if(!chosen.every(q=>compatible(p,q)))continue;
+    const d=Math.min(...chosen.map(q=>Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))));
+    if(d>score){next=p;score=d;}
+   }
+   if(!next)break;chosen.push(next);
+  }
+  return chosen;
  }
  let best=[];
- // Farthest point packing, trying several starting seeds; cap at 12 slots.
- for(let i=0;i<Math.min(16,pts.length);i++){
-  const seed=pts[Math.floor(i*pts.length/Math.min(16,pts.length))];
-  const chosen=[seed];
-  let left=pts.filter(p=>p!==seed);
-  while(left.length&&chosen.length<12){
-   let next=null,score=-Infinity;
-   for(const p of left){
-    const d=Math.min(...chosen.map(q=>Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))));
-    if(d>=6&&d>score){next=p;score=d;}
-   }
-   if(!next)break;
-   chosen.push(next);left=left.filter(p=>p!==next);
-  }
+ // Prefer three roomy castles, but never sacrifice capacity for twelve kingdoms.
+ for(let i=0;i<Math.min(24,large.length);i++){
+  const seed=large[Math.floor(i*large.length/Math.min(24,large.length))];
+  const chosen=fill(fill([seed],large,3),small,12);
   if(chosen.length>best.length)best=chosen;
   if(best.length===12)break;
  }
- // Enlarge only a few of the reserved sites when no neighbouring slot is affected.
- for(let i=0;i<Math.min(3,best.length);i++){
-  const p=best[i],large=candidate(sim,p.x,p.y,3);
-  if(large&&best.every((q,j)=>j===i||Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))>=q.r+4))best[i]=large;
+ if(best.length<12)for(let i=0;i<Math.min(16,small.length);i++){
+  const chosen=fill([small[Math.floor(i*small.length/Math.min(16,small.length))]],small,12);
+  if(chosen.length>best.length)best=chosen;
+  if(best.length===12)break;
  }
  sim.__kw2FortSlots=best;return best;
 }
