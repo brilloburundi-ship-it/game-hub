@@ -251,7 +251,7 @@ function install(sim){
   const ks=living(this).filter(k=>this.age-(k.__kw2FoundedAt??this.age)>=120&&k.pop>=6);
   const pairs=[];
   for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++){
-   const a=ks[i],b=ks[j];if(this.areAllied(a,b))continue;
+   const a=ks[i],b=ks[j];if(this.areAllied(a,b)||!nav.connected(a.capital,b.capital))continue;
    const mismatch=Math.abs(Math.log(Math.max(1,this.power(a))/Math.max(1,this.power(b))));
    const d=Math.hypot(a.capital[0]-b.capital[0],a.capital[1]-b.capital[1]);
    pairs.push({a,b,score:d+mismatch*7+Math.random()*8});
