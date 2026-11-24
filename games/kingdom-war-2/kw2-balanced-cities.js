@@ -96,7 +96,7 @@ function install(sim){
     k.military=Math.max(Number(k.military)||0,k.pop*1.4);
     if(k.pop>=130||this.age>=run.until)delete k.__kw2DevelopmentTest;
    }
-   const ready=ks.filter(k=>k.pop>=100);
+   const ready=ks.filter(k=>k.pop>=100||(this.age>=run.until&&k.pop>=6));
    if(!this.wars.some(w=>!w.done)&&!run.started){
     const pairs=[];for(let i=0;i<ready.length;i++)for(let j=i+1;j<ready.length;j++)pairs.push([ready[i],ready[j]]);
     pairs.sort((a,b)=>Math.hypot(a[0].capital[0]-a[1].capital[0],a[0].capital[1]-a[1].capital[1])-Math.hypot(b[0].capital[0]-b[1].capital[0],b[0].capital[1]-b[1].capital[1]));
