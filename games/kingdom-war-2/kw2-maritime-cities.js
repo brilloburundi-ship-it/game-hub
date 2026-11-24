@@ -124,7 +124,7 @@ function install(sim){
   const out=await oldGift(name,gift,repeat,meta);
   k.popCap=capacity(k);
   const dp=Math.max(0,this.power(k)-before.power),db=Math.max(0,k.buildings.length-before.build);
-  note('🎁 '+k.name+' received '+gift+' ×'+repeat+' · +'+fmt(dp)+' power'+(db?' · '+db+' buildings':''));
+  state.lastGift='🎁 '+k.name+' received '+gift+' ×'+repeat+' · +'+fmt(dp)+' power'+(db?' · '+db+' buildings':'');note(state.lastGift);
   if(/castle fantasy|universe|lion|galaxy/i.test(gift))k.__kw2ColonizeWanted=true;
   return out;
  };
