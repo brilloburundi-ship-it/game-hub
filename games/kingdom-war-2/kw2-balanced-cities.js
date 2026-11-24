@@ -93,7 +93,7 @@ function install(sim){
     k.popCap=window.__KW2_MARITIME.capacity(k);
     const target=Math.min(k.popCap,160);
     if(k.pop<target){k.pop=Math.min(target,k.pop+12);k.lastPop=this.age;try{await this.syncCitizens(k);}catch(e){console.warn('[test citizens]',e);}}
-    k.military=Math.max(k.military,k.pop*1.4);
+    k.military=Math.max(Number(k.military)||0,k.pop*1.4);
     if(k.pop>=130||this.age>=run.until)delete k.__kw2DevelopmentTest;
    }
    const ready=ks.filter(k=>k.pop>=100);
@@ -118,7 +118,7 @@ function install(sim){
    k.__kw2DevelopmentTest=true;k.resources.food+=6000;k.resources.wood+=6000;k.resources.stone+=3500;k.resources.gold+=2200;
    k.lastBuild=this.age-10;k.lastExpand=this.age-10;k.lastPop=this.age-10;
    k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+120);
-   k.military=Math.max(k.military,100);
+   k.military=Math.max(Number(k.military)||0,100);
   }
   this.__kw2TestRun={until:this.age+110,started:false};
   note('TEST: developing '+ks.length+' kingdoms — housing, economy and armies');
