@@ -2022,7 +2022,7 @@
       const renderer = window.PIXI ? new PixiRenderer(world, bm, nm) : new CanvasRenderer(world, bm, nm);
       if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init();
-      if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed');}
+      if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar&&!window.__KW2_CIVILIZATION_ERROR;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed: '+(window.__KW2_CIVILIZATION_ERROR||'timeout'));}
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
     } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry / Riprova</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
