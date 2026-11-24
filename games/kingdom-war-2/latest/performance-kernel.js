@@ -365,7 +365,7 @@
     const inBounds = (bounds, x, y) => x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
 
     function visibleSimulation(forSettlement = false) {
-      const bounds = viewportBounds(forSettlement ? 420 : 90);
+      const bounds = viewportBounds(forSettlement ? 650 : 650);
       const view = Object.create(sim);
       view.kingdoms = [];
       let visibleCells = 0, visibleBuildings = 0;
