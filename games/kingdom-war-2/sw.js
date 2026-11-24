@@ -37,6 +37,8 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  // Native media requests must retain HTTP Range semantics, not a shell-cache fallback.
+  if(event.request.headers.has('Range')||/\/assets\/audio\//.test(new URL(event.request.url).pathname))return;
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
