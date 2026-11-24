@@ -206,6 +206,7 @@ function install(sim){
   }
  }
  async function arrivals(){
+  for(const k of sim.kingdoms)if(!k.alive)for(const c of k.__kw2Cities||[])if(c.label&&!c.label.destroyed)c.label.destroy();
   for(const s of [...state.ships]){
    if(!s.k.alive){remove(s);continue;}
    if(!s.arrived)continue;
@@ -215,7 +216,7 @@ function install(sim){
    }
    if(s.returning){s.k.resources.gold+=s.profit||0;state.tradeGold+=s.profit||0;state.tradeTrips++;note('⚓ '+s.k.name+' earned '+fmt(s.profit||0)+' gold from trade');remove(s);continue;}
    const target=s.dest.k,hostile=sim.wars.some(w=>!w.done&&[w.a,w.b].includes(s.k.id)&&[w.a,w.b].includes(target.id));
-   if(target.alive&&live(s.dest.port)&&!hostile){
+   if(target.alive&&live(s.dest.port)&&!hostile&&target.resources.gold>=20){
     const price=Math.min(42,Math.max(0,target.resources.gold-5));target.resources.gold-=price;target.resources.wood+=s.cargo.wood;target.resources.food+=s.cargo.food;s.profit=price;
    }else{for(const [r,n] of Object.entries(s.cargo))s.k.resources[r]+=n;s.profit=0;}
    s.returning=true;s.route.reverse();s.at=1;s.arrived=false;
@@ -233,7 +234,7 @@ function install(sim){
     if(!ports(k).length&&k.pop>=8&&this.age%5===k.id%5&&k.resources.wood>=12){
      const path=portPath(this,k);if(path){const next=path.find(c=>this.getOwner(...c)===-1);if(next){claim(this,k,[next]);k.resources.wood-=3;}else if(k.resources.wood>=95&&k.resources.stone>=35){const dock=path[path.length-1];const b=await this.addBuilding(k,'port',...dock,false,true);if(b){k.resources.wood-=80;k.resources.stone-=30;note('⚓ '+k.name+' opened a port');}}}
     }
-    if(k.__kw2ColonizeWanted||(k.pop>=30&&this.age-(k.__kw2LastColony||0)>90)){if(launchColony(k))k.__kw2LastColony=this.age;}
+    if((k.__kw2ColonizeWanted||k.pop>=30)&&this.age-(k.__kw2ColonyCheck||0)>=8){k.__kw2ColonyCheck=this.age;if((k.__kw2ColonizeWanted||this.age-(k.__kw2LastColony||0)>90)&&launchColony(k))k.__kw2LastColony=this.age;}
     if(this.age%18===k.id%18)launchTrade(k);
    }
    document.documentElement.dataset.kw2Ships=String(state.ships.length);document.documentElement.dataset.kw2Cities=String(kings(this).reduce((n,k)=>n+(k.__kw2Cities||[]).filter(c=>!c.dead).length,0));return result;
