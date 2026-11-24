@@ -21,7 +21,10 @@ function allocation(k,visible){
  return weights;
 }
 function localCells(sim,k,c,radius=9){
- return [...k.territory].map(t=>t.split(',').map(Number)).filter(p=>dist(...p,c)<=radius&&sim.isNpcWalkableCell(k,...p)&&tag(nearest(cities(k),...p))===tag(c));
+ const owner=sim.kingdoms[k.id]||k,stamp=sim.age+':'+(sim.__kw2TopologyRevision||0)+':'+k.territory.size;
+ if(owner.__kw2LocalCache?.stamp!==stamp)owner.__kw2LocalCache={stamp,values:new Map()};
+ const cache=owner.__kw2LocalCache.values,id=tag(c)+':'+radius;if(cache.has(id))return cache.get(id);
+ const cs=cities(k),cells=[...k.territory].map(t=>t.split(',').map(Number)).filter(p=>dist(...p,c)<=radius&&sim.isNpcWalkableCell(k,...p)&&tag(nearest(cs,...p))===tag(c));cache.set(id,cells);return cells;
 }
 function chooseHome(sim,k){
  const weights=allocation(k,Math.min(k.pop,sim.visibleCitizenLimit(k)));
