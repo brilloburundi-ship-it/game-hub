@@ -2037,7 +2037,7 @@
       else if (act === 'dragon') { await sim.gift(name, 'Dragon', 1); feed(name, '🐉 Dragon'); }
       else if (act === 'universe') { await sim.gift(name, 'Universe', 1); feed(name, '🌠 Universe'); }
       else if (act === 'boost') sim.boost30();
-      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { if(sim.attack(a, target))feed(name, `ATTACK ${target.name}`);else toast('War unavailable: active war, alliance or no land route'); } else toast('At least two non-allied kingdoms are required'); }
+      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k) && (sim.__kw2CivilizationWar?.canFight?.(a,k) ?? true)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { if(sim.attack(a, target))feed(name, `ATTACK ${target.name}`);else toast('War unavailable: active war, alliance or no land route'); } else toast('At least two non-allied kingdoms are required'); }
       else if (act === 'ally') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.find(k => k.alive && k !== a && !sim.areAllied(a, k)); if (target) sim.ally(a, target); else toast('No kingdom is available for a new alliance'); }
     });
     const chatForm = $('#chatForm');
