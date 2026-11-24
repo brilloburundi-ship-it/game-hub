@@ -1,4 +1,4 @@
-const CACHE = 'kw2-kw3-heraldic-walls-1';
+const CACHE = 'kw2-kw3-startup-recovery-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
@@ -32,7 +32,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys()
-    .then(keys => Promise.all(keys.filter(k => k.startsWith('kw2-') && k !== CACHE).map(k => caches.delete(k))))
+    .then(keys => Promise.all(keys.filter(k => k.startsWith('kw2-kw3-') && k !== CACHE).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
 
