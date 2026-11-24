@@ -1,4 +1,4 @@
-const CACHE = 'kw2-kw3-working-gates-1';
+const CACHE = 'kw2-kw3-heraldic-walls-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
