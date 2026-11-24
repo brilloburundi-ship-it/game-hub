@@ -1987,18 +1987,43 @@
     }
   }
 
+  async function loadStartupJSON(path) {
+    let lastError;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const url = new URL(path, document.baseURI);
+        if (attempt) url.searchParams.set('kw3retry', String(Date.now()));
+        const response = await fetch(url.href, { cache: attempt ? 'reload' : 'default', signal: controller.signal });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+      } finally { clearTimeout(timer); }
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 300 + 350 * attempt));
+    }
+    // A prior successful cached copy may still be usable after a transient network error.
+    try {
+      if (window.caches) {
+        const cached = await caches.match(new URL(path, document.baseURI).href, {ignoreSearch:true});
+        if (cached?.ok) return await cached.json();
+      }
+    } catch (_) {}
+    throw new Error(path + ': ' + (lastError?.message || String(lastError)));
+  }
   async function boot() {
     try {
       const [world, bm, nm] = await Promise.all([
-        fetch('assets/map/world.json').then(r => r.json()),
-        fetch('assets/buildings/manifest.json').then(r => r.json()),
-        fetch('assets/minifolks/manifest.json').then(r => r.json())
+        loadStartupJSON('assets/map/world.json'),
+        loadStartupJSON('assets/buildings/manifest.json'),
+        loadStartupJSON('assets/minifolks/manifest.json')
       ]);
       const renderer = window.PIXI ? new PixiRenderer(world, bm, nm) : new CanvasRenderer(world, bm, nm);
       if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init(); wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
-      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
-    } catch (err) { console.error(err); $('#loading').innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err.message)}</span>`; }
+      $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 3 loaded');
+    } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw3RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry / Riprova</button>`; $('#kw3RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
   }
 
   function wire(sim, r) {
