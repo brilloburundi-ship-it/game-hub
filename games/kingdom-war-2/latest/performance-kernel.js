@@ -314,7 +314,7 @@
       const candidates = frontierFor(kingdom).slice();
       if (!candidates.length) return false;
       const target = kingdom.aggressive != null ? this.kingdoms[kingdom.aggressive] : null;
-      const cell = this.pickExpansionCell?.(kingdom, candidates, kingdom.territory.size, target);
+      const cell = this.pickExpansionCell?.(kingdom, candidates.filter(([x,y])=>!this.isRiver(x,y)), kingdom.territory.size, target);
       if (!cell) return false;
       const [x, y] = cell;
       this.setOwner(x, y, kingdom.id);
@@ -330,7 +330,7 @@
     sim.addBuilding = function(kingdom, type, x, y, forceCastle = false, instant = false, ...rest) {
       if (type === 'port') {
         const direction = portDirection(kingdom, x, y);
-        if (hasPort(kingdom) || !direction) {
+        if (!direction || kingdom.buildings.some(b=>b.type==='port'&&aliveBuilding(b)&&Math.hypot(b.x-x,b.y-y)<10)) {
           state.portsRejected++;
           return null;
         }

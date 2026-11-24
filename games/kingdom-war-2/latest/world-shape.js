@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20261124-world-atlas-1';
+  const VERSION = '20261124-oceans-1';
   if (window.__GOD_WORLD_LATEST_SHAPE?.installed) return;
 
   const state = window.__GOD_WORLD_LATEST_SHAPE = {
@@ -275,14 +275,20 @@
     // isthmuses. Islands remain wilderness, not unreachable player capitals.
     for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
       const [u,v]=uv(x,y);
-      const noise=.055*Math.sin(u*23+v*12)+.035*Math.cos(v*31-u*7)+.023*Math.sin(u*51-v*22);
+      const noise=.045*Math.sin(u*23+v*12)+.030*Math.cos(v*31-u*7)+.017*Math.sin(u*51-v*22);
+      const gx=x/(W-1),gy=y/(H-1);
       const continental=Math.max(
-        ellipse(u,v,-.37,-.04,.39,.43),
-        ellipse(u,v,.30,-.11,.43,.43),
-        ellipse(u,v,.10,.39,.34,.38),
-        ellipse(u,v,-.02,.06,.32,.19),
-        ellipse(u,v,.24,.17,.17,.25));
-      const islands=Math.max(ellipse(u,v,-.62,.22,.075,.12),ellipse(u,v,-.39,.47,.07,.09),ellipse(u,v,.56,.31,.08,.11),ellipse(u,v,.06,-.61,.09,.07),ellipse(u,v,.34,-.60,.045,.075),ellipse(u,v,-.13,.65,.065,.07));
+        ellipse(gx,gy,.32,.43,.265,.34),
+        ellipse(gx,gy,.39,.30,.19,.22),
+        ellipse(gx,gy,.81,.44,.135,.28),
+        ellipse(gx,gy,.77,.25,.13,.15));
+      const islands=Math.max(
+        ellipse(gx,gy,.27,.88,.12,.07),
+        ellipse(gx,gy,.60,.83,.13,.105),
+        ellipse(gx,gy,.86,.83,.075,.09),
+        ellipse(gx,gy,.64,.12,.064,.08),
+        ellipse(gx,gy,.10,.12,.058,.064),
+        ellipse(gx,gy,.63,.52,.032,.046));
       if(Math.max(continental,islands)+noise<0)continue;
       land[y][x]=1;
       const n=Math.sin(u*15+v*9)*.45+Math.cos(v*19-u*7)*.34+Math.sin(u*31+v*29)*.21;
@@ -310,10 +316,10 @@
     }
     outlets.sort((a,b)=>hash01(...a,77)-hash01(...b,77));
     for(const start of outlets){
-      if(rivers.length>=5)break;
+      if(rivers.length>=8)break;
       if(rivers.some(r=>Math.hypot(r[0][0]-start[0],r[0][1]-start[1])<14))continue;
       const path=[start],seen=new Set([key(...start)]);
-      for(let i=0;i<10;i++){
+      for(let i=0;i<15;i++){
         const [x,y]=path[path.length-1];
         const options=dirs.map(([dx,dy])=>[x+dx,y+dy]).filter(([a,b])=>inBounds(w,a,b)&&land[b][a]&&!seen.has(key(a,b))&&!used.has(key(a,b))&&coast[b][a]>=coast[y][x]);
         options.sort((a,b)=>(coast[b[1]][b[0]]+hash01(...b,17)*.8)-(coast[a[1]][a[0]]+hash01(...a,17)*.8));
@@ -336,7 +342,7 @@
     state.atlas=true;state.islands=true;state.rivers=rivers.length;
     return true;
   }
-  window.__KW2_WORLD_ATLAS={reshape,version:'20261124-world-atlas-1'};
+  window.__KW2_WORLD_ATLAS={reshape,version:'20261124-oceans-1'};
 
   function loops(mask) {
     const h = mask.length, w = h ? mask[0].length : 0;

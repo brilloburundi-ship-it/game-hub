@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
@@ -11,36 +11,36 @@
   <link rel="stylesheet" href="styles.css?v=20260813-kw2-minifolks-1" />
   <link rel="stylesheet" href="v65-overrides.css?v=20260813-kw2-minifolks-1" />
   <title>Kingdom War 2</title>
-  <link rel="stylesheet" href="kw2-royal-hud.css?v=20261124-atlas-1" />
+  <link rel="stylesheet" href="kw2-royal-hud.css?v=20261124-oceans-1" />
 </head>
 <body>
   <div id="game"></div>
   <div id="loading"><div class="crest">♜</div><strong>Kingdom War 2</strong><span>Generating the world…</span></div>
 
   <header class="hud topbar">
-    <div class="brand"><span class="royal-crown" aria-hidden="true">♛</span><span class="royal-swords" aria-hidden="true">⚔</span><b>Kingdom War II</b><small>GUERRE · CONQUISTE · ESPANSIONE</small></div><button id="royalHudToggle" type="button" aria-label="Nascondi o mostra interfaccia" aria-pressed="false">HUD</button>
-    <div class="stats"><span class="age-title">World Age</span><span id="age">0:00</span><span id="fps">60 FPS</span><span id="players">0 kingdoms</span></div>
+    <div class="brand"><span class="royal-crown" aria-hidden="true">♛</span><span class="royal-swords" aria-hidden="true">⚔</span><b>Kingdom War II</b><small>WAR · CONQUEST · EXPLORATION</small></div><button id="royalHudToggle" type="button" aria-label="Toggle interface" aria-pressed="false">HUD</button>
+    <div class="stats"><span class="age-title">World Age</span><span id="age">0:00</span><span id="fps">60 FPS</span><span id="players">0 kingdoms</span><span id="royalCities">0 cities</span><span id="royalShips">0 ships</span></div>
     <div class="bridge command-rotator"><span id="commandIcon">&#128081;</span><span id="bridgeText">JOIN = create your kingdom</span></div>
   </header>
 
-  <section id="royalTotals" class="hud royal-frame" aria-label="Risorse del mondo">
- <div><span>👥</span><small>Popolazione</small><b id="totalPop">0</b></div><div><span>🪙</span><small>Oro</small><b id="totalGold">0</b></div><div><span>🌾</span><small>Cibo</small><b id="totalFood">0</b></div><div><span>🪨</span><small>Pietra</small><b id="totalStone">0</b></div><div><span>🪵</span><small>Legna</small><b id="totalWood">0</b></div>
+  <section id="royalTotals" class="hud royal-frame" aria-label="World resources">
+ <div><span>👥</span><small>Population</small><b id="totalPop">0</b></div><div><span>🪙</span><small>Gold</small><b id="totalGold">0</b></div><div><span>🌾</span><small>Food</small><b id="totalFood">0</b></div><div><span>🪨</span><small>Stone</small><b id="totalStone">0</b></div><div><span>🪵</span><small>Wood</small><b id="totalWood">0</b></div>
  </section>
- <aside id="ranking" class="hud panel ranking royal-frame"><button class="royal-heading" id="rankToggle" aria-expanded="true">♛ CLASSIFICA REGNI</button><div id="rankRows"></div></aside>
- <aside id="royalChronicle" class="hud royal-frame"><button class="royal-heading" id="chronicleToggle" aria-expanded="true">CRONACHE DEL REGNO</button><div id="royalEvents" aria-live="polite"><p>Il mondo attende i suoi sovrani.</p></div></aside>
- <section id="royalWar" class="hud royal-frame hidden" aria-label="Guerra in corso">
- <strong class="war-ribbon">⚔ GUERRA IN CORSO ⚔</strong>
- <div class="royal-duel"><button id="warA" class="royal-side"><b id="warAName">—</b><small id="warAUnits">0 soldati</small></button><span class="versus">VS</span><button id="warB" class="royal-side"><b id="warBName">—</b><small id="warBUnits">0 soldati</small></button></div>
- <div class="royal-balance" role="img" aria-label="Rapporto di potenza"><div id="warFillA"></div><div id="warFillB"></div></div><small id="warPhase">Mobilitazione</small>
+ <aside id="ranking" class="hud panel ranking royal-frame"><button class="royal-heading" id="rankToggle" aria-expanded="true">♛ KINGDOM RANKING</button><div id="rankRows"></div></aside>
+ <aside id="royalChronicle" class="hud royal-frame"><button class="royal-heading" id="chronicleToggle" aria-expanded="true">WORLD CHRONICLE</button><div id="royalEvents" aria-live="polite"><p>Type JOIN in chat to found your kingdom.</p></div></aside>
+ <section id="royalWar" class="hud royal-frame hidden" aria-label="War in progress">
+ <strong class="war-ribbon">⚔ WAR IN PROGRESS ⚔</strong>
+ <div class="royal-duel"><button id="warA" class="royal-side"><b id="warAName">—</b><small id="warAUnits">0 soldiers</small></button><span class="versus">VS</span><button id="warB" class="royal-side"><b id="warBName">—</b><small id="warBUnits">0 soldiers</small></button></div>
+ <div class="royal-balance" role="img" aria-label="Power balance"><div id="warFillA"></div><div id="warFillB"></div></div><small id="warPhase">Mobilization</small>
  </section>
- <section id="royalGifts" class="hud royal-frame"><button class="royal-heading" id="giftsToggle" aria-expanded="true">INTERAZIONI IN DIRETTA · TikTok</button><div id="royalGiftItems">
- <button data-royal-action="join" title="Test: fonda un regno"><span>🏰</span><b>JOIN</b><small>Fonda regno</small></button>
- <button data-royal-action="like"><span>❤️</span><b>LIKE</b><small>+ potenza</small></button>
- <button data-royal-action="rose"><span>🌹</span><b>ROSA</b><small>Cibo e oro</small></button>
- <button data-royal-action="fireworks"><span>🎆</span><b>FIREWORKS</b><small>Risorse</small></button>
- <button data-royal-action="lion"><span>🦁</span><b>LEONE</b><small>Città e truppe</small></button>
- <button data-royal-action="universe"><span>👑</span><b>UNIVERSE</b><small>Grande sviluppo</small></button>
- </div><div id="royalTestNote">Tocca un'icona per simulare un evento del giocatore TEST.</div></section>
+ <section id="royalGifts" class="hud royal-frame"><button class="royal-heading" id="giftsToggle" aria-expanded="true">LIVE INTERACTIONS · TikTok</button><div id="royalCommands"><b>PLAY FREE</b> · JOIN · BUILD · EXPAND · COLONIZE · TRADE · ATTACK name · ALLY name</div><div id="royalGiftItems">
+ <button data-royal-action="join" title="Test: found a kingdom"><span>🏰</span><b>JOIN</b><small>Found kingdom</small></button>
+ <button data-royal-action="like"><span>❤️</span><b>LIKE</b><small>+ power</small></button>
+ <button data-royal-action="rose"><span>🌹</span><b>ROSE</b><small>Food &amp; gold</small></button>
+ <button data-royal-action="fireworks"><span>🎆</span><b>FIREWORKS</b><small>Resources</small></button>
+ <button data-royal-action="lion"><span>🦁</span><b>LION</b><small>City & troops</small></button>
+ <button data-royal-action="universe"><span>👑</span><b>UNIVERSE</b><small>Major growth</small></button>
+ </div><div id="royalGiftDetail" aria-live="polite">Gifts support your kingdom. No gift is required to play.</div><div id="royalTestNote">TEST only: choose a player and tap a gift to simulate it.</div></section>
 
   <section id="kingdomCard" class="hud panel kingdom-card hidden">
     <div class="k-eyebrow">KINGDOM IN FOCUS</div>
@@ -70,7 +70,7 @@
     <button id="toggleTest">TEST</button>
     <div class="test-inner">
       <input id="testName" value="Player" maxlength="18" />
-      <button data-test="join">JOIN</button><button data-test="like">LIKE ×20</button><button data-test="follow">FOLLOW</button><button data-test="rose">ROSE</button><button data-test="ice">ICE CREAM</button><button data-test="fireworks">FIREWORKS</button><button data-test="swan">SWAN</button><button data-test="concert">CONCERT</button><button data-test="money">MONEY GUN</button><button data-test="jet">PRIVATE JET</button><button data-test="meteor">METEOR</button><button data-test="car">SPORTS CAR</button><button data-test="galaxy">GALAXY</button><button data-test="lion">LION</button><button data-test="dragon">DRAGON</button><button data-test="universe">UNIVERSE</button><button data-test="attack">ATTACK</button><button data-test="ally">ALLY</button><button data-test="boost">+30s</button>
+      <button data-test="join">JOIN</button><button data-test="like">LIKE ×20</button><button data-test="follow">FOLLOW</button><button data-test="rose">ROSE</button><button data-test="ice">ICE CREAM</button><button data-test="fireworks">FIREWORKS</button><button data-test="swan">SWAN</button><button data-test="concert">CONCERT</button><button data-test="money">MONEY GUN</button><button data-test="jet">PRIVATE JET</button><button data-test="meteor">METEOR</button><button data-test="car">SPORTS CAR</button><button data-test="galaxy">GALAXY</button><button data-test="lion">LION</button><button data-test="dragon">DRAGON</button><button data-test="universe">UNIVERSE</button><button data-test="attack">ATTACK</button><button data-test="ally">ALLY</button><button data-test="boost">+30s</button><button data-test="colonize">COLONIZE</button><button data-test="trade">TRADE</button><button data-test="build">BUILD</button><button data-test="status">STATUS</button>
     </div>
   </section>
 
@@ -78,17 +78,17 @@
   <div class="zoom hud"><button id="homeCam" aria-label="Show the whole map">⌂</button></div>
 
   <!-- One atomic V8 release. World data and visual assets are unchanged. -->
-  <script>window.__GOD_WORLD_RELEASE='10.1.0-world-atlas';window.__GOD_WORLD_RELEASE_TOKEN='20261124-kw2-world-atlas-1';</script>
+  <script>window.__GOD_WORLD_RELEASE='10.2.0-oceans-and-cities';window.__GOD_WORLD_RELEASE_TOKEN='20261124-kw2-oceans-and-cities-1';</script>
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js"></script>
   <script src="latest/runtime-stability.js?v=20260813-kw2-minifolks-1"></script>
   <script src="asset-recovery.js?v=20261124-kw2-living-civilizations-1"></script>
-  <script src="latest/world-npc-expansion.js?v=20260813-kw2-minifolks-1"></script>
-  <script src="game.js?v=20261124-kw2-living-civilizations-1"></script>
+  <script src="latest/world-npc-expansion.js?v=20261124-oceans-1"></script>
+  <script src="game.js?v=20261124-oceans-1"></script>
   <script src="latest/world-base.js?v=20260813-kw2-minifolks-1"></script>
-  <script src="latest/world-shape.js?v=20261124-atlas-1"></script>
+  <script src="latest/world-shape.js?v=20261124-oceans-1"></script>
   <script src="latest/flora-loader.js?v=20260813-kw2-minifolks-1"></script>
   <script src="lan-bridge.js?v=20261124-kw2-living-civilizations-1"></script>
-  <script src="interface-v63.js?v=20261124-atlas-1"></script>
+  <script src="interface-v63.js?v=20261124-oceans-1"></script>
   <script src="world-effects.js?v=20260813-kw2-minifolks-1"></script>
   <script src="music.js?v=20260813-kw2-minifolks-1"></script>
   <script src="living-kingdoms-v65.js?v=20260813-kw2-minifolks-1"></script>
@@ -115,10 +115,11 @@
   <script src="latest/farmer-direction.js?v=20260813-kw2-minifolks-1"></script>
   <script src="latest/building-scale.js?v=20260813-kw2-minifolks-1"></script>
   <script src="latest/live-power.js?v=20260813-kw2-minifolks-1"></script>
-  <script src="latest/performance-kernel.js?v=20261124-kw2-living-civilizations-1"></script>
+  <script src="latest/performance-kernel.js?v=20261124-oceans-1"></script>
   <script src="minifolks-world.js?v=20260813-kw2-minifolks-1"></script>
-  <script src="kw2-fortifications.js?v=20261124-kw2-living-civilizations-1"></script>
-  <script src="kw2-civilization-war.js?v=20261124-atlas-1"></script>
-  <script src="kw2-royal-hud.js?v=20261124-atlas-1"></script>
+  <script src="kw2-fortifications.js?v=20261124-oceans-1"></script>
+  <script src="kw2-civilization-war.js?v=20261124-oceans-1"></script>
+  <script src="kw2-royal-hud.js?v=20261124-oceans-1"></script>
+  <script src="kw2-maritime-cities.js?v=20261124-oceans-1"></script>
 </body>
 </html>

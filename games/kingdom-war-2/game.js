@@ -8,12 +8,12 @@
   const pick = a => a[(Math.random() * a.length) | 0];
   const key = (x, y) => `${x},${y}`;
 
-  const COLORS = [0x27a7ff, 0xff594f, 0xffc928, 0x58d26f, 0xb66cff, 0xff8a34, 0x23d6c1, 0xf45da2, 0x9dcf3e, 0x5c77ff, 0xd99c42, 0xe4e4e4];
+  const COLORS = [0x27a7ff, 0xff594f, 0xffc928, 0x58d26f, 0xb66cff, 0xff8a34, 0x23d6c1, 0xf45da2, 0x9dcf3e, 0x5c77ff, 0xd99c42, 0xe4e4e4, 0x376b9f, 0xc84a8a, 0x70b9a5, 0xa35329, 0x8c7ee8, 0xe2a69c, 0x88a348, 0x66bfdc];
   const COLORCSS = COLORS.map(c => '#' + c.toString(16).padStart(6, '0'));
   const NAMES = ['Greenvale', 'Highrock', 'Brightwood', 'Moonstone', 'Riverhold', 'Goldfield', 'Bluepeak', 'Royal Oak'];
   const MAX_VISIBLE_FARMERS = 24;
   const MAX_GIFT_VISIBLE_FARMERS = 36;
-  const MAX_MATCH_KINGDOMS = 12;
+  const MAX_MATCH_KINGDOMS = 20;
   const VICTORY_RESTART_MS = 10000;
   const FARMER_WORLD_HEIGHT = 18;
   const MINIFOLK_TEAM_LIGHT = '#6098E8';
@@ -79,6 +79,7 @@
   class Simulation {
     constructor(world, renderer) {
       this.w = world;
+      this.maxKingdoms = MAX_MATCH_KINGDOMS;
       this.r = renderer;
       this.kingdoms = [];
       this.kingdomByName = new Map();
@@ -104,7 +105,7 @@
     isRiver(x, y) { return this.riverSet.has(key(x, y)); }
     neigh(x, y) { return [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]].filter(([a, b]) => this.land(a, b)); }
     getOwner(x, y) { return this.inBounds(x, y) ? this.owner[this.idx(x, y)] : -99; }
-    setOwner(x, y, id) { if (this.inBounds(x, y)) this.owner[this.idx(x, y)] = id; }
+    setOwner(x, y, id) { if (this.inBounds(x, y) && (id < 0 || (this.land(x,y) && !this.isRiver(x,y)))) this.owner[this.idx(x, y)] = id; }
     iso(x, y) { return [this.w.originX + (x - y) * this.w.tileW / 2, this.w.originY + (x + y) * this.w.tileH / 2]; }
     coastDistance(x, y) { return this.w.coastDistance?.[y]?.[x] ?? 0; }
 
@@ -216,7 +217,7 @@
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           if (Math.abs(dx) + Math.abs(dy) !== r) continue;
           const a = x + dx, b = y + dy;
-          if (!this.land(a, b) || this.getOwner(a, b) !== -1) continue;
+          if (!this.land(a, b) || this.isRiver(a,b) || this.getOwner(a, b) !== -1) continue;
           cells.push([a, b]);
         }
       }
@@ -237,9 +238,9 @@
       if (existing && existing.alive) {
         this.select(existing); this.r.focusCell(...existing.capital); toast(`${name} is already in the world`); return existing;
       }
-      if (existing && !existing.alive) { toast(`${name}: eliminated until the next world`); return null; }
+      if (existing && !existing.alive) { if(this.age-(existing.__kw2FallenAt??this.age)<60){toast(`${name}: you can JOIN again after 60 seconds`);return null;}this.kingdomByName.delete(nameKey); }
       const occupiedSlots = this.kingdoms.filter(k => k.alive || k.founding).length;
-      if (this.roundEntrants >= MAX_MATCH_KINGDOMS || occupiedSlots >= MAX_MATCH_KINGDOMS) {
+      if (occupiedSlots >= MAX_MATCH_KINGDOMS) {
         toast(`World full: maximum ${MAX_MATCH_KINGDOMS} kingdoms this round`);
         return null;
       }
@@ -377,6 +378,7 @@
     }
 
     async addBuilding(k, type, x, y, forceCastle = false, instant = false) {
+      if (!this.land(x,y) || this.isRiver(x,y) || this.getOwner(x,y) !== k.id) return null;
       if (!forceCastle) {
         if (!this.isBuildableCell(x, y, type) || this.getOwner(x, y) !== k.id || this.buildingAt(x, y)) return null;
       }
@@ -896,7 +898,7 @@
       if (!loser?.alive) return false;
       const castle = loser.buildings.find(building => building.type === 'castle' && !building.__v66Destroyed);
       this.r.notifyCameraCastleDestruction?.(castle, loser, winner, 10);
-      loser.alive = false;
+      loser.alive = false; loser.__kw2FallenAt=this.age; if(loser.__kw2Fort)delete loser.__kw2Fort.assigned;
       loser.aggressive = null;
       const fallenCells = new Set([...loser.territory, key(loser.capital[0], loser.capital[1])]);
       for (const s of fallenCells) {
@@ -932,9 +934,8 @@
     checkVictory() {
       if (this.matchOver || !this.matchStarted) return false;
       const contenders = this.kingdoms.filter(k => k.alive && !k.founding && k.territory.size > 0 && k.buildings.some(b => b.type === 'castle' && !b.__v66Destroyed));
-      if (contenders.length !== 1) return false;
-      this.showVictory(contenders[0]);
-      return true;
+      if (contenders.length !== 1) {this.__kw2LastChampion=null;return false;}
+      const winner=contenders[0];if(this.__kw2LastChampion!==winner.id){this.__kw2LastChampion=winner.id;toast('👑 '+winner.name+' rules the world — new kingdoms may JOIN');feed('WORLD',winner.name+' is the reigning champion');}return false;
     }
 
     showVictory(winner) {
@@ -971,7 +972,7 @@
     claimGiftLand(k, amount) {
       const wanted = Math.max(0, amount | 0), frontier = new Map();
       const addFrontier = (x, y) => {
-        if (this.getOwner(x, y) === -1 && this.land(x, y)) frontier.set(key(x, y), [x, y]);
+        if (this.getOwner(x, y) === -1 && this.land(x, y) && !this.isRiver(x,y)) frontier.set(key(x, y), [x, y]);
       };
       for (const token of k.territory) {
         const [x, y] = token.split(',').map(Number);
@@ -1994,7 +1995,7 @@
       const timer = setTimeout(() => controller.abort(), 12000);
       try {
         const url = new URL(path, document.baseURI);
-        if (attempt) url.searchParams.set('kw3retry', String(Date.now()));
+        if (attempt) url.searchParams.set('kw2retry', String(Date.now()));
         const response = await fetch(url.href, { cache: attempt ? 'reload' : 'default', signal: controller.signal });
         if (!response.ok) throw new Error('HTTP ' + response.status);
         return await response.json();
@@ -2023,9 +2024,10 @@
       if (!window.PIXI) toast('Canvas compatibility mode — PixiJS unavailable');
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init();
       if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar&&!window.__KW2_CIVILIZATION_ERROR;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed: '+(window.__KW2_CIVILIZATION_ERROR||'timeout'));}
+      if (window.PIXI && !window.__KW2_MARITIME?.install(sim)) throw new Error('Maritime engine unavailable');
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
-    } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry / Riprova</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
+    } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
   }
 
   function wire(sim, r) {
@@ -2034,7 +2036,8 @@
     $('#homeCam').onclick = () => r.home(); $('#toggleTest').onclick = () => $('#testPanel').classList.toggle('collapsed');
     $$('[data-test]').forEach(b => b.onclick = async () => {
       const name = $('#testName').value.trim() || 'Player', act = b.dataset.test;
-      if (act === 'join') await sim.join(name);
+      if (['colonize','trade','build','status'].includes(act)) await sim.__kw2WorldCommand?.(name,act);
+      else if (act === 'join') await sim.join(name);
       else if (act === 'like') { sim.like(name, 20); feed(name, '❤️ ×20'); }
       else if (act === 'follow') { sim.follow(name); feed(name, 'FOLLOW'); }
       else if (act === 'rose') { await sim.gift(name, 'Rose', 1); feed(name, '🌹 Rose'); }
@@ -2046,7 +2049,7 @@
       else if (act === 'dragon') { await sim.gift(name, 'Dragon', 1); feed(name, '🐉 Dragon'); }
       else if (act === 'universe') { await sim.gift(name, 'Universe', 1); feed(name, '🌠 Universe'); }
       else if (act === 'boost') sim.boost30();
-      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { sim.attack(a, target); feed(name, `ATTACK ${target.name}`); } else toast('At least two non-allied kingdoms are required'); }
+      else if (act === 'attack') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.filter(k => k.alive && k !== a && !sim.areAllied(a, k)).sort((x, y) => sim.power(y) - sim.power(x))[0]; if (target) { if(sim.attack(a, target))feed(name, `ATTACK ${target.name}`);else toast('War unavailable: active war, alliance or no land route'); } else toast('At least two non-allied kingdoms are required'); }
       else if (act === 'ally') { const a = sim.kingdomByName.get(name.toLowerCase()); if (!a) { toast('Create your kingdom with JOIN first'); return; } const target = sim.kingdoms.find(k => k.alive && k !== a && !sim.areAllied(a, k)); if (target) sim.ally(a, target); else toast('No kingdom is available for a new alliance'); }
     });
     const chatForm = $('#chatForm');
@@ -2058,8 +2061,9 @@
   async function processComment(sim, user, comment) {
     feed(user, comment); const c = comment.trim();
     if (/^join$/i.test(c)) return sim.join(user);
+    if (/^(colonize|build|status|trade(?:\s+.*)?)$/i.test(c)) return sim.__kw2WorldCommand?.(user,c);
     const m = c.match(/^attack\s+@?(.+)$/i);
-    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b); }
+    if (m) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(m[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${m[1].trim()} not found`); return sim.attack(a, b) || toast('War unavailable: active war or no land route'); }
     const alliance = c.match(/^ally\s+@?(.+)$/i);
     if (alliance) { const a = sim.kingdomByName.get(user.toLowerCase()), b = sim.kingdomByName.get(alliance[1].trim().toLowerCase()); if (!a) return toast(`${user}: type JOIN first`); if (!b) return toast(`Kingdom ${alliance[1].trim()} not found`); return sim.ally(a, b); }
     if (/^expand$/i.test(c)) { const k = sim.kingdomByName.get(user.toLowerCase()); if (k) { k.resources.food += 10; k.resources.wood += 8; k.lastExpand = 0; } }

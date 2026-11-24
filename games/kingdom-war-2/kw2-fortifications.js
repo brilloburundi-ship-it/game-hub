@@ -130,7 +130,7 @@ function candidate(sim,x,y,r){
 }
 function reserveSites(sim){
  if(sim.__kw2FortSlots)return sim.__kw2FortSlots;
- const small=[],large=[];
+ const small=[],large=[],limit=sim.maxKingdoms||12;
  for(let y=4;y<sim.w.gridH-4;y++)for(let x=4;x<sim.w.gridW-4;x++){
   const p=candidate(sim,x,y,2);if(p)small.push(p);
   const q=candidate(sim,x,y,3);if(q)large.push(q);
@@ -152,14 +152,14 @@ function reserveSites(sim){
  // Prefer three roomy castles, but never sacrifice capacity for twelve kingdoms.
  for(let i=0;i<Math.min(24,large.length);i++){
   const seed=large[Math.floor(i*large.length/Math.min(24,large.length))];
-  const chosen=fill(fill([seed],large,3),small,12);
+  const chosen=fill(fill([seed],large,3),small,limit);
   if(chosen.length>best.length)best=chosen;
-  if(best.length===12)break;
+  if(best.length===limit)break;
  }
- if(best.length<12)for(let i=0;i<Math.min(16,small.length);i++){
-  const chosen=fill([small[Math.floor(i*small.length/Math.min(16,small.length))]],small,12);
+ if(best.length<limit)for(let i=0;i<Math.min(16,small.length);i++){
+  const chosen=fill([small[Math.floor(i*small.length/Math.min(16,small.length))]],small,limit);
   if(chosen.length>best.length)best=chosen;
-  if(best.length===12)break;
+  if(best.length===limit)break;
  }
  sim.__kw2FortSlots=best;return best;
 }
@@ -200,22 +200,35 @@ function frontier(sim,k){
 }
 const costs={wall:{wood:8,stone:9},gate:{wood:22,stone:16},stone_tower:{wood:20,stone:27}};
 async function construction(sim,k){
- if(!k.__kw2Fort||atWar(sim,k)||sim.age-(k.__kw2LastWall??-9)<2)return false;
+ if(!k.__kw2Fort||atWar(sim,k)||k.__kw2WallBusy||sim.age-(k.__kw2LastWall??-9)<4)return false;
  const p=k.__kw2Fort;
- const missing=p.cells.filter(c=>sim.getOwner(c.x,c.y)===k.id&&!sim.buildingAt(c.x,c.y));
+ const missing=p.cells.filter(c=>!k.buildings.some(b=>alive(b)&&b.x===c.x&&b.y===c.y&&b.type===c.type));
  if(!missing.length)return false;
- // Gatehouses and corner towers first, then wall runs grow from existing structures.
- missing.sort((a,b)=>(a.type==='gate'?0:a.type==='stone_tower'?1:2)-(b.type==='gate'?0:b.type==='stone_tower'?1:2));
- // Never consume the last timber and stone needed for a house or farm.
- const young=k.pop<12,buffer={wood:young?55:25,stone:young?8:4};
- const c=missing.find(c=>Object.entries(costs[c.type]).every(([r,n])=>k.resources[r]>=n+(buffer[r]||0)));
- if(!c)return false;
- const b=await sim.addBuilding(k,c.type,c.x,c.y,true,true);if(!b)return false;
- for(const [r,n] of Object.entries(costs[c.type]))k.resources[r]-=n;
- b.maxHp=b.hp=c.type==='gate'?260:c.type==='stone_tower'?300:180;
- b.__kw2Fortification=true;b.__kw2WallAxis=c.axis;k.__kw2LastWall=sim.age;
- style(sim,k,b,c);sim.r.puff?.(b.sx,b.sy);
- return true;
+ // Wait until the complete run is possible, rather than leave scattered panels for minutes.
+ if(missing.some(c=>sim.getOwner(c.x,c.y)!==k.id||!sim.land(c.x,c.y)||sim.isRiver?.(c.x,c.y)||sim.buildingAt(c.x,c.y)))return false;
+ const bill={wood:0,stone:0};
+ for(const c of missing)for(const [r,n] of Object.entries(costs[c.type]))bill[r]+=n;
+ if(k.resources.wood<bill.wood+55||k.resources.stone<bill.stone+8)return false;
+ const created=[];k.__kw2WallBusy=true;
+ try{
+  for(const c of missing){
+   const b=await sim.addBuilding(k,c.type,c.x,c.y,true,true);
+   if(!b)throw Error('Fortification placement failed');
+   b.maxHp=b.hp=c.type==='gate'?260:c.type==='stone_tower'?300:180;
+   b.__kw2Fortification=true;b.__kw2WallAxis=c.axis;
+   created.push(b);style(sim,k,b,c);
+   if(b._sprite)b._sprite.alpha=0;
+  }
+  for(const b of created)if(b._sprite)b._sprite.alpha=1;
+  for(const [r,n] of Object.entries(bill))k.resources[r]-=n;
+  k.__kw2LastWall=sim.age;sim.r.puff?.(...sim.iso(p.x,p.y));
+  return true;
+ }catch(error){
+  for(const b of created){if(sim.discardBuilding)sim.discardBuilding(k,b);else{k.buildings=k.buildings.filter(v=>v!==b);sim.r.destroyBuilding?.(b);}}
+  sim.__v800Performance?.rebuildBuildingIndex?.();
+  sim.__kw2TopologyRevision=(sim.__kw2TopologyRevision||0)+1;
+  console.warn('[KW2 perimeter rollback]',error);return false;
+ }finally{k.__kw2WallBusy=false;}
 }
 function gateRequest(sim,side,b){
  const k=sim.kingdoms[b.owner],own=sim.kingdoms[side];
@@ -230,8 +243,8 @@ function gateUpdate(sim,dt){
    for(const f of k.farmers||[]){
     if((f.path||[]).slice(0,2).some(c=>c[0]===b.x&&c[1]===b.y)||Math.hypot(f.x-b.sx,f.y-b.sy)<13)gateRequest(sim,k.id,b);
    }
-   const value=b.__kw2GateOpen||0,want=(b.__kw2GateHold||0)>(sim.__kw2Clock||0);
-   b.__kw2GateOpen=Math.max(0,Math.min(1,value+(want?5:-3)*dt));
+   const want=(b.__kw2GateHold||0)>(sim.__kw2Clock||0);
+   b.__kw2GateOpen=Math.max(0,Math.min(1,(b.__kw2GateOpen||0)+(want?10:-10)*dt));
    style(sim,k,b,wallAt(k,b.x,b.y));
   }
  }
@@ -243,6 +256,7 @@ function install(sim){
  sim.freeSpawn=function(){return chooseSpawn(this);};
  const oldAdd=sim.addBuilding.bind(sim);
  sim.addBuilding=async function(k,type,x,y,...rest){
+  if(!this.land(x,y)||this.isRiver?.(x,y)||this.getOwner(x,y)!==k.id)return null;
   if(type==='castle'&&!k.__kw2Fort){
    const p=this.__kw2FortSlots?.find(slot=>slot.x===x&&slot.y===y&&slot.assigned==null)||this.__kw2PendingFort;
    if(p&&p.x===x&&p.y===y){k.__kw2Fort=p;p.assigned=k.id;}
@@ -281,7 +295,7 @@ function install(sim){
   return best;
  };
  const oldPick=sim.pickExpansionCell.bind(sim);
- sim.pickExpansionCell=function(k,candidates,...args){return oldPick(k,candidates.filter(([x,y])=>!reservedBy(this,x,y,k.id)),...args);};
+ sim.pickExpansionCell=function(k,candidates,...args){return oldPick(k,candidates.filter(([x,y])=>!reservedBy(this,x,y,k.id)&&!this.isRiver?.(x,y)),...args);};
  const oldExpand=sim.expandAI.bind(sim);
  sim.expandAI=function(k){
   if(!atWar(this,k)&&this.age-(k.lastExpand||0)>=2&&k.resources.food>=8&&k.resources.wood>=6){
@@ -303,5 +317,5 @@ function install(sim){
  };
  document.documentElement.dataset.kw2Fortifications='progressive-coloured-two-gates';
 }
-window.__KW2_FORT={install,makePlan,chooseSpawn,reserveSites,gateRequest,gateUpdate,style,isReserved,DEF};
+window.__KW2_FORT={install,makePlan,chooseSpawn,reserveSites,gateRequest,gateUpdate,style,isReserved,reservedBy,DEF};
 })();
