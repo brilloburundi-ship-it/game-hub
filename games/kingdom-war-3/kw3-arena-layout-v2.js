@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const VERSION='20261124-kw3-two-gates-1', R=4;
+const VERSION='20261124-kw3-heraldic-walls-1', R=4;
 const key=(x,y)=>`${x},${y}`;
 const DEF=new Set(['wall','wall_corner','gate','stone_tower','watchtower']);
 const live=sim=>(sim.kingdoms||[]).filter(k=>k?.alive&&!k.founding);
@@ -88,17 +88,29 @@ function economySlots(gx,gy){
  return [[-2,-1],[-1,-2],[1,-2],[2,-1],[-2,1],[-1,2],[1,2],[2,1]]
   .sort((a,b)=>(a[0]*gx+a[1]*gy)-(b[0]*gx+b[1]*gy)).slice(0,4);
 }
-// Match the world grid exactly. One reusable pixel texture per axis and type;
-// walls overlap their neighbours by a small amount, not by arbitrary sprite width.
+// Heraldry uses the same palette as the kingdom's existing roofs and units.
+// Cache by faction colour, orientation, decoration and gate frame; no per-frame canvas work.
 const textures=new Map();
-function wallTexture(sim,type,axis,frame=0){
+function kingdomColor(k){
+ if(Number.isFinite(k?.color))return (k.color>>>0)&0xffffff;
+ if(/^#[0-9a-f]{6}$/i.test(k?.css||''))return parseInt(k.css.slice(1),16);
+ return 0x8b8273;
+}
+function mixColor(color,target,amount){
+ const channels=[16,8,0].map(shift=>Math.round(((color>>shift)&255)*(1-amount)+((target>>shift)&255)*amount));
+ return '#'+channels.map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+function heraldry(color){
+ return {main:mixColor(color,0x75685a,.14),dark:mixColor(color,0x171b22,.44),light:mixColor(color,0xfff0cc,.32),gold:'#d9bd79',edge:'#504438'};
+}
+function wallTexture(sim,type,axis,frame=0,color=0x8b8273,decor=false){
  const r=sim.r,P=r.P||window.PIXI,base=r.buildTex?.[type];
  if(!P?.Texture||!base||typeof document.createElement!=='function')return null;
  const scale=r.buildingScale(type,base);
  if(!Number.isFinite(scale)||scale<=0)return null;
  const tw=sim.w.tileW/2,th=sim.w.tileH/2,sign=axis==='x'?1:-1;
  const vx=sign*tw,vy=th, H=type==='gate'?38:28,T=5;
- const cacheKey=[type,axis,tw,th,scale,frame].join('/');
+ const cacheKey=[type,axis,tw,th,scale,frame,color,decor?1:0].join('/');
  if(textures.has(cacheKey))return textures.get(cacheKey);
  const c=document.createElement('canvas'),w=Math.ceil((Math.abs(vx)*1.26+T*2+6)/scale),h=Math.ceil((H+Math.abs(vy)*1.26+T*2+10)/scale);
  c.width=w;c.height=h;const ctx=c.getContext('2d');if(!ctx)return null;
@@ -106,7 +118,7 @@ function wallTexture(sim,type,axis,frame=0){
  ctx.translate(w/2,pivot);ctx.scale(1/scale,1/scale);ctx.imageSmoothingEnabled=false;
  function pt(t,z=0,side=0){return [vx*t+side*T,vy*t-z-side*2.5*sign];}
  function poly(points,fill,stroke='#3b3939'){ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.65;ctx.stroke();}}
- const a=-.63,b=.63,s=sign;
+ const a=-.63,b=.63,s=sign,p=heraldry(color);
  const face=(lo,hi,z0,z1)=>[pt(lo,z0,s),pt(hi,z0,s),pt(hi,z1,s),pt(lo,z1,s)];
  poly([pt(a),pt(b),pt(b,H),pt(a,H)],'#696b70');
  poly([pt(a,0,s),pt(b,0,s),pt(b,H,s),pt(a,H,s)],'#9d9b91');
@@ -116,10 +128,30 @@ function wallTexture(sim,type,axis,frame=0){
   poly(face(a,b,z,z+.35),'#615e59',null);
   for(let i=0;i<4;i++){const t=a+.1+i*.31+(row%12===0?0:.12);if(t<b-.05)poly(face(t,t+.018,row,z),'#68655e',null);}
  }
+ // Continuous painted fascia under the stone battlements, following the real wall axis.
+ for(const side of [-s,s]){
+  poly([pt(a,H-8,side),pt(b,H-8,side),pt(b,H-4,side),pt(a,H-4,side)],side===s?p.main:p.dark);
+  poly([pt(a,H-4,side),pt(b,H-4,side),pt(b,H-3,side),pt(a,H-3,side)],p.light,null);
+ }
  for(let i=0;i<3;i++){
   const lo=a+i*.42,hi=lo+.23;
   poly(face(lo,hi,H,H+5),'#b7b4a7');
   poly([pt(lo,H+5,-s),pt(hi,H+5,-s),pt(hi,H+5,s),pt(lo,H+5,s)],'#ddd8c5');
+  // Small coloured enamel panels on the front of each merlon; stone tops stay natural.
+  poly(face(lo+.025,hi-.025,H+1,H+3.5),p.main,p.dark);
+ }
+ function shield(t,z,size){
+  poly([pt(t-size,z+5,s),pt(t+size,z+5,s),pt(t+size,z-1,s),pt(t,z-5,s),pt(t-size,z-1,s)],p.gold,p.edge);
+  poly([pt(t-size*.73,z+3.6,s),pt(t+size*.73,z+3.6,s),pt(t+size*.73,z-.6,s),pt(t,z-3.5,s),pt(t-size*.73,z-.6,s)],p.main,p.dark);
+  poly(face(t-.018,t+.018,z-1.5,z+2.6),p.light,null);
+  poly(face(t-size*.42,t+size*.42,z+.1,z+1),p.light,null);
+ }
+ if(type==='wall'&&decor){
+  // A hanging cloth pennant with a swallow-tail and small shield, not a full wall recolour.
+  poly([pt(-.15,H-8,s),pt(.15,H-8,s),pt(.15,7,s),pt(0,10,s),pt(-.15,7,s)],p.main,p.dark);
+  poly(face(-.18,.18,H-9,H-7),p.gold,p.edge);
+  poly(face(-.13,-.1,11,H-10),p.light,null);
+  shield(0,15,.105);
  }
  if(type==='gate'){
   // Cut an actual transparent passage through the stone, then animate a raised wooden portcullis.
@@ -137,6 +169,9 @@ function wallTexture(sim,type,axis,frame=0){
    for(const z of [6,14])if(z+lift<22)poly(face(-.29,.29,z+lift,Math.min(23,z+lift+2)),'#a49174');
   }
   poly(face(-.38,.38,24,28),'#bbb9ab');
+  // The crest sits on the lintel and never fills the transparent doorway.
+  poly(face(-.36,.36,30,34),p.main,p.dark);
+  shield(0,33,.16);
  }
  const texture=P.Texture.from(c);try{texture.source.scaleMode='nearest';}catch{}
  const result={texture,anchorY:pivot/h,scale};textures.set(cacheKey,result);return result;
@@ -144,7 +179,9 @@ function wallTexture(sim,type,axis,frame=0){
 function style(sim,b,cell){
  if(!b||!cell||!active(b)||!['wall','gate'].includes(b.type))return;
  const sp=b._sprite;if(!sp||sp.destroyed)return;
- const t=wallTexture(sim,b.type,cell.axis,b.type==='gate'?(window.__KW3_GATES?.frame(b)||0):0);if(!t)return;
+ const color=kingdomColor(sim.kingdoms?.[b.owner]||(sim.kingdoms||[]).find(k=>k.id===b.owner));
+ const decor=b.type==='wall'&&((Math.abs(cell.dx+cell.dy)%3)===0);
+ const t=wallTexture(sim,b.type,cell.axis,b.type==='gate'?(window.__KW3_GATES?.frame(b)||0):0,color,decor);if(!t)return;
  if(sp.texture!==t.texture){sp.texture=t.texture;sp.anchor.set(.5,t.anchorY);}
  // Native construction can animate scale. Restore the correct sign without
  // interfering with the current growth factor; the texture encodes direction.
@@ -229,7 +266,7 @@ function install(sim){
  };
  window.__KW3_GATES?.install(sim);
  sim.__kw3ArenaLayoutV2=VERSION;
- window.__KW3_ARENA_LAYOUT_V2=Object.freeze({installed:true,version:VERSION,map:'compact-two-side',outerWallRadius:R,innerWall:false,connectedWalls:true,clearCourtyard:true,dynamicOpponentFacingGate:true,reservedBuildCells:true,mirroredWallAxis:true});
+ window.__KW3_ARENA_LAYOUT_V2=Object.freeze({installed:true,version:VERSION,map:'compact-two-side',outerWallRadius:R,innerWall:false,connectedWalls:true,clearCourtyard:true,dynamicOpponentFacingGate:true,reservedBuildCells:true,mirroredWallAxis:true,heraldicWalls:true});
  document.documentElement.dataset.kw3ArenaLayout=VERSION;
  Promise.resolve().then(async()=>{for(const [i,k] of live(sim).entries())await rebuild(sim,k,i);focus(sim);}).catch(e=>console.error('[KW3 fortress]',e));
 }
