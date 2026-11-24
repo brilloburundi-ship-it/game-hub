@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = 'v712-latest-world-shape-1';
+  const VERSION = '20261124-world-atlas-1';
   if (window.__GOD_WORLD_LATEST_SHAPE?.installed) return;
 
   const state = window.__GOD_WORLD_LATEST_SHAPE = {
@@ -265,98 +265,78 @@
 
   function reshape(sim) {
     if (sim.__v712RoundedWorld) return true;
-    const w = sim.w;
-    if (!w?.land?.length || !w?.biomes?.length) return false;
-
-    const oldLand = w.land.map(row => row.slice());
-    const oldBiome = w.biomes.map(row => row.slice());
-    const cx = (w.gridW - 1) / 2, cy = (w.gridH - 1) / 2;
-    const [mx, my] = cellToScreen(w, cx, cy);
-    const halfX = ((w.gridW - 1) + (w.gridH - 1)) * w.tileW / 4;
-    const halfY = ((w.gridW - 1) + (w.gridH - 1)) * w.tileH / 4;
-    const rx = halfX * .76, ry = halfY * .88;
-
-    const land = Array.from({ length: w.gridH }, () => Array(w.gridW).fill(0));
-    const biomes = Array.from({ length: w.gridH }, () => Array(w.gridW).fill('ocean'));
-
-    for (let y = 0; y < w.gridH; y++) {
-      for (let x = 0; x < w.gridW; x++) {
-        const [sx, sy] = cellToScreen(w, x, y);
-        const nx = (sx - mx) / rx, ny = (sy - my) / ry;
-        const radius = Math.hypot(nx, ny), angle = Math.atan2(ny, nx);
-
-        const angular =
-          Math.sin(angle * 2.35 + .28) * .064 +
-          Math.sin(angle * 4.9 - 1.02) * .044 +
-          Math.sin(angle * 8.7 + 1.58) * .029 +
-          Math.cos(angle * 13.1 - .47) * .015;
-        const local =
-          Math.sin(nx * 8.6 + ny * 3.7 + .42) * .029 +
-          Math.cos(nx * 4.4 - ny * 9.1) * .022 +
-          Math.sin((nx + ny) * 12.2) * .016;
-
-        const bays =
-          bell(angle, -2.72, .24) * .105 +
-          bell(angle, -1.08, .20) * .080 +
-          bell(angle,  .42, .23) * .095 +
-          bell(angle,  2.10, .21) * .085;
-        const headlands =
-          bell(angle, -2.02, .18) * .048 +
-          bell(angle, -.18, .17) * .042 +
-          bell(angle,  1.31, .18) * .046 +
-          bell(angle,  2.77, .17) * .040;
-
-        const edge = .842 + angular + local - bays + headlands;
-        if (radius > edge) continue;
-
-        land[y][x] = 1;
-        const previous = oldLand[y]?.[x] ? oldBiome[y]?.[x] : null;
-        if (previous && previous !== 'ocean') {
-          biomes[y][x] = previous;
-        } else {
-          const n = hash01(x, y, 911);
-          if (y < w.gridH * .18 && n < .24) biomes[y][x] = 'tundra';
-          else if (x > w.gridW * .68 && y > w.gridH * .50 && n < .27) biomes[y][x] = 'desert';
-          else if (n < .16) biomes[y][x] = 'forest';
-          else biomes[y][x] = 'grass';
-        }
+    const w=sim.w,W=w.gridW,H=w.gridH;
+    const land=Array.from({length:H},()=>Array(W).fill(0));
+    const biomes=Array.from({length:H},()=>Array(W).fill('ocean'));
+    const span=(W+H-2)/2;
+    const uv=(x,y)=>[(x-y-(W-H)/2)/span,(x+y-(W+H-2)/2)/span];
+    const ellipse=(u,v,cx,cy,rx,ry)=>1-Math.hypot((u-cx)/rx,(v-cy)/ry);
+    // A fantasy world atlas: three great land masses linked by broad natural
+    // isthmuses. Islands remain wilderness, not unreachable player capitals.
+    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
+      const [u,v]=uv(x,y);
+      const noise=.055*Math.sin(u*23+v*12)+.035*Math.cos(v*31-u*7)+.023*Math.sin(u*51-v*22);
+      const continental=Math.max(
+        ellipse(u,v,-.37,-.04,.39,.43),
+        ellipse(u,v,.30,-.11,.43,.43),
+        ellipse(u,v,.10,.39,.34,.38),
+        ellipse(u,v,-.02,.06,.32,.19),
+        ellipse(u,v,.24,.17,.17,.25));
+      const islands=Math.max(ellipse(u,v,-.62,.22,.075,.12),ellipse(u,v,-.39,.47,.07,.09),ellipse(u,v,.56,.31,.08,.11),ellipse(u,v,.06,-.61,.09,.07),ellipse(u,v,.34,-.60,.045,.075),ellipse(u,v,-.13,.65,.065,.07));
+      if(Math.max(continental,islands)+noise<0)continue;
+      land[y][x]=1;
+      const n=Math.sin(u*15+v*9)*.45+Math.cos(v*19-u*7)*.34+Math.sin(u*31+v*29)*.21;
+      const ridge=Math.abs(v-(-.28+.09*Math.sin(u*10)));
+      if(v<-.29&&ridge<.045&&n>.10)biomes[y][x]='mountain';
+      else if(v<-.38)biomes[y][x]='tundra';
+      else if(v>.17&&u>.20&&n>-.33)biomes[y][x]='desert';
+      else if(n>.27)biomes[y][x]='forest';
+      else biomes[y][x]='grass';
+    }
+    w.land=land;w.biomes=biomes;
+    const coast=recomputeCoast(w);
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++)if(land[y][x]&&coast[y][x]<=1)biomes[y][x]=vCold(x,y)?'ice_coast':'beach';
+    function vCold(x,y){return uv(x,y)[1]<-.44;}
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    const rivers=[],used=new Set();
+    // Short meandering rivers grow inland from separate coasts. They do not
+    // form artificial water barriers across whole continents.
+    const outlets=[];
+    for(let y=3;y<H-3;y++)for(let x=3;x<W-3;x++){
+      if(coast[y][x]!==1||biomes[y][x]==='ice_coast')continue;
+      const [u,v]=uv(x,y);
+      if(v<-.30||Math.abs(u)<.13)continue;
+      outlets.push([x,y]);
+    }
+    outlets.sort((a,b)=>hash01(...a,77)-hash01(...b,77));
+    for(const start of outlets){
+      if(rivers.length>=5)break;
+      if(rivers.some(r=>Math.hypot(r[0][0]-start[0],r[0][1]-start[1])<14))continue;
+      const path=[start],seen=new Set([key(...start)]);
+      for(let i=0;i<10;i++){
+        const [x,y]=path[path.length-1];
+        const options=dirs.map(([dx,dy])=>[x+dx,y+dy]).filter(([a,b])=>inBounds(w,a,b)&&land[b][a]&&!seen.has(key(a,b))&&!used.has(key(a,b))&&coast[b][a]>=coast[y][x]);
+        options.sort((a,b)=>(coast[b[1]][b[0]]+hash01(...b,17)*.8)-(coast[a[1]][a[0]]+hash01(...a,17)*.8));
+        if(!options.length)break;
+        const p=options[0];seen.add(key(...p));path.push(p);
+        if(coast[p[1]][p[0]]>=8)break;
+      }
+      if(path.length>=5){for(const p of path)used.add(key(...p));rivers.push(path);}
+    }
+    w.rivers=rivers;
+    w.resources=[];
+    for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
+      if(!land[y][x]||used.has(key(x,y)))continue;
+      if(hash01(x,y,321)<.055){
+        const b=biomes[y][x];w.resources.push([x,y,b==='forest'?'wood':b==='mountain'?'stone':b==='desert'?'gold':'food']);
       }
     }
-
-    sculptCoast(land, biomes);
-    state.coastAdded = growCoastalTerrain(land, biomes);
-    w.land = land;
-    w.biomes = biomes;
-    const coast = recomputeCoast(w);
-    state.coastSculpted = true;
-
-    for (let y = 0; y < w.gridH; y++) {
-      for (let x = 0; x < w.gridW; x++) {
-        if (w.land[y][x] && coast[y][x] <= 1 && !['mountain', 'tundra', 'ice_coast'].includes(w.biomes[y][x])) {
-          w.biomes[y][x] = 'beach';
-        }
-      }
-    }
-
-    w.rivers = (w.rivers || [])
-      .map(river => longestSegment(w, river))
-      .filter(Boolean)
-      .map(river => extendRiverToSea(w, river))
-      .filter(river => river?.length >= 2);
-
-    if (sim.riverSet instanceof Set) {
-      sim.riverSet.clear();
-      for (const river of w.rivers) {
-        for (const [x, y] of river) {
-          if (inBounds(w, x, y) && w.land[y][x]) sim.riverSet.add(key(x, y));
-        }
-      }
-    }
-
-    sim.__v712RoundedWorld = true;
-    state.rounded = true;
+    if(sim.riverSet instanceof Set){sim.riverSet.clear();for(const p of used)sim.riverSet.add(p);}
+    sim.__v712RoundedWorld=true;state.rounded=true;state.coastSculpted=true;
+    state.atlas=true;state.islands=true;state.rivers=rivers.length;
     return true;
   }
+  window.__KW2_WORLD_ATLAS={reshape,version:'20261124-world-atlas-1'};
 
   function loops(mask) {
     const h = mask.length, w = h ? mask[0].length : 0;
@@ -456,7 +436,8 @@
     const ctx = canvas.getContext('2d', { alpha: false });
     ctx.imageSmoothingEnabled = false;
 
-    ctx.fillStyle = '#2f7898';
+    const sea=ctx.createLinearGradient(0,0,0,canvas.height);
+    sea.addColorStop(0,'#255b79');sea.addColorStop(.48,'#306d8b');sea.addColorStop(1,'#194965');ctx.fillStyle=sea;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.globalAlpha = .18;
     for (let y = 24; y < canvas.height; y += 48) {
@@ -466,7 +447,9 @@
     ctx.globalAlpha = 1;
 
     const coastPath = pathFor(w, loops(w.land), d, 18, 31);
-    ctx.fillStyle = '#6e9a48';
+    ctx.strokeStyle='#4a96a5';ctx.lineWidth=48/d;ctx.stroke(coastPath);
+    ctx.strokeStyle='#73b1ac';ctx.lineWidth=23/d;ctx.stroke(coastPath);
+    ctx.fillStyle = '#789e51';
     ctx.fill(coastPath, 'evenodd');
     ctx.strokeStyle = '#c6a85d';
     ctx.lineWidth = Math.max(2, 9 / d);
@@ -477,13 +460,31 @@
     ctx.lineWidth = Math.max(1, 3 / d);
     ctx.stroke(coastPath);
 
-    region(ctx, w, 'forest', '#527c3d', d, .90);
+    region(ctx, w, 'forest', '#416b40', d, .95);
     region(ctx, w, 'desert', '#c9a55b', d);
-    region(ctx, w, 'tundra', '#87977f', d);
+    region(ctx, w, 'tundra', '#b7c3b4', d);
     region(ctx, w, 'mountain', '#777d79', d);
     region(ctx, w, 'ice_coast', '#bac8c3', d);
     region(ctx, w, 'beach', '#cfb56b', d);
 
+    // Bake small ground details once: no new animated sprites or GPU draw calls.
+    for(let y=1;y<w.gridH-1;y++)for(let x=1;x<w.gridW-1;x++){
+      const [sx,sy]=cellToScreen(w,x,y,d),b=w.biomes[y][x],n=hash01(x,y,81);
+      if(!w.land[y][x]){
+        if(n<.10){ctx.fillStyle='#b4d4d1';ctx.globalAlpha=.19;ctx.fillRect(sx-5/d,sy,10/d,1.3/d);ctx.globalAlpha=1;}
+        continue;
+      }
+      if(w.coastDistance[y][x]<2)continue;
+      if(b==='mountain'){
+        const h=(15+n*13)/d,hw=(10+n*5)/d;
+        ctx.beginPath();ctx.moveTo(sx-hw,sy+4/d);ctx.lineTo(sx,sy-h);ctx.lineTo(sx+hw,sy+4/d);ctx.closePath();ctx.fillStyle='#687b79';ctx.fill();
+        ctx.beginPath();ctx.moveTo(sx,sy-h);ctx.lineTo(sx+hw,sy+4/d);ctx.lineTo(sx,sy+2/d);ctx.closePath();ctx.fillStyle='#465d61';ctx.fill();
+        ctx.beginPath();ctx.moveTo(sx,sy-h);ctx.lineTo(sx-hw*.38,sy-h*.42);ctx.lineTo(sx,sy-h*.58);ctx.lineTo(sx+hw*.35,sy-h*.40);ctx.closePath();ctx.fillStyle='#dce0d1';ctx.fill();
+      }else if(n<.62){
+        ctx.globalAlpha=.13;ctx.fillStyle=n<.3?'#294b2a':'#ebdda1';
+        ctx.fillRect(sx+(n-.5)*14/d,sy-2/d,Math.max(1,3/d),Math.max(1,1.5/d));ctx.globalAlpha=1;
+      }
+    }
     for (const river of w.rivers || []) {
       if (!river?.length || river.length < 2) continue;
       const points = river.map(([x, y]) => cellToScreen(w, x, y, d));
