@@ -286,11 +286,12 @@ function install(sim){
  }
  state.canFight=(a,b)=>!!(a?.alive&&b?.alive&&a!==b&&!sim.areAllied(a,b)&&nav.connected(a.capital,b.capital));
  sim.startWar=function(a,b){return start(a,b,false);};
- sim.attack=function(a,b){return start(a,b,true);};
+ sim.attack=function(a,b){if(!state.canFight(a,b)||activeWar(this))return false;if(Math.min(targetArmy(a,cap),targetArmy(b,cap))<30){state.pending={a:a.id,b:b.id};for(const k of [a,b]){k.lastBuild=Math.min(k.lastBuild,this.age-5);k.boostUntil=Math.max(k.boostUntil||0,this.age+30);}window.__KW2_ROYAL_HUD?.chronicle('⚔ '+a.name+' challenges '+b.name+' — armies preparing');return true;}return start(a,b,true);};
  sim.warAI=function(){
   if(this.__kw2TestRun&&!this.__kw2TestRun.started)return false;
   if(this.matchOver||activeWar(this)||this.age<state.nextWar||units.some(u=>!u.dead&&u.retiring))return false;
-  const ks=living(this).filter(k=>this.age-(k.__kw2FoundedAt??this.age)>=120&&targetArmy(k,cap)>=40);
+  if(state.pending){const a=this.kingdoms[state.pending.a],b=this.kingdoms[state.pending.b];if(!state.canFight(a,b))state.pending=null;else if(Math.min(targetArmy(a,cap),targetArmy(b,cap))>=30&&[a,b].every(k=>k.resources.food>=60&&k.resources.gold>=18)){if(start(a,b,true)){state.pending=null;return true;}}}
+  const ks=living(this).filter(k=>this.age-(k.__kw2FoundedAt??this.age)>=120&&targetArmy(k,cap)>=40&&k.resources.food>=80&&k.resources.gold>=24);
   const pairs=[];
   for(let i=0;i<ks.length;i++)for(let j=i+1;j<ks.length;j++){
    const a=ks[i],b=ks[j];if(this.areAllied(a,b)||!nav.connected(a.capital,b.capital))continue;
