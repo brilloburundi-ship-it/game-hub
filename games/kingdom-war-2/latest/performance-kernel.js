@@ -587,11 +587,10 @@
         let sliceStarted = performance.now();
         for (const kingdom of this.kingdoms || []) {
           if (!kingdom?.alive || kingdom.founding) continue;
-          this.economy(kingdom);
-          await this.population(kingdom);
-          await this.buildAI(kingdom);
-          this.expandAI(kingdom);
-          this.farmerAI(kingdom);
+          // One blocked or malformed kingdom must never starve subsequent kingdoms of ticks.
+          for(const [label,fn] of [['economy',()=>this.economy(kingdom)],['population',()=>this.population(kingdom)],['construction',()=>this.buildAI(kingdom)],['expansion',()=>this.expandAI(kingdom)],['citizens',()=>this.farmerAI(kingdom)]]){
+            try{await fn();}catch(error){if(!kingdom.__kw2StepErrorAt||this.age-kingdom.__kw2StepErrorAt>20){kingdom.__kw2StepErrorAt=this.age;console.warn('[KW2 '+label+']',kingdom.name,error);}}
+          }
           // Keep long simulation work below a single frame budget. The same
           // operations still run once per tick, only distributed across frames.
           if (performance.now() - sliceStarted > 6) {
