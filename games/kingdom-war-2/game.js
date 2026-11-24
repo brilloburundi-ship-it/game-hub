@@ -1065,7 +1065,8 @@
       document.documentElement.dataset.visibleCitizens = String(alive.reduce((sum, k) => sum + k.farmers.length, 0));
       document.documentElement.dataset.activeWars = String(this.wars.filter(w => !w.done).length);
       const rank = [...alive].sort((a, b) => this.power(b) - this.power(a)).slice(0, 5);
-      UI.rank.innerHTML = rank.map((k, i) => `<div class="rank-row"><b>${i + 1}</b><i style="background:${k.css}"></i><span>${escapeHtml(k.name)}</span><span class="score">${fmt(this.power(k))}</span></div>`).join('');
+      const html=rank.map((k, i) => `<div class="rank-row" data-kingdom-id="${k.id}"><b>${i + 1}</b><i style="background:${k.css}"></i><span>${escapeHtml(k.name)}</span><span class="score">${fmt(this.power(k))}</span></div>`).join('');
+      if(this.__kw2RankHtml!==html){this.__kw2RankHtml=html;UI.rank.innerHTML=html;}
       this.updateSelected();
     }
   }
@@ -1135,7 +1136,11 @@
         if (data[i + 3] < 8) continue;
         const hex = `#${data[i].toString(16).padStart(2, '0')}${data[i + 1].toString(16).padStart(2, '0')}${data[i + 2].toString(16).padStart(2, '0')}`.toUpperCase();
         if (MINIFOLK_METAL_COLORS.includes(hex)) continue;
-        const replacement = hex === MINIFOLK_TEAM_LIGHT ? pal.light : (hex === MINIFOLK_TEAM_DARK ? pal.dark : null);
+        const r=data[i],g=data[i+1],b=data[i+2];
+        const blue=b>r+24&&b>g+12&&b-Math.min(r,g)>32;
+        const rgb=[(color>>16)&255,(color>>8)&255,color&255];
+        const shade=(factor,white=0)=>rgb.map(v=>Math.round(v*factor+(255-v)*white));
+        const replacement = hex === MINIFOLK_TEAM_LIGHT ? shade(1,.15) : (hex === MINIFOLK_TEAM_DARK ? shade(.62) : blue ? (r+g+b>390?shade(1,.15):shade(.72)) : null);
         if (!replacement) continue;
         data[i] = replacement[0]; data[i + 1] = replacement[1]; data[i + 2] = replacement[2];
         recolored++;
@@ -1150,9 +1155,9 @@
     getMinifolkFrames(category, name, action = 'idle', kingdom = null) {
       const meta = this.minifolkAction(category, name, action);
       if (!meta) return [];
-      const teamColored = !!(meta.group.teamColored || meta.definition.teamColored);
+      const teamColored = !!kingdom && (category==='humans'||category==='villagers'||meta.group.teamColored||meta.definition.teamColored);
       const cacheKey = `${category}:${name}:${meta.action}:${meta.row}:${meta.count}`;
-      const kingdomKey = teamColored && kingdom ? `${kingdom.id}:${kingdom.color}:${cacheKey}` : cacheKey;
+      const kingdomKey = teamColored && kingdom ? `${kingdom.color}:${cacheKey}` : cacheKey;
       const cache = teamColored && kingdom ? this.kingdomMinifolkFrames : this.minifolkFrames;
       if (cache.has(kingdomKey)) return cache.get(kingdomKey);
       const sheet = this.minifolkSheets.get(`${category}:${name}`);
@@ -1659,7 +1664,7 @@
       this.__kw2FarmerKinds.add(f.__kw2Kind);
       document.documentElement.dataset.minifolksFarmerKinds = [...this.__kw2FarmerKinds].join(',');
       const s = this.makeFarmerSprite('idle', k, f.__kw2Kind); if (!s) return;
-      this.applyFarmerScale(s, 'idle'); s.position.set(f.x, f.y); s.zIndex = Math.round(f.y * 100) + 10; this.entities.addChild(s); f._sprite = s; this.farmerSprites.set(f.id, s); this.__v800RequestCull?.();
+      s.__kw2Kingdom=k; this.applyFarmerScale(s, 'idle'); s.position.set(f.x, f.y); s.zIndex = Math.round(f.y * 100) + 10; this.entities.addChild(s); f._sprite = s; this.farmerSprites.set(f.id, s); this.__v800RequestCull?.();
     }
     removeFarmer(f) {
       const s = f?._sprite; if (s && !s.destroyed) s.destroy();
