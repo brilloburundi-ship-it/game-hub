@@ -192,7 +192,7 @@
           transition.kingdomTour=false;
         }
       }else{
-        const seconds=this.autoCamera.mode==='war'?1.15:Math.max(.1,Number(this.autoCamera.transitionSeconds)||BASE_SECONDS);
+        const seconds=this.autoCamera.mode==='war'?1.9:Math.max(.1,Number(this.autoCamera.transitionSeconds)||BASE_SECONDS);
         const alpha=1-Math.exp(-Math.max(.35,3/seconds)*Math.max(.001,dt));
         const scale=this.root.scale.x+(target.scale-this.root.scale.x)*alpha;
         this.root.scale.set(scale);
