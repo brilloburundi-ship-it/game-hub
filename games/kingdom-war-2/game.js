@@ -117,7 +117,7 @@
     isBuildableCell(x, y, type = 'house_a') {
       if (!this.land(x, y) || this.isRiver(x, y)) return false;
       const b = this.biome(x, y);
-      if (!['grass', 'desert'].includes(b)) return false;
+      if (!['grass', 'desert', 'forest', 'tundra'].includes(b)) return false;
       const minCoast = type === 'castle' ? 4 : 2;
       if (this.coastDistance(x, y) < minCoast) return false;
       if (type === 'farm' && b !== 'grass') return false;
@@ -456,7 +456,7 @@
 
     async syncCitizens(k) {
       const target = Math.min(k.pop, this.visibleCitizenLimit(k));
-      while (k.farmers.length < target) await this.spawnFarmer(k);
+      while (k.farmers.length < target) { const before=k.farmers.length; await this.spawnFarmer(k); if(k.farmers.length<=before)break; }
       while (k.farmers.length > target) {
         let index = -1;
         for (let i = k.farmers.length - 1; i >= 0; i--) if (!k.farmers[i].fixedBuilding) { index = i; break; }
@@ -547,30 +547,14 @@
     }
 
     async buildAI(k) {
-      if (this.age - k.lastBuild < 6) return;
-      let type = null, cost = null, popCapGain = 0;
-      const c = t => k.buildings.filter(b => b.type === t).length;
-
-      if (k.popCap - k.pop < 2 && k.resources.wood > 65) { type = pick(['house_a', 'house_b', 'house_c']); cost = { wood: 55, stone: 8 }; popCapGain = 5; }
-      else if (c('farm') < Math.ceil(k.pop / 9) && k.resources.wood > 55) { type = 'farm'; cost = { wood: 45, stone: 4 }; }
-      else if (c('warehouse') < Math.ceil(k.territory.size / 14) && k.resources.wood > 85 && k.resources.stone > 30) { type = 'warehouse'; cost = { wood: 70, stone: 24 }; }
-      else if (c('market') < 2 && k.pop > 12 && k.resources.wood > 95) { type = 'market'; cost = { wood: 80, stone: 18, gold: 15 }; }
-      else if (c('barracks') < 2 && k.pop > 15 && k.resources.wood > 110 && k.resources.stone > 45) { type = 'barracks'; cost = { wood: 90, stone: 38 }; }
-      else if (k.resources.wood > 120 && k.resources.stone > 55 && Math.random() < .22) { type = pick(['forge', 'watchtower', 'windmill', 'silo', 'church']); cost = { wood: 90, stone: 45, gold: 10 }; }
-      if (!type) return;
-
-      for (const [r, v] of Object.entries(cost)) if (k.resources[r] < v) return;
-      const cell = this.findBuildCell(k, type, false);
-      if (!cell) return; // V3: no spending and no overlap if the city has no safe ground yet.
-
-      const [x, y] = cell;
-      const b = await this.addBuilding(k, type, x, y, false);
-      if (!b) return;
-      for (const [r, v] of Object.entries(cost)) k.resources[r] -= v;
-      k.popCap += popCapGain;
-      if (popCapGain > 0) { k.pop = Math.min(k.popCap, k.pop + 1); await this.syncCitizens(k); }
-      k.lastBuild = this.age;
-      this.r.puff(...this.iso(x, y));
+      if (!k?.alive || this.wars.some(w=>!w.done&&(w.a===k.id||w.b===k.id))) return false;
+      const test=!!k.__kw2DevelopmentTest;
+      if (this.age-k.lastBuild<(test?1:5)) return false;
+      const planner=window.__KW2_BALANCED_CITIES;
+      if(!planner)return false;
+      const done=await planner.build(this,k,{test});
+      if(done)k.lastBuild=this.age;
+      return done;
     }
 
     expansionNoise(k, x, y, salt = 0) {
@@ -1473,6 +1457,8 @@
     autoCameraTarget(now) {
       const director = this.autoCamera;
       if (!director) return null;
+      const battle=window.__KW2_BATTLE_CAMERA?.target(this.sim,this,director,now);
+      if(battle)return battle;
       if (director.critical && now < director.critical.until) {
         const critical = director.critical;
         const survivor = this.isCameraKingdom(critical.winner) ? critical.winner : this.cameraKingdoms()[0];
@@ -2025,6 +2011,7 @@
       const sim = new Simulation(world, renderer); window.__SIM = sim; await sim.init();
       if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar&&!window.__KW2_CIVILIZATION_ERROR;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed: '+(window.__KW2_CIVILIZATION_ERROR||'timeout'));}
       if (window.PIXI && !window.__KW2_MARITIME?.install(sim)) throw new Error('Maritime engine unavailable');
+      if(window.PIXI&&!window.__KW2_BALANCED_CITIES?.install(sim))throw new Error('City planning engine unavailable');
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
     } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }
@@ -2036,7 +2023,8 @@
     $('#homeCam').onclick = () => r.home(); $('#toggleTest').onclick = () => $('#testPanel').classList.toggle('collapsed');
     $$('[data-test]').forEach(b => b.onclick = async () => {
       const name = $('#testName').value.trim() || 'Player', act = b.dataset.test;
-      if (['colonize','trade','build','status'].includes(act)) await sim.__kw2WorldCommand?.(name,act);
+      if(act==='develop-all'){b.disabled=true;try{await sim.__kw2DevelopAll?.();}finally{b.disabled=false;}}
+      else if (['colonize','trade','build','status'].includes(act)) await sim.__kw2WorldCommand?.(name,act);
       else if (act === 'join') await sim.join(name);
       else if (act === 'like') { sim.like(name, 20); feed(name, '❤️ ×20'); }
       else if (act === 'follow') { sim.follow(name); feed(name, 'FOLLOW'); }
