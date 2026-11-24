@@ -470,7 +470,8 @@ function install(sim){
  let accumulator=0,sortClock=0;
  r.updateWars=function(_sim,dt){
   accumulator+=Math.min(.1,Math.max(0,Number(dt)||0));
-  const step=mobile()?1/20:1/25;if(accumulator<step)return;
+  const step=mobile()?1/20:1/30;
+  if(accumulator<step){const a=Math.min(1,accumulator/step);for(const u of units)if(!u.dead&&u.s&&u.__kw2PrevX!=null)u.s.position.set(u.__kw2PrevX+(u.x-u.__kw2PrevX)*a,u.__kw2PrevY+(u.y-u.__kw2PrevY)*a);return;}
   const elapsed=Math.min(.12,accumulator);accumulator=0;state.clock+=elapsed;sim.__kw2Clock=state.clock;
   nav.begin();const w=activeWar(sim);
   if(w){
@@ -484,11 +485,11 @@ function install(sim){
   }
   if(w&&!w.released){const enough=[w.a,w.b].every(id=>{const list=units.filter(u=>!u.dead&&u.side===id);const k=sim.kingdoms[id],target=targetArmy(k,cap);return list.length>=Math.max(2,Math.ceil(target*.72))&&list.filter(u=>u.musterReady).length>=Math.max(2,Math.ceil(list.length*.68));});if(enough||state.clock>=w.musterDeadline){w.released=true;w.__v66.phase='advance';for(const u of units){u.nextCell=null;u.nextThink=0;u.target=null;}}}
   const map=spatial();
-  for(const u of units)updateUnit(u,w,map,elapsed);
+  for(const u of units){u.__kw2PrevX=u.x;u.__kw2PrevY=u.y;updateUnit(u,w,map,elapsed);if(!u.dead&&u.s)u.s.position.set(u.__kw2PrevX,u.__kw2PrevY);}
   updateTowers(w,map);
   for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>2.5){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>1.5)u.s.alpha=clamp((2.5-age),0,1);}
   window.__KW2_FORT.gateUpdate(sim,elapsed);updateEffects(elapsed);
-  sortClock+=elapsed;if(sortClock>=.12){sortClock=0;r.__v800RequestSort?.();if(r.entities)r.entities.sortDirty=true;}
+  sortClock+=elapsed;if(sortClock>=.12){sortClock=0;r.__v800RequestSort?.();if(r.entities&&!r.__v800RequestSort)r.entities.sortDirty=true;}
   document.documentElement.dataset.kw2ArmyUnits=String(units.filter(u=>!u.dead).length);
   document.documentElement.dataset.kw2WarState=w?(w.__v66?.phase||'advance'):'peace';
  };

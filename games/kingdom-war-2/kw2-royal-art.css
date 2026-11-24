@@ -47,3 +47,38 @@ body.royal-art.royal-portrait #ranking{left:calc(50% - var(--art-width)/2)!impor
 body.royal-art.royal-portrait #royalChronicle{right:calc(50% - var(--art-width)/2)!important}
 body.royal-art.royal-portrait .test-panel{left:calc(50% - var(--art-width)/2)!important}
 body.royal-art.royal-portrait .zoom{right:calc(50% - var(--art-width)/2)!important}
+
+/* Final exclusive artwork layout: no duplicate legacy skin while image loads. */
+body:not(.royal-art-ready) .topbar,body:not(.royal-art-ready) #royalTotals,body:not(.royal-art-ready) #ranking,body:not(.royal-art-ready) #royalChronicle,body:not(.royal-art-ready) #royalWar,body:not(.royal-art-ready) #royalGifts{visibility:hidden!important}
+#royalArtRequired[hidden]{display:none!important}
+#royalArtRequired{position:fixed;z-index:100;top:12px;left:50%;transform:translateX(-50%);width:min(420px,92vw);padding:10px 14px;background:#16191de8;border:1px solid #b98c45;border-radius:6px;color:#f8e6b8;text-align:center;font:13px/1.4 system-ui}
+#royalArtRequiredButton{display:block;margin:7px auto 0;padding:7px 14px;color:#fff2c9;background:#65461e;border:1px solid #d3a653;border-radius:4px;cursor:pointer}
+body.royal-art{--art-res:calc(var(--art-width)*.13921)}
+body.royal-art #royalTotals{display:block!important;padding:0!important}
+body.royal-art #royalTotals>div{position:absolute;top:56%;height:23%;width:15%;transform:translateX(-50%);display:flex;justify-content:center;align-items:center}
+body.royal-art #royalTotals>div:nth-child(1){left:14.1%}
+body.royal-art #royalTotals>div:nth-child(2){left:35%}
+body.royal-art #royalTotals>div:nth-child(3){left:52.8%}
+body.royal-art #royalTotals>div:nth-child(4){left:70.7%}
+body.royal-art #royalTotals>div:nth-child(5){left:88.1%}
+body.royal-art #royalTotals>div b{padding:0;background:none;font-size:clamp(9px,calc(var(--art-width)*.024),19px);font-variant-numeric:tabular-nums;line-height:1;max-width:100%;white-space:nowrap}
+body.royal-art #royalTotals>div:last-child small{display:none}
+body.royal-art #rankRows{top:26%;left:12%;right:12%;bottom:17%;scrollbar-width:none}
+body.royal-art #rankRows .rank-row{display:grid!important;grid-template-columns:14% 18% 1fr!important;grid-template-rows:auto auto;align-items:center;text-align:center;gap:2px!important;padding:5px 1px!important}
+body.royal-art #rankRows .rank-row b{grid-column:1;grid-row:1/3;align-self:center}
+body.royal-art #rankRows .rank-row i{grid-column:2;grid-row:1/3;width:100%!important;max-width:19px;justify-self:center}
+body.royal-art #rankRows .rank-row span{grid-column:3;text-align:center;min-width:0}
+body.royal-art #rankRows .rank-row .score{grid-column:3;grid-row:2;font-variant-numeric:tabular-nums}
+body.royal-art #royalEvents{top:25%;left:13%;right:11%;bottom:17%;scrollbar-width:none}
+body.royal-art #royalEvents p{text-align:center;padding:5px 2px;line-height:1.3}
+body.royal-art #royalWar .royal-duel{top:51%;left:15%;right:15%;height:25%;display:grid;grid-template-columns:42% 16% 42%;gap:0}
+body.royal-art #royalWar .royal-side{width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:0}
+body.royal-art #royalWar .royal-side b{border:0;padding:0;max-width:100%;font-size:clamp(9px,calc(var(--art-war)*.025),19px);text-align:center}
+body.royal-art #royalWar .royal-side small{font-size:clamp(8px,calc(var(--art-war)*.019),14px);font-variant-numeric:tabular-nums}
+body.royal-art #royalWar .royal-balance{left:14.7%;right:14.6%;top:79.8%;height:6.1%}
+body.royal-art #royalGiftItems{top:33%;left:6%;right:5%;bottom:9%;grid-template-columns:repeat(6,minmax(0,1fr))}
+body.royal-art #royalGiftDetail{bottom:100%;left:12%;right:12%;font-size:clamp(8px,calc(var(--art-gift)*.02),12px);padding:2px 4px;background:#171717d9;pointer-events:none}
+body.royal-art #royalGifts.royal-collapsed #royalGiftDetail{display:none}
+body.royal-art.royal-clean #royalTotals{display:none!important}
+body.royal-art .topbar .stats{bottom:0;left:15%;right:15%;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
+body.royal-art.royal-portrait{--art-width:min(98vw,55vh);--art-rank:calc(var(--art-width)*.25);--art-chron:calc(var(--art-width)*.295);--art-gift:var(--art-width);--art-war:var(--art-width)}
