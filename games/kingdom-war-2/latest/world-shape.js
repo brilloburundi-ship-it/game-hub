@@ -321,7 +321,7 @@
         const p=options[0];seen.add(key(...p));path.push(p);
         if(coast[p[1]][p[0]]>=8)break;
       }
-      if(path.length>=5){for(const p of path)used.add(key(...p));rivers.push(path);}
+      if(path.length>=5){for(const p of path)used.add(key(...p));rivers.push(path.reverse());}
     }
     w.rivers=rivers;
     w.resources=[];
