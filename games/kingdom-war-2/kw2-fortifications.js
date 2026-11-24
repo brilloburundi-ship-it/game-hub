@@ -238,7 +238,7 @@ function install(sim){
  const oldAdd=sim.addBuilding.bind(sim);
  sim.addBuilding=async function(k,type,x,y,...rest){
   if(type==='castle'&&!k.__kw2Fort){
-   const p=this.__kw2PendingFort;
+   const p=this.__kw2FortSlots?.find(slot=>slot.x===x&&slot.y===y&&slot.assigned==null)||this.__kw2PendingFort;
    if(p&&p.x===x&&p.y===y){k.__kw2Fort=p;p.assigned=k.id;}
    this.__kw2PendingFort=null;
   }
@@ -261,6 +261,7 @@ function install(sim){
  sim.findBuildCell=function(k,type,...args){
   const c=oldBuildCell(k,type,...args);
   if(c&&!isReserved(k,...c)&&!reservedBy(this,...c,k.id))return c;
+  if(type==='port')return null;
   // A reserved best candidate must not indefinitely block normal city development.
   let best=null,score=-Infinity;
   for(const token of k.territory){
