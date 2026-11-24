@@ -11,14 +11,14 @@ function plan(k,buildings=k.buildings){
  const demands=[];
  const push=(type,desired,priority)=>{const have=c(type);if(have<desired)demands.push({type,score:priority+(desired-have)/desired*10});};
  const variant=houses.slice().sort((a,b)=>c(a)-c(b))[0];
- const housing=Math.max(2,Math.ceil((p+Math.max(12,p*.35)-12)/10),Math.ceil(total*.34));
+ const housing=Math.max(2,Math.ceil((p+Math.max(8,p*.15)-12)/10),Math.ceil(total*.34));
  if(h<housing)demands.push({type:variant,score:capacity-p<10?115:82+(housing-h)*2});
- push('farm',Math.max(1,Math.ceil(p/24)),k.resources.food<p*4?110:76);
- push('market',Math.max(1,Math.ceil(p/65)),p>=12?71:36);
- push('barracks',Math.max(1,Math.ceil(p/70)),p>=14?74:34);
- if(p>=12||h>=2){push('windmill',Math.max(1,Math.ceil(c('farm')/4)),62);push('church',Math.max(1,Math.ceil(h/9)),57);}
- if(p>=22||h>=3){push('forge',Math.max(1,Math.ceil(p/100)),64);push('stable',Math.max(1,Math.ceil(p/120)),55);push('silo',Math.max(1,Math.ceil(c('farm')/5)),53);}
- if(p>=20||h>=4)push('warehouse',Math.max(1,Math.ceil((h+c('farm'))/12)),42);
+ push('farm',Math.max(1,Math.ceil(p/24)),!c('farm')?118:k.resources.food<p*4?110:72);
+ push('market',Math.max(1,Math.ceil(p/65)),!c('market')&&h>=2?111:p>=12?71:36);
+ push('barracks',Math.max(1,Math.ceil(p/70)),!c('barracks')&&h>=3?110:p>=14?74:34);
+ if(p>=12||h>=2){push('windmill',Math.max(1,Math.ceil(c('farm')/4)),!c('windmill')&&h>=4?104:62);push('church',Math.max(1,Math.ceil(h/9)),!c('church')&&h>=5?101:57);}
+ if(p>=22||h>=3){push('forge',Math.max(1,Math.ceil(p/100)),!c('forge')&&h>=4?109:64);push('stable',Math.max(1,Math.ceil(p/120)),!c('stable')&&h>=5?106:55);push('silo',Math.max(1,Math.ceil(c('farm')/5)),!c('silo')&&h>=6?99:53);}
+ if(p>=20||h>=4)push('warehouse',Math.max(1,Math.ceil((h+c('farm'))/12)),!c('warehouse')&&h>=7?96:42);
  return demands.sort((a,b)=>b.score-a.score).map(d=>d.type);
 }
 function place(sim,k,type,center=null,allowClaim=false){
@@ -43,7 +43,7 @@ async function build(sim,k,{test=false,center=null}={}){
  k.__kw2BalancedBusy=true;
  try{
   const local=center?k.buildings.filter(b=>Math.hypot(b.x-center.x,b.y-center.y)<8):k.buildings;
-  const cityPop=center?Math.min(k.pop,Math.max(12,local.filter(b=>houses.includes(b.type)).length*7)):k.pop;
+  const cityPop=center?(window.__KW2_CITY_POP?.allocation(k,k.pop).find(w=>w.c.x===center.x&&w.c.y===center.y)?.n??Math.min(k.pop,12)):k.pop;
   const localK=center?{...k,pop:cityPop,buildings:local}:k;
   const list=plan(localK,local).filter(t=>afford(k,t)&&(!sim.r.buildTex||sim.r.buildTex[t]));
   if(!list.length)return false;
@@ -59,7 +59,7 @@ async function build(sim,k,{test=false,center=null}={}){
     if(!b){if(claimed){sim.setOwner(x,y,-1);k.territory.delete(x+','+y);sim.__v800Performance?.invalidateKingdom?.(k.id);}continue;}
     for(const [r,n] of Object.entries(costs[type]))k.resources[r]-=n;
     k.popCap=window.__KW2_MARITIME.capacity(k);
-    if(houses.includes(type)&&k.pop<k.popCap&&k.resources.food>=24){k.pop=Math.min(k.popCap,k.pop+(test?6:2));k.resources.food-=24;try{await sim.syncCitizens(k);}catch(e){console.warn('[citizens]',e);}}
+    if(houses.includes(type)&&k.pop<k.popCap&&k.resources.food>=24){const n=Math.min(k.popCap-k.pop,test?10:6,Math.floor(k.resources.food/4));k.pop+=n;k.resources.food-=4*n;try{await sim.syncCitizens(k);}catch(e){console.warn('[citizens]',e);}}
     if(test)k.__kw2TestBuilds=(k.__kw2TestBuilds||0)+1;
     sim.r.puff?.(...sim.iso(x,y));return true;
    }
@@ -91,12 +91,12 @@ function install(sim){
    for(const k of ks){
     if(!k.__kw2DevelopmentTest)continue;
     k.popCap=window.__KW2_MARITIME.capacity(k);
-    const target=Math.min(k.popCap,160);
+    const target=Math.min(k.popCap,220);
     if(k.pop<target){k.pop=Math.min(target,k.pop+12);k.lastPop=this.age;try{await this.syncCitizens(k);}catch(e){console.warn('[test citizens]',e);}}
     k.military=Math.max(Number(k.military)||0,k.pop*1.4);
-    if(k.pop>=130||this.age>=run.until)delete k.__kw2DevelopmentTest;
+    if(k.pop>=180||this.age>=run.until)delete k.__kw2DevelopmentTest;
    }
-   const ready=ks.filter(k=>k.pop>=100||(this.age>=run.until&&k.pop>=6));
+   const ready=ks.filter(k=>k.pop>=140||(this.age>=run.until&&k.pop>=35));
    if(!this.wars.some(w=>!w.done)&&!run.started){
     const pairs=[];for(let i=0;i<ready.length;i++)for(let j=i+1;j<ready.length;j++)pairs.push([ready[i],ready[j]]);
     pairs.sort((a,b)=>Math.hypot(a[0].capital[0]-a[1].capital[0],a[0].capital[1]-a[1].capital[1])-Math.hypot(b[0].capital[0]-b[1].capital[0],b[0].capital[1]-b[1].capital[1]));
@@ -117,10 +117,10 @@ function install(sim){
   for(const k of ks){
    k.__kw2DevelopmentTest=true;k.resources.food+=6000;k.resources.wood+=6000;k.resources.stone+=3500;k.resources.gold+=2200;
    k.lastBuild=this.age-10;k.lastExpand=this.age-10;k.lastPop=this.age-10;
-   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+120);
+   k.__kw2FoundedAt=this.age-120;k.boostUntil=Math.max(k.boostUntil||0,this.age+180);
    k.military=Math.max(Number(k.military)||0,100);
   }
-  this.__kw2TestRun={until:this.age+110,started:false};
+  this.__kw2TestRun={until:this.age+165,started:false};
   note('TEST: developing '+ks.length+' kingdoms — housing, economy and armies');
   return true;
  };

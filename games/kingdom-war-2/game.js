@@ -418,12 +418,13 @@
 
     async spawnFarmer(k) {
       if (k.farmers.length >= this.visibleCitizenLimit(k)) return null;
-      const cell = this.visibleFarmerSpawnCell(k);
+      const home=window.__KW2_CITY_POP?.chooseHome(this,k);
+      const cell = home?.cell || this.visibleFarmerSpawnCell(k);
       const [sx, sy] = this.iso(...cell);
       const f = {
         id: `f${k.id}_${k._farmerSeq = (k._farmerSeq || 0) + 1}`, cell: [...cell], x: sx, y: sy + 6,
         action: 'idle', actionUntil: 0, speed: rand(18, 25), job: pick(['farm', 'wood', 'stone', 'builder']),
-        path: [], taskCell: null, phase: Math.random() * 10
+        path: [], taskCell: null, phase: Math.random() * 10, homeCity:home?.cityKey
       };
       k.farmers.push(f);
       await this.r.addFarmer(k, f);
@@ -656,6 +657,8 @@
     }
 
     chooseTaskCell(k, f) {
+      const local=window.__KW2_CITY_POP?.localTask(this,k,f);
+      if(local)return local;
       const own = this.ownWalkableCells(k);
       if (!own.length) return this.approachCell(k, k.buildings[0]) || k.capital;
       const buildings = k.buildings;
@@ -1008,7 +1011,7 @@
       const g = String(gift || '').toLowerCase(), n = Math.max(1, Number(repeat) || 1);
       const diamonds = Number(meta.diamonds || meta.diamondCount || 0);
       if (g.includes('rose')) {
-        k.resources.food += 45 * n; k.resources.gold += 12 * n; k.boostUntil = this.age + 20; this.r.supportFx(k, '🌹', 3);
+        k.resources.food += 45 * n; k.resources.gold += 12 * n; k.resources.wood += 18*n; k.resources.stone += 5*n; k.boostUntil = Math.max(k.boostUntil||0,this.age + 20); await this.giftPopulation(k,n); this.r.supportFx(k, '🌹', 3);
       } else if (g.includes('ice cream')) {
         k.resources.food += 70 * n; await this.giftPopulation(k, n); this.r.supportFx(k, '🍦', 4);
       } else if (g.includes('coffee') || g.includes('doughnut') || g.includes('donut')) {
@@ -1746,7 +1749,7 @@
       const shadow = new P.Graphics();
       shadow.ellipse(0, 1, 7, 3).fill({ color: 0x000000, alpha: .22 });
       c.addChild(shadow);
-      const unit = role === 'archer' ? 'ArcherMan' : (role === 'spear' ? 'SpearMan' : 'SwordMan');
+      const unit = role === 'cavalry' ? 'HorseMan' : role === 'archer' ? 'ArcherMan' : (role === 'spear' ? 'SpearMan' : 'SwordMan');
       this.__kw2SoldierTypes.add(unit);
       this.__kw2SoldiersCreated++;
       document.documentElement.dataset.minifolksSoldierTypes = [...this.__kw2SoldierTypes].join(',');
@@ -2012,6 +2015,7 @@
       if(window.PIXI){for(let i=0;i<1200&&!sim.__kw2CivilizationWar&&!window.__KW2_CIVILIZATION_ERROR;i++)await new Promise(resolve=>setTimeout(resolve,50));if(!sim.__kw2CivilizationWar)throw new Error('Civilization engine initialization failed: '+(window.__KW2_CIVILIZATION_ERROR||'timeout'));}
       if (window.PIXI && !window.__KW2_MARITIME?.install(sim)) throw new Error('Maritime engine unavailable');
       if(window.PIXI&&!window.__KW2_BALANCED_CITIES?.install(sim))throw new Error('City planning engine unavailable');
+      if(window.PIXI&&!window.__KW2_CITY_POP?.install(sim))throw new Error('City population engine unavailable');
       wire(sim, renderer); setInterval(() => sim.tick(), 1000); fpsCounter();
       $('#loading').style.opacity = '0'; setTimeout(() => $('#loading').remove(), 380); toast('Kingdom War 2 loaded');
     } catch (err) { console.error(err); const loading=$('#loading'); if(!loading)return; loading.innerHTML = `<strong>Startup error</strong><span>${escapeHtml(err?.message || String(err))}</span><button type="button" id="kw2RetryStartup" style="margin-top:16px;padding:12px 24px;border-radius:10px;color:#fff;background:#27516a;border:1px solid #83a7bb">Retry</button>`; $('#kw2RetryStartup').onclick=()=>{const url=new URL(location.href);url.searchParams.set('retry',String(Date.now()));location.replace(url.href);}; }

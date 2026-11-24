@@ -124,22 +124,20 @@ function install(sim){
   const out=await oldGift(name,gift,repeat,meta);
   k.popCap=capacity(k);
   const dp=Math.max(0,this.power(k)-before.power),db=Math.max(0,k.buildings.length-before.build);
-  state.lastGift='🎁 '+k.name+' received '+gift+' ×'+repeat+' · +'+fmt(dp)+' power'+(db?' · '+db+' buildings':'');note(state.lastGift);
+  const deltas=['food','wood','stone','gold'].map(r=>[r,Math.floor(k.resources[r]-before[r])]).filter(v=>v[1]>0).map(([r,n])=>'+'+fmt(n)+' '+r);if(k.pop>before.pop)deltas.push('+'+fmt(k.pop-before.pop)+' citizens');if(db)deltas.push('+'+db+' buildings');
+  k.lastBuild=Math.min(k.lastBuild,this.age-5);
+  state.lastGift='🎁 '+k.name+' received '+gift+' ×'+repeat+' · '+(deltas.join(' · ')||('+'+fmt(dp)+' power'));note(state.lastGift);
   if(/castle fantasy|universe|lion|galaxy/i.test(gift))k.__kw2ColonizeWanted=true;
   return out;
  };
  function spawnShip(k,port,route,kind,dest,cargo){
   if(!route||route.length<2||state.ships.length>=24)return null;
-  const lease=r.__kw2LeaseFishingBoat?.(k,port),frames=lease?.frames||r.__kw2BoatFrames?.(k);
-  let g,h;
-  if(frames?.length&&P.Sprite){
-   g=lease?.sprite||new P.Sprite(frames[4]);h=g;
-   g.anchor.set(.5,.78);g.scale.set(.52);g.roundPixels=true;g.texture=frames[4];
-  }else{
-   // A simple hull is only used if the legacy atlas has not loaded.
-   g=new P.Container();h=new P.Graphics();
-   h.poly([-12,-1,-8,5,7,5,13,-2,8,0,-9,0]).fill({color:0x79502d});h.rect(-1,-18,2,17).fill({color:0x533b27});h.poly([0,-17,9,-9,0,-4,-7,-10]).fill({color:k.color||0xe3ad55});g.addChild(h);
-  }
+  const lease=r.__kw2LeaseFishingBoat?.(k,port);
+  // Only the actual fishing boat atlas is permitted. Retry when it becomes available.
+  const frames=lease?.frames||r.__kw2BoatFrames?.(k);
+  if(!frames?.length||!P.Sprite){if(lease)r.__kw2ReleaseFishingBoat?.(lease);return null;}
+  const g=lease?.sprite||new P.Sprite(frames[4]),h=g;
+  g.anchor.set(.5,.78);g.scale.set(.52);g.roundPixels=true;g.texture=frames[4];
   g.eventMode='none';const [x,y]=sim.iso(...route[0]);g.position.set(x,y+3);g.zIndex=Math.round(y*100)+14;if(!lease)r.entities.addChild(g);
   const ship={id:++state.serial,k,port,route,at:1,x,y,g,h,frames,lease,animClock:0,kind,dest,cargo,arrived:false,returning:false};state.ships.push(ship);return ship;
  }
@@ -185,7 +183,8 @@ function install(sim){
   (k.__kw2Cities||=([])).push(city);k.popCap=capacity(k);
   if(!sim.buildingBlockingCell(...p.dock)){try{city.port=await sim.addBuilding(k,'port',...p.dock,false,true);}catch(e){console.warn(e);}}
   if(P.Text&&r.labels?.addChild){try{const label=new P.Text({text:city.name,style:{fontFamily:'Arial',fontSize:12,fill:k.color||0xffffff,stroke:{color:0x182020,width:3}}});label.anchor.set(.5,1);const xy=sim.iso(p.x,p.y);label.position.set(xy[0],xy[1]-42);r.labels.addChild(label);city.label=label;}catch(e){}}
-  state.colonies++;note('🏰 '+city.name+' founded across the sea');sim.r.redrawTerritories?.(sim,true);return true;
+  await sim.syncCitizens?.(k);const settled=window.__KW2_CITY_POP?.settle(sim,k,city,Math.min(10,Math.max(4,Math.floor(k.pop*.22))))||0;
+  state.colonies++;note('🏰 '+city.name+' founded across the sea · '+settled+' visible settlers landed');sim.r.redrawTerritories?.(sim,true);return true;
  }
  async function growCity(k,c){
   if(!live(c.center)){c.label?.destroy?.();c.dead=true;return;}
