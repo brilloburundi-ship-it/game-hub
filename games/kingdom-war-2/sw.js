@@ -1,4 +1,4 @@
-const CACHE = 'kw2-living-civilizations-1';
+const CACHE = 'kw2-world-atlas-1';
 const SHELL = [
   './', 'index.html', 'styles.css', 'v65-overrides.css',
   'latest/runtime-stability.js', 'asset-recovery.js', 'latest/world-npc-expansion.js', 'game.js',
@@ -9,7 +9,7 @@ const SHELL = [
   'v67-assets-church.js', 'v67-assets-port.js', 'v67-pixel-buildings.js', 'v68-fishing-asset.js', 'v68-fishing-boats.js',
   'latest/war-peace-cleanup.js', 'latest/gameplay.js', 'latest/water-base.js', 'latest/visuals.js', 'latest/farmer-direction.js', 'latest/building-scale.js',
   'latest/live-power.js', 'latest/performance-kernel.js', 'minifolks-world.js',
-  'kw2-fortifications.js', 'kw2-civilization-war.js',
+  'kw2-fortifications.js', 'kw2-civilization-war.js', 'kw2-royal-hud.js', 'kw2-royal-hud.css',
   'assets/map/world.json', 'assets/map/world.png', 'assets/buildings/manifest.json', 'assets/minifolks/manifest.json',
   'assets/vegetation/flora-atlas.part0', 'assets/vegetation/flora-atlas.part1', 'assets/vegetation/flora-atlas.part2', 'assets/vegetation/flora-atlas.part3',
   'assets/buildings/barracks.png', 'assets/buildings/castle.png', 'assets/buildings/church.png', 'assets/buildings/farm.png', 'assets/buildings/forge.png', 'assets/buildings/gate.png',
