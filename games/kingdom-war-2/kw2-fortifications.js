@@ -109,6 +109,10 @@ function makePlan(x,y,r,axis){
  return {x,y,r,axis,cells};
 }
 function reservedBy(sim,x,y,except){
+ for(const p of sim.__kw2FortSlots||[]){
+  if(p.assigned!=null)continue;
+  if(Math.max(Math.abs(x-p.x),Math.abs(y-p.y))<=p.r)return true;
+ }
  for(const k of sim.kingdoms||[]){
   if(!(k.alive||k.founding)||k.id===except||!k.__kw2Fort)continue;
   const p=k.__kw2Fort;
@@ -124,17 +128,48 @@ function candidate(sim,x,y,r){
  const usable=axis=>{const a=axis==='x'?[1,0]:[0,1];return [-1,1].every(sign=>sim.isWalkableCell(x+sign*a[0]*(r+1),y+sign*a[1]*(r+1)));};
  return usable('x')?makePlan(x,y,r,'x'):usable('y')?makePlan(x,y,r,'y'):null;
 }
-function chooseSpawn(sim){
- const occupied=(sim.kingdoms||[]).filter(k=>k.alive||k.founding);
- let best=null,score=-Infinity;
- // Compact forts preserve room for a full 12-player world. Larger sites are preferred only when space permits.
+function reserveSites(sim){
+ if(sim.__kw2FortSlots)return sim.__kw2FortSlots;
+ const pts=[];
  for(let y=4;y<sim.w.gridH-4;y++)for(let x=4;x<sim.w.gridW-4;x++){
-  const p=candidate(sim,x,y,2);if(!p)continue;
-  let d=99;for(const k of occupied)d=Math.min(d,Math.max(Math.abs(x-k.capital[0]),Math.abs(y-k.capital[1])));
-  if(d<6)continue;
-  const large=occupied.length<3?candidate(sim,x,y,3):null;
-  const value=Math.min(d,30)+Math.min(sim.coastDistance(x,y),8)*.15+(large?2:0)+Math.random()*.8;
-  if(value>score){score=value;best=large||p;}
+  const p=candidate(sim,x,y,2);if(p)pts.push(p);
+ }
+ let best=[];
+ // Farthest point packing, trying several starting seeds; cap at 12 slots.
+ for(let i=0;i<Math.min(16,pts.length);i++){
+  const seed=pts[Math.floor(i*pts.length/Math.min(16,pts.length))];
+  const chosen=[seed];
+  let left=pts.filter(p=>p!==seed);
+  while(left.length&&chosen.length<12){
+   let next=null,score=-Infinity;
+   for(const p of left){
+    const d=Math.min(...chosen.map(q=>Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))));
+    if(d>=6&&d>score){next=p;score=d;}
+   }
+   if(!next)break;
+   chosen.push(next);left=left.filter(p=>p!==next);
+  }
+  if(chosen.length>best.length)best=chosen;
+  if(best.length===12)break;
+ }
+ // Enlarge only a few of the reserved sites when no neighbouring slot is affected.
+ for(let i=0;i<Math.min(3,best.length);i++){
+  const p=best[i],large=candidate(sim,p.x,p.y,3);
+  if(large&&best.every((q,j)=>j===i||Math.max(Math.abs(p.x-q.x),Math.abs(p.y-q.y))>=q.r+4))best[i]=large;
+ }
+ sim.__kw2FortSlots=best;return best;
+}
+function chooseSpawn(sim){
+ const slots=reserveSites(sim),occupied=(sim.kingdoms||[]).filter(k=>k.alive||k.founding);
+ let best=null,score=-Infinity;
+ for(const p of slots){
+  if(p.assigned!=null)continue;
+  let valid=true;
+  for(let dy=-p.r;dy<=p.r;dy++)for(let dx=-p.r;dx<=p.r;dx++)if(sim.getOwner(p.x+dx,p.y+dy)!==-1)valid=false;
+  if(!valid)continue;
+  let d=99;for(const k of occupied)d=Math.min(d,Math.max(Math.abs(p.x-k.capital[0]),Math.abs(p.y-k.capital[1])));
+  const value=Math.min(d,35)+p.r*.5;
+  if(value>score){score=value;best=p;}
  }
  sim.__kw2PendingFort=best;
  return best?[best.x,best.y]:null;
@@ -198,14 +233,13 @@ function gateUpdate(sim,dt){
 function install(sim){
  if(sim.__kw2Fortifications)return;
  sim.__kw2Fortifications=true;
- const oldSpawn=sim.freeSpawn.bind(sim);
- sim.freeSpawn=function(){return chooseSpawn(this)||oldSpawn();};
+ reserveSites(sim);
+ sim.freeSpawn=function(){return chooseSpawn(this);};
  const oldAdd=sim.addBuilding.bind(sim);
  sim.addBuilding=async function(k,type,x,y,...rest){
   if(type==='castle'&&!k.__kw2Fort){
    const p=this.__kw2PendingFort;
-   if(p&&p.x===x&&p.y===y)k.__kw2Fort=p;
-   // When compact sites are exhausted, retain the original unfortified founding rather than reject JOIN.
+   if(p&&p.x===x&&p.y===y){k.__kw2Fort=p;p.assigned=k.id;}
    this.__kw2PendingFort=null;
   }
   if(type!=='castle'){
@@ -221,6 +255,8 @@ function install(sim){
   if(b)this.__kw2TopologyRevision=(this.__kw2TopologyRevision||0)+1;
   return b;
  };
+ const oldRollback=sim.rollbackFounding?.bind(sim);
+ if(oldRollback)sim.rollbackFounding=function(k){if(k.__kw2Fort)delete k.__kw2Fort.assigned;return oldRollback(k);};
  const oldBuildCell=sim.findBuildCell.bind(sim);
  sim.findBuildCell=function(k,type,...args){
   const c=oldBuildCell(k,type,...args);
@@ -260,5 +296,5 @@ function install(sim){
  };
  document.documentElement.dataset.kw2Fortifications='progressive-coloured-two-gates';
 }
-window.__KW2_FORT={install,makePlan,chooseSpawn,gateRequest,gateUpdate,style,isReserved,DEF};
+window.__KW2_FORT={install,makePlan,chooseSpawn,reserveSites,gateRequest,gateUpdate,style,isReserved,DEF};
 })();
