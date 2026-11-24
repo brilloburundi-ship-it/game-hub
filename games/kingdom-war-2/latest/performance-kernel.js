@@ -457,11 +457,12 @@
       }
       for (const child of display.children || []) setAnimationActive(child, active);
     };
+    let lastMapDrawAt=0;
     const cull = () => {
       const root = renderer.root, entities = renderer.entities;
       if (!root || !entities) return;
       const scaleX = Number(root.scale?.x || 1), scaleY = Number(root.scale?.y || scaleX);
-      const margin = 170;
+      const margin = 320;
       let visible = 0, hidden = 0;
       for (const display of entities.children || []) {
         if (!display || display.destroyed) continue;
@@ -478,7 +479,7 @@
           if (display.__v800RestoreVisible) { display.__v800RestoreVisible = false; display.visible = true; }
           if (display.__v800RestoreRenderable) { display.__v800RestoreRenderable = false; display.renderable = true; }
         }
-        setAnimationActive(display, onScreen);
+        if(display.__kw2CullActive!==onScreen){display.__kw2CullActive=onScreen;setAnimationActive(display, onScreen);}
         if (onScreen) visible++; else hidden++;
       }
       state.visibleEntities = visible;
@@ -486,8 +487,9 @@
       document.documentElement.dataset.culledEntities = String(hidden);
       document.documentElement.dataset.visibleEntities = String(visible);
 
-      const signature = `${Math.round(root.x / 90)}:${Math.round(root.y / 90)}:${Math.round(scaleX * 20)}`;
-      if (signature !== lastViewportSignature) {
+      const signature = `${Math.round(root.x / 320)}:${Math.round(root.y / 320)}:${Math.round(scaleX * 8)}`;
+      if (signature !== lastViewportSignature && performance.now()-lastMapDrawAt>650) {
+        lastMapDrawAt=performance.now();
         lastViewportSignature = signature;
         lastTerritoryDrawRevision = ownerRevision;
         drawVisibleTerritories();
@@ -497,10 +499,11 @@
         }
       }
     };
-    renderer.__v800RequestCull = cull;
+    // Coalesce dozens of sprite creation requests into the next scheduled cull.
+    renderer.__v800RequestCull = () => {cullClock=Math.max(cullClock,.16);};
     renderer.app.ticker.add(() => {
       cullClock += Math.min(0.05, renderer.app.ticker.deltaMS / 1000);
-      if (cullClock < 0.25) return;
+      if (cullClock < 0.2) return;
       cullClock = 0;
       cull();
     });
@@ -518,7 +521,7 @@
       return originalFarmerAI(view);
     };
 
-    let warUpdateAccumulator = 0;
+    // The war engine owns its own simulation clock and renders interpolated movement.
     sim.update = function(dt) {
       for (const kingdom of this.kingdoms || []) {
         if (!kingdom?.alive) continue;
@@ -568,12 +571,7 @@
 
       // Combat positions use a 30 Hz fixed step; Pixi animation playback remains
       // at the native render FPS, so motion stays fluid with half the AI overhead.
-      warUpdateAccumulator += dt;
-      if (warUpdateAccumulator >= 1 / 30) {
-        const warDt = Math.min(0.066, warUpdateAccumulator);
-        warUpdateAccumulator = 0;
-        this.r.updateWars?.(this, warDt);
-      }
+      this.r.updateWars?.(this, dt);
     };
 
     sim.tick = async function() {
@@ -589,7 +587,7 @@
           if (!kingdom?.alive || kingdom.founding) continue;
           // One blocked or malformed kingdom must never starve subsequent kingdoms of ticks.
           for(const [label,fn] of [['economy',()=>this.economy(kingdom)],['population',()=>this.population(kingdom)],['construction',()=>this.buildAI(kingdom)],['expansion',()=>this.expandAI(kingdom)],['citizens',()=>this.farmerAI(kingdom)]]){
-            try{await fn();}catch(error){if(!kingdom.__kw2StepErrorAt||this.age-kingdom.__kw2StepErrorAt>20){kingdom.__kw2StepErrorAt=this.age;console.warn('[KW2 '+label+']',kingdom.name,error);}}
+            try{await fn();if(performance.now()-sliceStarted>4){await new Promise(resolve=>setTimeout(resolve,0));sliceStarted=performance.now();}}catch(error){if(!kingdom.__kw2StepErrorAt||this.age-kingdom.__kw2StepErrorAt>20){kingdom.__kw2StepErrorAt=this.age;console.warn('[KW2 '+label+']',kingdom.name,error);}}
           }
           // Keep long simulation work below a single frame budget. The same
           // operations still run once per tick, only distributed across frames.
