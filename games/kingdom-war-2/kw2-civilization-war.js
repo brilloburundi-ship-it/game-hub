@@ -110,7 +110,6 @@ function install(sim){
  const nav=createNavigation(sim),units=[],arrows=[],fires=new Map();
  const cap=mobile()?44:96,globalCap=cap*2;
  const state={installed:true,version:VERSION,units,arrows,fires,cap,globalCap,warCount:0,combatKills:0,buildingsDestroyed:0,territoryCaptured:0,peakUnits:0,nextWar:0,clock:0};
- sim.__kw2CivilizationWar=state;
  // Old battle modules remain only for shared renderer utilities. Their army
  // simulation is never called: this is the single authority for combat.
  for(const list of r.__v66Guards?.values?.()||[])for(const u of list)u.s?.destroy?.({children:true});
@@ -426,12 +425,13 @@ function install(sim){
  // On-page testing can still exercise a manual war while automatic wars develop naturally.
  document.documentElement.dataset.kw2Military='individual-physical-war';
  document.documentElement.dataset.kw2ArmyCap=String(globalCap);
+ sim.__kw2CivilizationWar=state;
  window.__KW2_CIVILIZATION_STATE=state;
  return true;
 }
 window.__KW2_CIVILIZATION={install,targetArmy,createNavigation,grid};
 const wait=setInterval(()=>{
  const sim=window.__SIM;
- if(sim?.r?.app?.ticker&&window.__V800_PERFORMANCE_KERNEL?.installed&&window.__V713_LIVE_POWER?.installed&&sim.__v661BattleStabilityInstalled&&window.__KW2_FORT){clearInterval(wait);install(sim);}
+ if(sim?.r?.app?.ticker&&window.__V800_PERFORMANCE_KERNEL?.installed&&window.__V713_LIVE_POWER?.installed&&sim.__v661BattleStabilityInstalled&&window.__KW2_FORT){clearInterval(wait);try{install(sim);}catch(error){window.__KW2_CIVILIZATION_ERROR=String(error?.message||error);console.error('[KW2 initialization]',error);}}
 },50);
 })();
