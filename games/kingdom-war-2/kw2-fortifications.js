@@ -130,7 +130,7 @@ function candidate(sim,x,y,r){
 }
 function reserveSites(sim){
  if(sim.__kw2FortSlots)return sim.__kw2FortSlots;
- const small=[],large=[];
+ const small=[],large=[],limit=sim.maxKingdoms||12;
  for(let y=4;y<sim.w.gridH-4;y++)for(let x=4;x<sim.w.gridW-4;x++){
   const p=candidate(sim,x,y,2);if(p)small.push(p);
   const q=candidate(sim,x,y,3);if(q)large.push(q);
@@ -152,14 +152,14 @@ function reserveSites(sim){
  // Prefer three roomy castles, but never sacrifice capacity for twelve kingdoms.
  for(let i=0;i<Math.min(24,large.length);i++){
   const seed=large[Math.floor(i*large.length/Math.min(24,large.length))];
-  const chosen=fill(fill([seed],large,3),small,12);
+  const chosen=fill(fill([seed],large,3),small,limit);
   if(chosen.length>best.length)best=chosen;
-  if(best.length===12)break;
+  if(best.length===limit)break;
  }
- if(best.length<12)for(let i=0;i<Math.min(16,small.length);i++){
-  const chosen=fill([small[Math.floor(i*small.length/Math.min(16,small.length))]],small,12);
+ if(best.length<limit)for(let i=0;i<Math.min(16,small.length);i++){
+  const chosen=fill([small[Math.floor(i*small.length/Math.min(16,small.length))]],small,limit);
   if(chosen.length>best.length)best=chosen;
-  if(best.length===12)break;
+  if(best.length===limit)break;
  }
  sim.__kw2FortSlots=best;return best;
 }
@@ -295,7 +295,7 @@ function install(sim){
   return best;
  };
  const oldPick=sim.pickExpansionCell.bind(sim);
- sim.pickExpansionCell=function(k,candidates,...args){return oldPick(k,candidates.filter(([x,y])=>!reservedBy(this,x,y,k.id)),...args);};
+ sim.pickExpansionCell=function(k,candidates,...args){return oldPick(k,candidates.filter(([x,y])=>!reservedBy(this,x,y,k.id)&&!this.isRiver?.(x,y)),...args);};
  const oldExpand=sim.expandAI.bind(sim);
  sim.expandAI=function(k){
   if(!atWar(this,k)&&this.age-(k.lastExpand||0)>=2&&k.resources.food>=8&&k.resources.wood>=6){
