@@ -16,7 +16,7 @@ function targetArmy(k,cap=128){
  const gift=Math.max(0,Number(k.__v713InteractionPower)||0);
  const support=Math.floor(Math.log2(1+gift/100)*2.5);
  const pop=Math.max(0,Number(k.pop)||0),trained=Math.max(0,Number(k.military)||0);
- return Math.min(cap,Math.max(0,Math.floor(pop*.85)+support),Math.max(3,Math.floor(pop*.58+Math.sqrt(trained)*.8+support)));
+ return Math.min(cap,Math.max(0,Math.floor(pop*.85)+support),Math.max(3,Math.floor(pop*.68+Math.sqrt(trained)*.9+support)));
 }
 function cellWorld(sim,x,y){const a=sim.iso(x,y);return {x:a[0],y:a[1]+6};}
 function grid(sim,x,y){
@@ -479,7 +479,7 @@ function install(sim){
   const map=spatial();
   for(const u of units)updateUnit(u,w,map,elapsed);
   updateTowers(w,map);
-  for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>1.6){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>.9)u.s.alpha=clamp((1.6-age)/.7,0,1);}
+  for(let i=units.length-1;i>=0;i--){const u=units[i];if(!u.dead)continue;const age=state.clock-u.deadAt;if(age>2.5){u.s?.destroy?.({children:true});units.splice(i,1);}else if(age>1.5)u.s.alpha=clamp((2.5-age),0,1);}
   window.__KW2_FORT.gateUpdate(sim,elapsed);updateEffects(elapsed);
   sortClock+=elapsed;if(sortClock>=.12){sortClock=0;r.__v800RequestSort?.();if(r.entities)r.entities.sortDirty=true;}
   document.documentElement.dataset.kw2ArmyUnits=String(units.filter(u=>!u.dead).length);
