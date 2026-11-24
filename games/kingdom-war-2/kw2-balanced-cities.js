@@ -11,14 +11,14 @@ function plan(k,buildings=k.buildings){
  const demands=[];
  const push=(type,desired,priority)=>{const have=c(type);if(have<desired)demands.push({type,score:priority+(desired-have)/desired*10});};
  const variant=houses.slice().sort((a,b)=>c(a)-c(b))[0];
- const housing=Math.max(2,Math.ceil((p+Math.max(12,p*.35)-12)/10),Math.ceil(total*.34));
+ const housing=Math.max(2,Math.ceil((p+Math.max(8,p*.15)-12)/10),Math.ceil(total*.34));
  if(h<housing)demands.push({type:variant,score:capacity-p<10?115:82+(housing-h)*2});
- push('farm',Math.max(1,Math.ceil(p/24)),k.resources.food<p*4?110:76);
- push('market',Math.max(1,Math.ceil(p/65)),p>=12?71:36);
- push('barracks',Math.max(1,Math.ceil(p/70)),p>=14?74:34);
- if(p>=12||h>=2){push('windmill',Math.max(1,Math.ceil(c('farm')/4)),62);push('church',Math.max(1,Math.ceil(h/9)),57);}
- if(p>=22||h>=3){push('forge',Math.max(1,Math.ceil(p/100)),64);push('stable',Math.max(1,Math.ceil(p/120)),55);push('silo',Math.max(1,Math.ceil(c('farm')/5)),53);}
- if(p>=20||h>=4)push('warehouse',Math.max(1,Math.ceil((h+c('farm'))/12)),42);
+ push('farm',Math.max(1,Math.ceil(p/24)),!c('farm')?118:k.resources.food<p*4?110:72);
+ push('market',Math.max(1,Math.ceil(p/65)),!c('market')&&h>=2?111:p>=12?71:36);
+ push('barracks',Math.max(1,Math.ceil(p/70)),!c('barracks')&&h>=3?110:p>=14?74:34);
+ if(p>=12||h>=2){push('windmill',Math.max(1,Math.ceil(c('farm')/4)),!c('windmill')&&h>=4?104:62);push('church',Math.max(1,Math.ceil(h/9)),!c('church')&&h>=5?101:57);}
+ if(p>=22||h>=3){push('forge',Math.max(1,Math.ceil(p/100)),!c('forge')&&h>=4?109:64);push('stable',Math.max(1,Math.ceil(p/120)),!c('stable')&&h>=5?106:55);push('silo',Math.max(1,Math.ceil(c('farm')/5)),!c('silo')&&h>=6?99:53);}
+ if(p>=20||h>=4)push('warehouse',Math.max(1,Math.ceil((h+c('farm'))/12)),!c('warehouse')&&h>=7?96:42);
  return demands.sort((a,b)=>b.score-a.score).map(d=>d.type);
 }
 function place(sim,k,type,center=null,allowClaim=false){
