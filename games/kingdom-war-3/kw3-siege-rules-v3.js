@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const VERSION='20261124-kw3-siege-rules-v5';
+const VERSION='20261124-kw3-siege-rules-v6';
 if(window.__KW3_SIEGE_RULES_V3?.version===VERSION)return;
 const DEFENSIVE=new Set(['wall','wall_corner','gate','stone_tower','watchtower']);
 const CORE_ALLOWED=new Set(['castle','keep','barracks','farm','house_a','house_b','house_c','market','forge','stable','warehouse','church','windmill','silo']);
@@ -11,7 +11,7 @@ function perimeterBuilding(k,b){const [dx,dy]=rel(k,b);return Math.max(Math.abs(
 function activeDefences(k){return (k.buildings||[]).filter(b=>DEFENSIVE.has(b.type)&&!b.__v66Destroyed&&Number(b.hp||0)>0);}
 function breachState(k){
  if(k.__kw3WallPlan&&!k.__kw3FortressV3Ready)return {breached:false,gateAlive:false,destroyedOuter:0,totalOuter:k.__kw3WallPlan.length};
- const defs=activeDefences(k),gateAlive=defs.some(b=>b.type==='gate');
+ const defs=activeDefences(k),gateCount=defs.filter(b=>b.type==='gate').length,plannedGates=k.__kw3WallPlan?.filter(c=>c.type==='gate').length||1,gateAlive=gateCount===plannedGates;
  const outer=defs.filter(b=>perimeterBuilding(k,b));
  const totalOuter=k.__kw3WallPlan?.length||((k.buildings||[]).filter(b=>DEFENSIVE.has(b.type)&&perimeterBuilding(k,b)).length||1);
  const destroyedOuter=Math.max(0,totalOuter-outer.length);
