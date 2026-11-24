@@ -180,7 +180,7 @@ function install(sim){
   const variant=variants[role][(Math.floor(seq/3)+k.id)%variants[role].length];
   if(r.getMinifolkFrames&&s._sprite){try{const frames={};for(const a of ['idle','walk','attack','hurt','death']){const v=r.getMinifolkFrames('humans',variant,a,k);frames[a]=v?.length?v:s._anim[a];}if(frames.idle?.length){s._anim=frames;s._sprite.textures=frames.idle;s._sprite.gotoAndPlay?.(0);s._unit=variant;}}catch(_){}}
   const bonus=clamp(1+Math.log10(1+Math.max(0,k.__v713InteractionPower||0)/100)*.12,1,1.65);
-  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1)};
+  const u={s,side:k.id,warId:war.id,role,x:p.x,y:p.y,cell:c.slice(),hp:st.hp*bonus,maxHp:st.hp*bonus,damage:st.damage*bonus,speed:st.speed*rand(.86,1.16),cooldown:rand(.2,.8),nextThink:0,target:null,nextCell:null,dead:false,retiring:false,fromPopulation:current.filter(v=>v.fromPopulation).length<Math.max(0,k.pop-2),phase:rand(0,6.28),offsetX:rand(-4.2,4.2),offsetY:rand(-2.1,2.1),occupier:seq%5===1};
   s.position.set(u.x,u.y);s.zIndex=Math.round(u.y*100)+16;r.entities.addChild(s);
   units.push(u);reserve.remaining--;k.resources.food-=2;k.resources.gold-=.6;
   state.peakUnits=Math.max(state.peakUnits,units.length);
@@ -326,6 +326,15 @@ function install(sim){
    if(!b||Math.hypot(u.x-b.sx,u.y-b.sy)<45||state.clock-(u.returnStarted??=state.clock)>65){u.dead=true;u.deadAt=state.clock-3;return;}
    move(u,{building:b},dt,map);return;
   }
+  if(u.occupier&&w.__v66.phase==='combat'&&!u.nextCell){
+   const [x,y]=u.cell,owner=sim.getOwner(x,y);
+   const border=sim.neigh(x,y).some(c=>sim.getOwner(...c)!==owner);
+   const enemyNear=nearby(map,u,35).some(v=>v.side===owner);
+   if(owner>=0&&owner!==u.side&&[w.a,w.b].includes(owner)&&border&&!sim.buildingBlockingCell(x,y)&&!enemyNear){
+    const tag=key(x,y);if(u.occupationTag!==tag){u.occupationTag=tag;u.occupationUntil=state.clock+3.5;}
+    if(state.clock<u.occupationUntil){anim(u,'idle');return;}
+   }
+  }
   if(state.clock>=u.nextThink||u.target?.unit?.dead||(u.target?.building&&!alive(u.target.building))){
    u.target=objective(u,w,map);u.nextThink=state.clock+rand(.35,.85);
   }
@@ -351,7 +360,7 @@ function install(sim){
    if(u.dead||u.retiring||u.warId!==w.id)continue;
    const [x,y]=u.cell,owner=sim.getOwner(x,y);
    if(owner<0||owner===u.side||!([w.a,w.b].includes(owner))||sim.buildingBlockingCell(x,y))continue;
-   if(!sim.neigh(x,y).some(c=>sim.getOwner(...c)===u.side))continue;
+   if(!sim.neigh(x,y).some(c=>sim.getOwner(...c)!==owner))continue;
    const tag=key(x,y);if(!claims.has(tag))claims.set(tag,{side:u.side,owner,x,y});
   }
   for(const [tag,v] of claims){
@@ -359,7 +368,7 @@ function install(sim){
    const count=(w.occupation.get(tag)||0)+1;w.occupation.set(tag,count);
    if(count<3)continue;
    sim.setOwner(v.x,v.y,v.side);sim.kingdoms[v.owner].territory.delete(tag);sim.kingdoms[v.side].territory.add(tag);
-   sim.__v800Performance?.invalidateKingdom?.(v.owner);sim.__v800Performance?.invalidateKingdom?.(v.side);w.occupation.delete(tag);state.territoryCaptured++;
+   sim.__v800Performance?.invalidateKingdom?.(v.owner);sim.__v800Performance?.invalidateKingdom?.(v.side);w.occupation.delete(tag);state.territoryCaptured++;w.__kw2Progress=state.clock;
   }
   for(const tag of w.occupation.keys())if(!claims.has(tag))w.occupation.delete(tag);
  }
