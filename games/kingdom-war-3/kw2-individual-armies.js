@@ -210,7 +210,7 @@
             tx = enemyCastle[0]; ty = enemyCastle[1];
           }
         }
-        const step = moveToward(unit.x, unit.y, tx, ty, EXTRA_MOVE_SPEED * unit.__kw2IndividualSpeed, dt);
+        const step = window.__KW3_GATES?.step(sim,side,unit.x,unit.y,tx,ty,EXTRA_MOVE_SPEED*unit.__kw2IndividualSpeed,dt)||moveToward(unit.x, unit.y, tx, ty, EXTRA_MOVE_SPEED * unit.__kw2IndividualSpeed, dt);
         unit.x = step.x; unit.y = step.y;
         unit.s.position.set(unit.x, unit.y);
         unit.s.zIndex = Math.round(unit.y * 100) + 15;
@@ -220,7 +220,7 @@
     }
   }
 
-  function separateSide(renderer, side, warId) {
+  function separateSide(renderer, side, warId, sim) {
     const units = allSideUnits(renderer, side, warId).filter(unit => unit?.s && !unit.s.destroyed && unit.s.visible !== false);
     for (let i = 0; i < units.length; i++) {
       const a = units[i];
@@ -235,7 +235,9 @@
         if (d < 0.01) { dx = rand(-1, 1); dy = rand(-1, 1); d = Math.max(0.01, Math.hypot(dx, dy)); }
         const push = Math.min(0.7, (MIN_SAME_SIDE_SPACING - d) * 0.14);
         const nx = dx / d, ny = dy / d;
-        ax -= nx * push; ay -= ny * push; bx += nx * push; by += ny * push;
+        const nax=ax-nx*push,nay=ay-ny*push,nbx=bx+nx*push,nby=by+ny*push;
+        if(!sim||!window.__KW3_GATES||window.__KW3_GATES.canMove(sim,side,ax,ay,nax,nay)){ax=nax;ay=nay;}
+        if(!sim||!window.__KW3_GATES||window.__KW3_GATES.canMove(sim,side,bx,by,nbx,nby)){bx=nbx;by=nby;}
         if ('x' in a) { a.x = ax; a.y = ay; }
         if ('x' in b) { b.x = bx; b.y = by; }
         a.s.position.set(ax, ay); b.s.position.set(bx, by);
@@ -283,7 +285,7 @@
             ty = leader.y + Math.cos(unit.phase) * 6;
           } else { tx = enemyCastle[0]; ty = enemyCastle[1]; }
         }
-        const step = moveToward(unit.x, unit.y, tx, ty, unit.speed, dt);
+        const step = window.__KW3_GATES?.step(sim,side,unit.x,unit.y,tx,ty,unit.speed,dt)||moveToward(unit.x, unit.y, tx, ty, unit.speed, dt);
         unit.x = step.x; unit.y = step.y;
         unit.s.position.set(unit.x, unit.y);
         unit.s.zIndex = Math.round(unit.y * 100) + 15;
@@ -362,8 +364,8 @@
         ensureReleaseData(liveSim, this, war);
         individualizeMobilized(liveSim, this, war, dt);
         syncGiftReserves(liveSim, this, war, dt);
-        separateSide(this, war.a, war.id);
-        separateSide(this, war.b, war.id);
+        separateSide(this, war.a, war.id, liveSim);
+        separateSide(this, war.b, war.id, liveSim);
         const a = liveSim.kingdoms?.[war.a], b = liveSim.kingdoms?.[war.b];
         if (a?.alive && b?.alive) {
           const aCount = allSideUnits(this, war.a, war.id).filter(u => u.s?.visible !== false).length;
