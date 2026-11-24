@@ -1,6 +1,6 @@
 (() => {
 'use strict';
-const VERSION='20260814-kw3-siege-rules-v4';
+const VERSION='20261124-kw3-siege-rules-v5';
 if(window.__KW3_SIEGE_RULES_V3?.version===VERSION)return;
 const DEFENSIVE=new Set(['wall','wall_corner','gate','stone_tower','watchtower']);
 const CORE_ALLOWED=new Set(['castle','keep','barracks','farm','house_a','house_b','house_c','market','forge','stable','warehouse','church','windmill','silo']);
@@ -10,9 +10,10 @@ function rel(k,b){return [b.x-k.capital[0],b.y-k.capital[1]];}
 function perimeterBuilding(k,b){const [dx,dy]=rel(k,b);return Math.max(Math.abs(dx),Math.abs(dy))>=3.7;}
 function activeDefences(k){return (k.buildings||[]).filter(b=>DEFENSIVE.has(b.type)&&!b.__v66Destroyed&&Number(b.hp||0)>0);}
 function breachState(k){
+ if(k.__kw3WallPlan&&!k.__kw3FortressV3Ready)return {breached:false,gateAlive:false,destroyedOuter:0,totalOuter:k.__kw3WallPlan.length};
  const defs=activeDefences(k),gateAlive=defs.some(b=>b.type==='gate');
  const outer=defs.filter(b=>perimeterBuilding(k,b));
- const totalOuter=(k.buildings||[]).filter(b=>DEFENSIVE.has(b.type)&&perimeterBuilding(k,b)).length||1;
+ const totalOuter=k.__kw3WallPlan?.length||((k.buildings||[]).filter(b=>DEFENSIVE.has(b.type)&&perimeterBuilding(k,b)).length||1);
  const destroyedOuter=Math.max(0,totalOuter-outer.length);
  return {breached:!gateAlive||destroyedOuter>=3,gateAlive,destroyedOuter,totalOuter};
 }
@@ -23,7 +24,7 @@ function reservedCell(k,x,y){
 }
 function buffFortress(k){
  for(const b of k.buildings||[]){
-  if(b.__kw3SiegeBuffed)continue;
+  if(b.__kw3SiegeBuffed||b.__v66Destroyed||Number(b.hp)<=0)continue;
   let mult=1;
   if(b.type==='wall'||b.type==='wall_corner')mult=2.5;
   else if(b.type==='gate')mult=3.6;
@@ -81,5 +82,5 @@ function install(sim){
  window.__KW3_SIEGE_RULES_V3=Object.freeze({installed:true,version:VERSION,breachBeforeCastle:true,gatePrimaryBreach:true,fortressHpBoost:true,economyInsideWalls:true,centralCourtyardReserved:true,gateLaneReserved:true,outerRadius:4});
  document.documentElement.dataset.kw3SiegeRules=VERSION;
 }
-let tries=0;const timer=setInterval(()=>{tries++;const sim=window.__GOD_WORLD_SIM||window.__KINGDOM_WAR_SIM||window.__KW2_SIM||window.__SIM;if(sim?.tick&&sim?.addBuilding){clearInterval(timer);install(sim);}else if(tries>300)clearInterval(timer);},50);
+let tries=0;const timer=setInterval(()=>{tries++;const sim=window.__GOD_WORLD_SIM||window.__KINGDOM_WAR_SIM||window.__KW2_SIM||window.__SIM;if(sim?.tick&&sim?.addBuilding&&window.__KW3_ARENA_LAYOUT_V2?.installed){clearInterval(timer);install(sim);}else if(tries>300)clearInterval(timer);},50);
 })();
