@@ -1130,7 +1130,10 @@
     recolorMinifolkCanvas(canvas, color) {
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = image.data, pal = this.teamPalette(color);
+      const data = image.data;
+      const rgb=[(color>>16)&255,(color>>8)&255,color&255];
+      const shade=(factor,white=0)=>rgb.map(v=>Math.round(v*factor+(255-v)*white));
+      const light=shade(1,.15),dark=shade(.62),mid=shade(.72);
       let recolored = 0;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 8) continue;
@@ -1138,9 +1141,7 @@
         if (MINIFOLK_METAL_COLORS.includes(hex)) continue;
         const r=data[i],g=data[i+1],b=data[i+2];
         const blue=b>r+24&&b>g+12&&b-Math.min(r,g)>32;
-        const rgb=[(color>>16)&255,(color>>8)&255,color&255];
-        const shade=(factor,white=0)=>rgb.map(v=>Math.round(v*factor+(255-v)*white));
-        const replacement = hex === MINIFOLK_TEAM_LIGHT ? shade(1,.15) : (hex === MINIFOLK_TEAM_DARK ? shade(.62) : blue ? (r+g+b>390?shade(1,.15):shade(.72)) : null);
+        const replacement = hex === MINIFOLK_TEAM_LIGHT ? light : (hex === MINIFOLK_TEAM_DARK ? dark : blue ? (r+g+b>390?light:mid) : null);
         if (!replacement) continue;
         data[i] = replacement[0]; data[i + 1] = replacement[1]; data[i + 2] = replacement[2];
         recolored++;
