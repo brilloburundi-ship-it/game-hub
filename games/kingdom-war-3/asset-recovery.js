@@ -10,13 +10,27 @@
   const blobUrls = [];
 
   async function loadViaFreshFetch(src) {
-    const join = src.includes('?') ? '&' : '?';
-    const response = await fetch(`${src}${join}gw_asset_retry=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status} for ${src}`);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    blobUrls.push(url);
-    return originalLoad(url);
+    const url = new URL(src, document.baseURI);
+    url.searchParams.set('gw_asset_retry', String(Date.now()));
+    if (/\.(png|jpg|jpeg|webp|gif)$/i.test(url.pathname)) {
+      // Safari can reject worker/fetch or blob-URL decoding. Use the native
+      // image decoder and preserve the actual sheet dimensions.
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        const timer = setTimeout(() => { image.onload = image.onerror = null; reject(new Error('Image timeout: ' + src)); }, 12000);
+        image.onload = () => {
+          clearTimeout(timer);
+          try {
+            const texture = P.Texture.from(image);
+            texture.source.scaleMode = 'nearest';
+            resolve(texture);
+          } catch (error) { reject(error); }
+        };
+        image.onerror = () => { clearTimeout(timer); reject(new Error('Image load failed: ' + src)); };
+        image.src = url.href;
+      });
+    }
+    return originalLoad(url.href);
   }
 
   function fallbackFor(src) {
@@ -62,7 +76,7 @@
           try { return await loadViaFreshFetch(fallback); } catch (_) {}
         }
       }
-      throw lastError;
+      throw new Error(src + ': ' + (lastError?.message || String(lastError)));
     }
   };
 
