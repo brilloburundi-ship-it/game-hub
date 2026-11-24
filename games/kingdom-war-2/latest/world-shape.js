@@ -276,17 +276,19 @@
     for(let y=2;y<H-2;y++)for(let x=2;x<W-2;x++){
       const [u,v]=uv(x,y);
       const noise=.045*Math.sin(u*23+v*12)+.030*Math.cos(v*31-u*7)+.017*Math.sin(u*51-v*22);
+      const gx=x/(W-1),gy=y/(H-1);
       const continental=Math.max(
-        ellipse(u,v,-.22,-.15,.34,.39),
-        ellipse(u,v,.18,-.14,.33,.37),
-        ellipse(u,v,.02,.03,.32,.28));
+        ellipse(gx,gy,.32,.43,.265,.34),
+        ellipse(gx,gy,.39,.30,.19,.22),
+        ellipse(gx,gy,.81,.44,.135,.28),
+        ellipse(gx,gy,.77,.25,.13,.15));
       const islands=Math.max(
-        ellipse(u,v,-.38,.31,.21,.19),
-        ellipse(u,v,.30,.34,.23,.20),
-        ellipse(u,v,.57,-.01,.11,.16),
-        ellipse(u,v,-.59,-.04,.10,.12),
-        ellipse(u,v,-.08,.56,.14,.11),
-        ellipse(u,v,.12,-.60,.13,.085));
+        ellipse(gx,gy,.27,.88,.12,.07),
+        ellipse(gx,gy,.60,.83,.13,.105),
+        ellipse(gx,gy,.86,.83,.075,.09),
+        ellipse(gx,gy,.64,.12,.064,.08),
+        ellipse(gx,gy,.10,.12,.058,.064),
+        ellipse(gx,gy,.63,.52,.032,.046));
       if(Math.max(continental,islands)+noise<0)continue;
       land[y][x]=1;
       const n=Math.sin(u*15+v*9)*.45+Math.cos(v*19-u*7)*.34+Math.sin(u*31+v*29)*.21;
